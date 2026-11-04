@@ -128,6 +128,8 @@ action, not a procedure). The game shows *why* and *at what cost*, never *how*.
 ## Tactical combat
 
 - Squad of 6, grid tactics with height, facing, cover, and hit chance.
+- **Presentation:** FF-style dramatic camera on top of the grid (swoops on
+  big moments, close-ups on abilities, anime cut-ins on defections). No ATB.
 - **Noise meter:** loud actions raise the alarm; at the cap, reinforcements arrive.
 - **Enemies can surrender or defect mid-mission.**
 - Mission types: rescues, extractions, broadcast hijacks, sabotage, protests
