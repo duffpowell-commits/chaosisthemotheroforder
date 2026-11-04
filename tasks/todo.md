@@ -6,6 +6,7 @@
 - [ ] Style board: 3–4 visual directions (regime vs. liberated street, portrait, UI, tactical grid)
 - [ ] Dialogue samples: short exchange, speech with topic choices, regime broadcast
 - [ ] Pick / mix a visual direction and a dialogue voice
+- [x] Visual references, music direction, platforms
 - [ ] Answer the remaining open questions in docs/design.md
 - [ ] Name the country, city, and regime
 

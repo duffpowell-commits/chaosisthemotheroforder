@@ -157,6 +157,13 @@ poster of your face on the wall, or not?
 
 ## Art direction (pending style board)
 
+- **References:** Final Fantasy Tactics, XCOM, Suikoden, Disco Elysium,
+  Papers, Please, This War of Mine, Frostpunk, Blacksad, plus anti-war
+  documentary photographers (James Nachtwey, Don McCullin, Robert Capa,
+  Lynsey Addario).
+- **Documentary-photo grade:** regime districts look like war photojournalism
+  (near-monochrome, heavy grain, crushed blacks, harsh flash). Liberation
+  brings color back into the world.
 - Low-poly 3D seen from an isometric camera; mood carried by lighting.
 - Regime districts: desaturated blue-gray, sodium lights, searchlights,
   drones, rain, wet asphalt, empty streets.
@@ -165,10 +172,29 @@ poster of your face on the wall, or not?
 - Diegetic propaganda UI (TV broadcasts, tickers, phone feeds).
 - Painted character portraits for dialogue.
 
+## Music
+
+- **Protest-song soundtrack** in the spirit of Rage Against the Machine:
+  anger aimed at systems, songs that frame violence as a cost and push
+  toward a better future.
+- **Licensing reality:** major-label tracks (RATM included) are expensive
+  and often unlicensable for an indie game. Plan: commission or write
+  **original** protest songs in that spirit (not sound-alikes of specific
+  tracks), plus licensed indie and public-domain protest songs.
+- Music is diegetic where possible: songs spread district to district as
+  sentiment rises; regime districts get state anthems and silence.
+
+## Platforms
+
+- **Primary:** Steam (Windows, Linux, Steam Deck).
+- **Android:** a personal build first; Godot exports it directly.
+- **Consoles:** stretch goal. Godot console exports go through a licensed
+  porting partner (W4 Games, Lone Wolf Technology, etc.) under platform NDAs.
+- **Input:** design for mouse, controller, and touch from day one.
+  Turn-based combat makes all three workable; the UI needs big hit targets
+  and no hover-only information.
+
 ## Open questions
 
-- [ ] Visual references (games, films, photographers)
-- [ ] Music direction: ambient/tense vs. soundtrack with protest songs
-- [ ] Platform: PC only, or Steam Deck / console later
 - [ ] Dialogue tool: Ink vs. Dialogic
 - [ ] Country, city, and regime names
