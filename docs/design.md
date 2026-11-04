@@ -24,6 +24,13 @@ central command, propaganda) are the same tools that build the next tyranny.**
 | Endings | Multiple, graded by success/failure and choices |
 | License | All rights reserved |
 
+## What "fun" means here
+
+The pull of building a better world, shadowed by how bad it could go.
+Every major choice should show a glimpse of both outcomes. The vertical
+slice passes if two runs of the first district, played differently, both
+feel tense and end up visibly different.
+
 ## Design pillars
 
 1. **Defections win revolutions.** Turning police, soldiers, and officials beats killing them. Main win path.
@@ -59,6 +66,19 @@ action, not a procedure). The game shows *why* and *at what cost*, never *how*.
   house, a market crash that erased your savings, a family member disappeared
   by police, a job lost to a crony contract.
 - Backstory affects which allies trust you at the start and opens unique dialogue.
+- **Default protagonist preset = Duff** (the creator). The character creator
+  must be deep enough to build him; everyone else builds themselves. Reference:
+  - Fair skin with freckling, blue-gray eyes, reddish-blond stubble/short beard
+  - Light-brown/strawberry-blond hair: long swept top, shaved undercut sides
+  - Stretched lobes with picture plugs (owl), multiple spiked helix rings (gold and black)
+  - Heavy tattoos: wolf with blue rose on the neck, skull with pink crystals
+    on the chest, a geometric/mandala blackwork full sleeve on the left arm,
+    illustrative pieces on the right arm, script across the stomach
+  - Average build; dark jeans and black band tees as a default outfit
+  - Reference photos are kept **out of the repo** (privacy)
+- Creator requirements that fall out of this: undercut/swept hairstyles,
+  stretched-ear and piercing slots, tattoo layers per body region (neck,
+  chest, each arm, stomach), stubble and beard options.
 - Skill tree split between **Voice** (persuasion, rallying, speeches) and
   **Hand** (tactics, sabotage, combat).
 - **Capture or death ends your game**, but you still get an ending: the
@@ -172,11 +192,40 @@ poster of your face on the wall, or not?
 - Diegetic propaganda UI (TV broadcasts, tickers, phone feeds).
 - Painted character portraits for dialogue.
 
+## Content limits (Rated M, 17+)
+
+- Realism, never shock value.
+- **Torture:** can appear on screen to a limited, non-gratuitous degree;
+  each instance is decided case by case. Usually implied through aftermath.
+- **Sexual violence:** never graphic and never on screen. Referenced only.
+- **Harm to children:** never on screen. Off screen only, through consequences.
+- Default approach for atrocity: the war-photographer lens of aftermath,
+  survivors, and the people left behind.
+
+## Player options
+
+- Free saves **and** an optional ironman mode, chosen per run.
+- Separate story and combat difficulty. The message is the point; any
+  player should be able to reach it.
+- English at launch; all text externalized for later localization.
+
+## Production
+
+- **Team:** Duff and Claude.
+- **Budget:** $0 preferred, up to ~$100+ to do it right.
+  - The first $100 is the Steam Direct fee (per game, recouped after $1,000 in sales).
+  - Art for the slice: free CC0 low-poly packs (Kenney, Quaternius) plus
+    custom shaders for the photo/color grade. Godot itself is free.
+- **Price:** premium, one-time purchase, no microtransactions, no
+  pay-to-skip. Target **$19.99** with regional pricing.
+
 ## Music
 
 - **Protest-song soundtrack** in the spirit of Rage Against the Machine:
   anger aimed at systems, songs that frame violence as a cost and push
   toward a better future.
+- **Mostly instrumental**, scored to the moment; vocal protest songs as
+  key set pieces, added when we can make or license them.
 - **Licensing reality:** major-label tracks (RATM included) are expensive
   and often unlicensable for an indie game. Plan: commission or write
   **original** protest songs in that spirit (not sound-alikes of specific
