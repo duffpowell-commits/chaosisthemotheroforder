@@ -175,7 +175,24 @@ poster of your face on the wall, or not?
 - Characters remember everything, including your lies.
 - Authored in a branching format (Ink or Dialogic in Godot — TBD).
 
-## Art direction (pending style board)
+## Art direction
+
+**Locked (after style board 01):**
+- **Characters and combat: mature anime, cel-shaded 3D.** Realistic
+  proportions in the spirit of late-90s/2000s JRPGs (FF8 era, FF7 Remake
+  proportions, no chibi), with the tone of grounded political anime
+  (Jin-Roh, Patlabor 2, Psycho-Pass, Ghost in the Shell). Inspired by these,
+  never copying their characters, designs, or look one-to-one.
+- **World grade: Direction A (Frontline).** The documentary-photo grade
+  sits over the cel-shaded world: regime districts near-monochrome and
+  grainy, color returning as districts are liberated.
+- **Propaganda layer: Direction D (Woodcut).** Posters, state broadcasts,
+  movement flyers, menus.
+- **Character pipeline (proposed):** VRoid Studio (free) → VRM → Godot via a
+  VRM importer, with a custom toon shader. VRoid's hair, face, and texture
+  editing doubles as the base of the in-game character creator.
+
+### Original exploration notes
 
 - **References:** Final Fantasy Tactics, XCOM, Suikoden, Disco Elysium,
   Papers, Please, This War of Mine, Frostpunk, Blacksad, plus anti-war
