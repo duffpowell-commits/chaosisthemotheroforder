@@ -3,7 +3,8 @@
 ## Phase 0 — Lock the vision (no code)
 - [x] Core concept, tone, setting, engine, license
 - [x] Systems outline (resources, districts, propaganda, combat, acts)
-- [ ] Style board: 3–4 visual directions (regime vs. liberated street, portrait, UI, tactical grid)
+- [x] Style board 01 (canvas mockups): rejected as too childish; A grade + D propaganda kept
+- [x] Real Godot render test: Rail Yards street, regime vs liberated (docs/renders)
 - [ ] Dialogue samples: short exchange, speech with topic choices, regime broadcast
 - [ ] Pick / mix a visual direction and a dialogue voice
 - [x] Visual references, music direction, platforms
