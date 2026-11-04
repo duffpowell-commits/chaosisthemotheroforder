@@ -217,7 +217,11 @@ poster of your face on the wall, or not?
   - Art for the slice: free CC0 low-poly packs (Kenney, Quaternius) plus
     custom shaders for the photo/color grade. Godot itself is free.
 - **Price:** premium, one-time purchase, no microtransactions, no
-  pay-to-skip. Target **$19.99** with regional pricing.
+  pay-to-skip. **$17.99** base, with regional pricing scaled to local
+  income. **Free in the poorest countries.** Steam can't set a paid game to
+  free in one region, so free copies go out as keys on request (or via a
+  free itch.io build geo-limited to those regions); Steam regions get the
+  lowest price Steam allows.
 
 ## Music
 
