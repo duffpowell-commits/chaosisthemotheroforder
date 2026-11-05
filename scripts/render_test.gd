@@ -39,7 +39,9 @@ func _ready() -> void:
 	_build_lamps()
 	_build_regime_props()
 	_build_liberated_props()
-	duff = _person("duff", Vector3(-4.9, 0.2, 3.0), 60, self)
+	duff = _person("duff", Vector3(-2.2, 0.0, 4.5), 25, self, false, {
+		"shirt": Color(0.09, 0.09, 0.1), "pants": Color(0.16, 0.19, 0.27),
+		"boot": Color(0.22, 0.18, 0.15), "hair": Color(1.25, 1.02, 0.78)})
 	_build_rain()
 	_build_camera()
 	_build_grade_and_ui()
@@ -259,13 +261,13 @@ func _figure(pos: Vector3, coat: Color, parent: Node3D, height := 1.75, visor :=
 		_box(Vector3(0.55, 0.9, 0.04), pos + Vector3(0, 1.0 * k, 0.28), _flat(Color(0.45, 0.5, 0.55, 1.0), 0.2), parent)
 
 
-func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield := false) -> Node3D:
+func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield := false, tints := {}) -> Node3D:
 	var ps: PackedScene = load("res://assets/characters/%s.glb" % kind)
 	var n: Node3D = ps.instantiate()
 	n.position = pos
 	n.rotation.y = deg_to_rad(rot_y + 180.0)  # MakeHuman exports face -Z
 	parent.add_child(n)
-	_fix_character_materials(n, 0.22 if shield else 1.0)
+	_fix_character_materials(n, 0.22 if shield else 1.0, tints)
 	if shield:
 		# The model faces its local -Z, so gear in front goes at negative z.
 		var sh := _box(Vector3(0.6, 1.0, 0.03), Vector3(0.05, 1.0, -0.34), _flat(Color(0.36, 0.4, 0.44), 0.15), n)
@@ -288,7 +290,7 @@ func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield :=
 ## MakeHuman skin materials import as alpha-blended, which makes faces render
 ## see-through. Skin and clothes become opaque; hair, brows and lashes use
 ## alpha scissor so strands stay crisp.
-func _fix_character_materials(root: Node, cloth_tint := 1.0) -> void:
+func _fix_character_materials(root: Node, cloth_tint := 1.0, tints := {}) -> void:
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var mesh: Mesh = (mi as MeshInstance3D).mesh
 		for i in range(mesh.get_surface_count()):
@@ -296,6 +298,9 @@ func _fix_character_materials(root: Node, cloth_tint := 1.0) -> void:
 			if m == null:
 				continue
 			var lname := (m.resource_name + " " + mi.name).to_lower()
+			for key: String in tints:
+				if key in lname:
+					m.albedo_color = tints[key]
 			if ("eye" in lname or "high-poly" in lname or "cornea" in lname) and not "brow" in lname and not "lash" in lname:
 				continue  # eyes keep their layered cornea transparency
 			if "hair" in lname or "brow" in lname or "lash" in lname:
@@ -304,7 +309,9 @@ func _fix_character_materials(root: Node, cloth_tint := 1.0) -> void:
 				m.cull_mode = BaseMaterial3D.CULL_DISABLED
 			else:
 				m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-				m.cull_mode = BaseMaterial3D.CULL_BACK
+				# Clothes are thin shells: draw both sides so skin never shows through.
+				var is_skin := "skin" in lname or "body" in lname
+				m.cull_mode = BaseMaterial3D.CULL_BACK if is_skin else BaseMaterial3D.CULL_DISABLED
 				if cloth_tint < 1.0 and not "skin" in lname and not "body" in lname:
 					m.albedo_color = Color(cloth_tint, cloth_tint * 1.05, cloth_tint * 1.15)
 
@@ -571,6 +578,8 @@ func _capture() -> void:
 	# Close-ups to judge the characters
 	var face_dir := duff.global_transform.basis.z.normalized()
 	for shot in [[1.0, "closeup_duff", duff.global_position + face_dir * 1.3 + Vector3(0.3, 1.62, 0), duff.global_position + Vector3(0, 1.58, 0)],
+			[1.0, "duff_body", duff.global_position + face_dir * 3.2 + Vector3(0.0, 1.1, 0), duff.global_position + Vector3(0, 0.95, 0)],
+			[1.0, "duff_side", duff.global_position + face_dir.rotated(Vector3.UP, 1.2) * 1.2 + Vector3(0, 1.62, 0), duff.global_position + Vector3(0, 1.58, 0)],
 			[0.0, "closeup_police", Vector3(1.9, 1.65, -4.6), Vector3(0.5, 1.45, -6.7)]]:
 		_apply(shot[0])
 		cam.fov = 35

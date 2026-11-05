@@ -7,6 +7,8 @@ Each character is exported twice:
 """
 import sys, os, math, bpy
 from bl_ext.user_default.mpfb.services.humanservice import HumanService
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paint_likeness
 
 OUT = sys.argv[sys.argv.index("--") + 1]
 
@@ -30,11 +32,12 @@ CHARS = {
     "civilian_woman": dict(phenotype=dict(gender=0.0, age=0.4, muscle=0.4, weight=0.45, proportions=0.55, height=0.45,
                                           cupsize=0.5, firmness=0.5, race=race(0.2, 0.8, 0.0)),
                            hair="bob02.mhclo", skin_mhmat="young_asian_female.mhmat",
-                           clothes=["female_casualsuit02.mhclo", "shoes03.mhclo"]),
-    "duff": dict(phenotype=dict(gender=1.0, age=0.62, muscle=0.5, weight=0.58, proportions=0.5, height=0.55,
+                           clothes=["female_casualsuit01.mhclo", "shoes03.mhclo"]),
+    "duff": dict(phenotype=dict(gender=1.0, age=0.58, muscle=0.45, weight=0.6, proportions=0.5, height=0.55,
                                 cupsize=0.5, firmness=0.5, race=race(1.0, 0.0, 0.0)),
-                 hair="cortu_short_messy_hair.mhclo", skin_mhmat="young_caucasian_male.mhmat",
-                 clothes=["male_casualsuit04.mhclo", "shoes01.mhclo"]),
+                 hair="cortu_short_messy_hair.mhclo", skin_mhmat="middleage_caucasian_male.mhmat",
+                 clothes=["elvs_crude_t-shirt_male.mhclo", "toigo_wool_pants.mhclo", "toigo_ankle_boots_male.mhclo"],
+                 likeness=True),
 }
 
 SETTINGS = HumanService.get_default_deserialization_settings()
@@ -89,14 +92,21 @@ def relax_pose(rig):
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
+ONLY = [a for a in sys.argv[sys.argv.index("--") + 2:] if not a.startswith("--")]
 for name, spec in CHARS.items():
+    if ONLY and name not in ONLY:
+        continue
     clear()
     info = dict(BASE)
+    likeness = spec.pop("likeness", False)
     info.update(spec)
     info["name"] = name
     basemesh = HumanService.deserialize_from_dict(info, SETTINGS)
     rig = basemesh.parent
     assert rig is not None and rig.type == "ARMATURE", "no rig"
+    if likeness:
+        paint_likeness.paint(basemesh)
+        paint_likeness.set_eye_color(rig, "lightblue")
     # Drop MPFB helper geometry (joint cubes, clothes helpers) from the export.
     for m in basemesh.modifiers:
         if m.type == "MASK":
