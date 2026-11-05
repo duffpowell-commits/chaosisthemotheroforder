@@ -66,8 +66,8 @@ def shrink_images(limit=1024):
             img.scale(max(1, int(w * k)), max(1, int(h * k)))
 
 
-def export(objs, path):
-    shrink_images()
+def export(objs, path, limit=1024):
+    shrink_images(limit)
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
@@ -124,5 +124,5 @@ for name, spec in CHARS.items():
             if m.type == "ARMATURE":
                 bpy.ops.object.modifier_apply(modifier=m.name)
         o.parent = None
-    export(meshes, os.path.join(OUT, f"{name}.glb"))
+    export(meshes, os.path.join(OUT, f"{name}.glb"), 2048 if likeness else 1024)
     print("EXPORTED", name)

@@ -580,6 +580,8 @@ func _capture() -> void:
 	for shot in [[1.0, "closeup_duff", duff.global_position + face_dir * 1.3 + Vector3(0.3, 1.62, 0), duff.global_position + Vector3(0, 1.58, 0)],
 			[1.0, "duff_body", duff.global_position + face_dir * 3.2 + Vector3(0.0, 1.1, 0), duff.global_position + Vector3(0, 0.95, 0)],
 			[1.0, "duff_side", duff.global_position + face_dir.rotated(Vector3.UP, 1.2) * 1.2 + Vector3(0, 1.62, 0), duff.global_position + Vector3(0, 1.58, 0)],
+			[1.0, "duff_neck", duff.global_position - duff.global_transform.basis.x * 0.55 + face_dir * 0.15 + Vector3(0, 1.52, 0), duff.global_position + Vector3(0, 1.5, 0)],
+			[1.0, "duff_arm", duff.global_position + duff.global_transform.basis.x * 1.3 + face_dir * 0.4 + Vector3(0, 1.3, 0), duff.global_position + duff.global_transform.basis.x * 0.3 + Vector3(0, 1.2, 0)],
 			[0.0, "closeup_police", Vector3(1.9, 1.65, -4.6), Vector3(0.5, 1.45, -6.7)]]:
 		_apply(shot[0])
 		cam.fov = 35

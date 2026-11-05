@@ -8,6 +8,7 @@ import os
 import numpy as np
 import bpy
 
+PRIVATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reference", "private")
 EYE_DIR = os.path.expanduser("~/.config/blender/4.5/extensions/.user/user_default/mpfb/data/eyes/materials")
 
 
@@ -28,6 +29,39 @@ def set_eye_color(rig, color="lightblue"):
                     n = _image_node(mat, "eye")
                     if n:
                         n.image = bpy.data.images.load(path, check_existing=True)
+
+
+def _load_photo(name):
+    """Load a private reference crop as (h, w, 3) top-down array plus its skin colour."""
+    path = os.path.join(PRIVATE, name)
+    if not os.path.exists(path):
+        return None
+    img = bpy.data.images.load(path, check_existing=True)
+    w, h = img.size
+    a = np.empty(w * h * 4, dtype=np.float32)
+    img.pixels.foreach_get(a)
+    a = a.reshape(h, w, 4)[::-1, :, :3]
+    lum = a.mean(2)
+    skin = a[lum > np.percentile(lum, 92)].mean(0)
+    return a, skin
+
+
+def _transfer(photo, u, v, mono=False):
+    """Ink as a multiplier: photo colour over the photo's bare-skin colour.
+
+    Lighter-than-ink areas (bare skin, glare, hair) are pushed to 1 so only
+    real ink darkens the model's skin; `mono` keeps black ink neutral.
+    """
+    a, skin = photo
+    h, w, _ = a.shape
+    px = a[np.clip((v * (h - 1)).astype(int), 0, h - 1), np.clip((u * (w - 1)).astype(int), 0, w - 1)]
+    ratio = np.clip(px / skin, 0.0, 1.5)
+    lum = ratio.mean(1, keepdims=True)
+    ink = np.clip((1.0 - lum - 0.22) / 0.6, 0.0, 1.0)
+    if mono:
+        return 1.0 - ink * np.array([0.9, 0.89, 0.86])
+    tint = np.clip(ratio / np.maximum(lum, 1e-3), 0.6, 1.5)
+    return 1.0 - ink * (1.0 - np.clip(0.1 * tint, 0, 1)) - (1.0 - ink) * 0.0 + ink * 0.0 + (tint - 1.0) * ink * 0.25
 
 
 def _raster(px_uv, pos):
@@ -146,18 +180,21 @@ def paint(basemesh, seed=3):
     beard = front * soft(np.abs(x), -1, 0.072, 0.01) * soft(z, 1.548, 1.0, 0.012) * np.clip((jaw_top - z) / 0.01, 0, 1) * (1 - lips)
     under = soft(z, 1.525, 1.565, 0.01) * soft(np.abs(x), -1, 0.055, 0.01) * np.clip((-y + 0.02) / 0.02, 0, 1)
     b = np.maximum(beard, under)
-    put(b > 0.02, np.array([0.45, 0.26, 0.15]), b * (0.12 + 0.5 * speck))
+    put(b > 0.02, np.array([0.42, 0.24, 0.13]), b * (0.3 + 0.55 * speck))
     # Undercut: buzzed sides and back of the scalp
     side = np.clip((np.abs(x) - 0.055) / 0.01, 0, 1)
     back = np.clip((y - 0.0) / 0.02, 0, 1)
     sc = soft(z, 1.668, 2.0, 0.012) * np.maximum(side, back) * np.clip((y + 0.1) / 0.02, 0, 1)
     put(sc > 0.02, np.array([0.5, 0.37, 0.25]), sc * (0.3 + 0.45 * speck))
-    # Neck (his right side): wolf in dark teal-grey, with a blue rose
-    nk = soft(z, 1.475, 1.575, 0.012) * np.clip((-x - 0.022) / 0.012, 0, 1) * soft(y, -0.075, 0.05, 0.015)
-    shade_ = 0.6 + 0.4 * np.sin(z * 260) * np.cos(y * 210)
-    put(nk > 0.02, np.array([0.16, 0.21, 0.23]) * shade_[:, None], nk * 0.85)
-    rose = np.clip(1 - np.hypot(x + 0.055, z - 1.525) / 0.014, 0, 1) * (nk > 0.3)
-    put(rose > 0.02, np.array([0.34, 0.5, 0.72]), np.minimum(rose * 3, 0.9))
+    # Neck (his right side): the fox with the blue rose, from the reference photo
+    mult = np.ones((n, 3), np.float32)
+    fox = _load_photo("tattoo_neck_fox.png")
+    nk = soft(z, 1.468, 1.6, 0.02) * np.clip((-x - 0.018) / 0.02, 0, 1) * soft(y, -0.075, 0.055, 0.02)
+    if fox is not None:
+        u = np.clip((0.055 - y) / 0.143, 0, 1)
+        v = np.clip((1.6 - z) / 0.132, 0, 1)
+        m = nk > 0.01
+        mult[m] = 1 + (_transfer(fox, u[m], v[m]) - 1) * nk[m, None]
     # Chest (his right): skull with pink crystals
     chest = y < -0.06
     sk = ((x + 0.085) / 0.052) ** 2 + ((z - 1.37) / 0.062) ** 2
@@ -174,16 +211,15 @@ def paint(basemesh, seed=3):
     arc = 1.12 + 1.6 * x ** 2
     belly = (y < -0.05) & (np.abs(x) < 0.15) & (np.abs(z - arc) < 0.0065) & (np.sin(x * 700) > -0.3)
     put(belly, np.array([0.12, 0.13, 0.15]), 0.85)
-    # Left arm: geometric blackwork full sleeve
+    # Left arm: blackwork sleeve (mandalas, flower of life) from the reference photo
     t, th, rad = _arm_coords(P, sh_l, hand_l)
-    arm_l = (x > sh_l[0] - 0.03) & (t > -0.02) & (t < 0.9)
-    lattice = (np.abs(np.sin(th * 6 + t * 30)) > 0.86) | (np.abs(np.sin(th * 6 - t * 30)) > 0.86)
-    bands = np.abs(np.sin(t * 70)) > 0.94
-    rings = np.abs(np.sin(np.hypot((t - 0.3) * 8, np.sin(th) * 1.4) * 22)) > 0.8
-    solid = (np.abs(t - 0.52) < 0.045) | (t > 0.82)
-    sleeve = arm_l & (lattice | bands | (rings & (t < 0.45)) | solid)
-    put(sleeve, np.array([0.07, 0.08, 0.09]), 0.9)
-    put(arm_l & ~sleeve, np.array([0.3, 0.32, 0.34]), 0.18)
+    arm_l = np.clip((x - sh_l[0] + 0.035) / 0.015, 0, 1) * soft(t, 0.0, 0.86, 0.02)
+    sleeve = _load_photo("tattoo_left_sleeve.png")
+    if sleeve is not None:
+        m = arm_l > 0.01
+        u = np.clip(1.0 - t[m] / 0.86, 0, 1)
+        v = np.abs(((th[m] + np.pi) % (2 * np.pi)) - np.pi) / np.pi
+        mult[m] = mult[m] * (1 + (_transfer(sleeve, u, v, mono=True) - 1) * arm_l[m, None])
     # Right arm: separate illustrative pieces (upper arm and forearm)
     t2, th2, _ = _arm_coords(P, sh_r, hand_r)
     arm_r = (x < sh_r[0] + 0.03)
@@ -191,6 +227,7 @@ def paint(basemesh, seed=3):
     piece2 = arm_r & (np.abs(t2 - 0.68) < 0.1) & (np.cos(th2 + 2.0) > 0.1)
     put(piece1 | piece2, np.array([0.18, 0.2, 0.22]) + 0.1 * noise[:, None], 0.75)
 
+    pix[R, C, :3] = pix[R, C, :3] * mult
     idx = alpha > 0
     base = pix[R[idx], C[idx], :3]
     pix[R[idx], C[idx], :3] = base * (1 - alpha[idx, None]) + color[idx] * alpha[idx, None]
