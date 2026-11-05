@@ -27,6 +27,7 @@ var regime_nodes: Array[Node3D] = []
 var liberated_nodes: Array[Node3D] = []
 var slider: HSlider
 var duff: Node3D
+var walkers: Array = []
 var cam: Camera3D
 var state_label: Label
 
@@ -41,13 +42,15 @@ func _ready() -> void:
 	_build_liberated_props()
 	duff = _person("duff", Vector3(-2.2, 0.0, 4.5), 25, self, false, {
 		"shirt": Color(0.09, 0.09, 0.1), "pants": Color(0.16, 0.19, 0.27),
-		"boot": Color(0.22, 0.18, 0.15), "hair": Color(1.25, 1.02, 0.78)})
+		"boot": Color(0.22, 0.18, 0.15), "hair": Color(0.74, 0.52, 0.33)})
 	_build_rain()
 	_build_camera()
 	_build_grade_and_ui()
 	_apply(0.0)
 	if "--capture" in OS.get_cmdline_user_args():
 		_capture()
+	elif "--gif" in OS.get_cmdline_user_args():
+		_capture_frames()
 
 
 # ---------- materials ----------
@@ -261,30 +264,74 @@ func _figure(pos: Vector3, coat: Color, parent: Node3D, height := 1.75, visor :=
 		_box(Vector3(0.55, 0.9, 0.04), pos + Vector3(0, 1.0 * k, 0.28), _flat(Color(0.45, 0.5, 0.55, 1.0), 0.2), parent)
 
 
-func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield := false, tints := {}) -> Node3D:
-	var ps: PackedScene = load("res://assets/characters/%s.glb" % kind)
+func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield := false, tints := {}, anim := "idle", walk_speed := 0.0) -> Node3D:
+	var ps: PackedScene = load("res://assets/characters/rigged/%s_rig.glb" % kind)
 	var n: Node3D = ps.instantiate()
 	n.position = pos
 	n.rotation.y = deg_to_rad(rot_y + 180.0)  # MakeHuman exports face -Z
 	parent.add_child(n)
 	_fix_character_materials(n, 0.22 if shield else 1.0, tints)
+	# Retargeted Mixamo animation, started at a random point so crowds don't move in sync.
+	var ap := AnimationPlayer.new()
+	n.add_child(ap)
+	var lib := AnimationLibrary.new()
+	lib.add_animation(anim, _animation(anim))
+	ap.add_animation_library("", lib)
+	ap.play(anim)
+	ap.seek(rng.randf() * ap.current_animation_length, true)
+	if walk_speed > 0.0:
+		walkers.append([n, walk_speed])
 	if shield:
-		# The model faces its local -Z, so gear in front goes at negative z.
-		var sh := _box(Vector3(0.6, 1.0, 0.03), Vector3(0.05, 1.0, -0.34), _flat(Color(0.36, 0.4, 0.44), 0.15), n)
-		sh.rotation.x = deg_to_rad(4)
+		var skel := n.find_child("GeneralSkeleton", true, false) as Skeleton3D
+		var head := BoneAttachment3D.new()
+		head.bone_name = "Head"
+		skel.add_child(head)
 		var helmet := MeshInstance3D.new()
 		var hs := SphereMesh.new()
-		hs.radius = 0.145
+		hs.radius = 0.14
 		hs.height = 0.15
 		hs.is_hemisphere = true
 		helmet.mesh = hs
 		helmet.material_override = _flat(Color(0.05, 0.06, 0.08), 0.35)
-		helmet.position = Vector3(0, 1.69, -0.01)
+		helmet.position = Vector3(0, 0.1, 0.0)
 		helmet.scale = Vector3(1.0, 1.0, 1.12)
-		n.add_child(helmet)
-		var visor := _box(Vector3(0.25, 0.12, 0.02), Vector3(0, 1.64, -0.155), _flat(Color(0.12, 0.16, 0.2), 0.05), n)
-		visor.rotation.x = deg_to_rad(-12)
+		head.add_child(helmet)
+		var hand := BoneAttachment3D.new()
+		hand.bone_name = "LeftLowerArm"
+		skel.add_child(hand)
+		var sh := _box(Vector3(0.55, 0.95, 0.03), Vector3(0.0, 0.15, 0.12), _flat(Color(0.36, 0.4, 0.44), 0.15), hand)
+		sh.rotation_degrees = Vector3(90, 0, 0)
 	return n
+
+
+## Mixamo clip, retargeted by Godot's humanoid profile on import. Root motion is
+## removed from the hips so walkers stay where the scene script moves them.
+var _anim_cache := {}
+func _animation(name: String) -> Animation:
+	if _anim_cache.has(name):
+		return _anim_cache[name]
+	var src: Node = (load("res://assets/animations/%s.fbx" % name) as PackedScene).instantiate()
+	var player := src.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
+	var a: Animation = player.get_animation(player.get_animation_list()[0]).duplicate()
+	src.free()
+	for t in range(a.get_track_count()):
+		if a.track_get_type(t) == Animation.TYPE_POSITION_3D and str(a.track_get_path(t)).ends_with(":Hips") and a.track_get_key_count(t) > 0:
+			var v0: Vector3 = a.track_get_key_value(t, 0)
+			for k in range(a.track_get_key_count(t)):
+				var v: Vector3 = a.track_get_key_value(t, k)
+				a.track_set_key_value(t, k, Vector3(v0.x, v.y, v0.z))
+	_anim_cache[name] = a
+	return a
+
+
+func _process(delta: float) -> void:
+	for w in walkers:
+		var n: Node3D = w[0]
+		n.position += n.global_transform.basis.z.normalized() * w[1] * delta
+		if n.position.z < -24.0:
+			n.position.z = 6.0
+		elif n.position.z > 8.0:
+			n.position.z = -22.0
 
 
 ## MakeHuman skin materials import as alpha-blended, which makes faces render
@@ -303,6 +350,14 @@ func _fix_character_materials(root: Node, cloth_tint := 1.0, tints := {}) -> voi
 					m.albedo_color = tints[key]
 			if ("eye" in lname or "high-poly" in lname or "cornea" in lname) and not "brow" in lname and not "lash" in lname:
 				continue  # eyes keep their layered cornea transparency
+			if "hair" in lname and tints.has("hair"):
+				# Hair texture carries strand shape (alpha) but little colour: tint it in a shader.
+				var hs := ShaderMaterial.new()
+				hs.shader = _hair_shader()
+				hs.set_shader_parameter("strands", m.albedo_texture)
+				hs.set_shader_parameter("tint", tints["hair"])
+				mesh.surface_set_material(i, hs)
+				continue
 			if "hair" in lname or "brow" in lname or "lash" in lname:
 				m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				m.alpha_scissor_threshold = 0.4
@@ -316,6 +371,27 @@ func _fix_character_materials(root: Node, cloth_tint := 1.0, tints := {}) -> voi
 					m.albedo_color = Color(cloth_tint, cloth_tint * 1.05, cloth_tint * 1.15)
 
 
+var _hair_sh: Shader
+func _hair_shader() -> Shader:
+	if _hair_sh == null:
+		_hair_sh = Shader.new()
+		_hair_sh.code = """
+shader_type spatial;
+render_mode cull_disabled, depth_draw_opaque;
+uniform sampler2D strands : source_color, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(0.72, 0.5, 0.32, 1.0);
+void fragment() {
+	vec4 s = texture(strands, UV);
+	float lum = dot(s.rgb, vec3(0.333));
+	ALBEDO = tint.rgb * (0.55 + 0.9 * lum);
+	ALPHA = s.a;
+	ALPHA_SCISSOR_THRESHOLD = 0.4;
+	ROUGHNESS = 0.6;
+}
+"""
+	return _hair_sh
+
+
 func _build_regime_props() -> void:
 	var g := Node3D.new()
 	add_child(g)
@@ -326,9 +402,9 @@ func _build_regime_props() -> void:
 	_model("covered_car", Vector3(2.2, 0.0, -13.0), 15, 1.0, g)
 	# Riot police
 	for p in [Vector3(-1.0, 0, -6.8), Vector3(0.6, 0, -6.6), Vector3(2.4, 0, -7.0), Vector3(3.6, 0, -9.5)]:
-		_person("riot_police", p, rng.randf_range(-15, 15), g, true)
+		_person("riot_police", p, rng.randf_range(-15, 15), g, true, {}, "weight_shift" if rng.randf() < 0.5 else "idle")
 	# A lone civilian hurrying past
-	_person("civilian_woman", Vector3(-5.2, 0.2, -2.0), 160, g)
+	_person("civilian_woman", Vector3(-5.2, 0.2, -2.0), 180, g, false, {}, "walk_f", 1.2)
 	# Regime poster (propaganda layer)
 	var poster := _box(Vector3(0.05, 3.2, 2.4), Vector3(6.95, 6.0, -1.5), _flat(Color(0.62, 0.11, 0.09), 0.8), g)
 	_box(Vector3(0.06, 1.3, 1.0), Vector3(6.92, 6.4, -1.5), _flat(Color(0.05, 0.04, 0.04), 0.9), g)
@@ -398,7 +474,10 @@ func _build_liberated_props() -> void:
 	var coats := [Color(0.3, 0.12, 0.1), Color(0.14, 0.24, 0.3), Color(0.35, 0.3, 0.2), Color(0.2, 0.2, 0.22), Color(0.4, 0.22, 0.12), Color(0.18, 0.28, 0.18)]
 	for i in range(18):
 		var p := Vector3(rng.randf_range(-3.6, 3.6), 0, rng.randf_range(-20, 0))
-		_person("civilian_man" if i % 2 == 0 else "civilian_woman", p, rng.randf_range(0, 360), g)
+		var man := i % 2 == 0
+		var walking := i % 3 == 0
+		var clip: String = ("walk" if man else "walk_f") if walking else (["idle", "weight_shift", "acknowledge"][i % 3] if man else "idle_f")
+		_person("civilian_man" if man else "civilian_woman", p, (0.0 if i % 2 == 0 else 180.0) if walking else rng.randf_range(0, 360), g, false, {}, clip, 1.1 if walking else 0.0)
 	# String lights across the street
 	var bulb := _flat(Color.WHITE, 0.3, Color(1.0, 0.75, 0.4), 5.0)
 	for row in range(3):
@@ -566,6 +645,17 @@ func _state_name(t: float) -> String:
 
 
 # ---------- screenshots ----------
+
+## Saves 36 frames of the street (liberated, or regime-held with --regime); run with --fixed-fps 12 so time is steady.
+func _capture_frames() -> void:
+	_apply(0.0 if "--regime" in OS.get_cmdline_user_args() else 1.0)
+	for i in range(10):
+		await get_tree().process_frame
+	for i in range(36):
+		await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("user://frame_%03d.png" % i)
+	get_tree().quit()
+
 
 func _capture() -> void:
 	for pair in [[0.0, "regime"], [0.55, "contested"], [1.0, "liberated"]]:

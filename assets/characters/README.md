@@ -1,7 +1,12 @@
 # Characters
 
-Generated with MPFB (MakeHuman for Blender) from CC0 MakeHuman asset packs
-(makehuman_system_assets, hair01). Output is CC0.
+Generated with MPFB (MakeHuman for Blender) from CC0 MakeHuman asset packs.
 
-Regenerate: `blender -b --python tools/gen_characters.py -- assets/characters`
-Add `--with-rigs` to also export Mixamo-rigged versions for animation.
+Regenerate the rigged characters:
+
+    blender -b --python tools/gen_characters.py -- assets/characters/rigged --with-rigs
+    rm assets/characters/rigged/{riot_police,civilian_man,civilian_woman,duff}.glb
+    python3 tools/setup_retarget.py   # after Godot has imported them once
+
+The protagonist's skin is painted by `tools/paint_likeness.py`, which reads
+private reference photos from `reference/private/` (never committed).

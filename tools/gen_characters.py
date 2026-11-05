@@ -74,7 +74,7 @@ def export(objs, path, limit=1024):
     bpy.context.view_layer.objects.active = objs[0]
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True,
                               export_apply=True, export_morph=False, export_animations=False,
-                              export_yup=True, export_image_format="JPEG", export_jpeg_quality=82)
+                              export_yup=True, export_image_format="AUTO")
 
 
 def relax_pose(rig):
@@ -112,7 +112,7 @@ for name, spec in CHARS.items():
         if m.type == "MASK":
             m.show_viewport = True
     if "--with-rigs" in sys.argv:
-        export(family(rig), os.path.join(OUT, f"{name}_rig.glb"))
+        export(family(rig), os.path.join(OUT, f"{name}_rig.glb"), 2048 if likeness else 1024)
     # Posed, rig-free copy
     relax_pose(rig)
     meshes = [o for o in family(rig) if o.type == "MESH"]
