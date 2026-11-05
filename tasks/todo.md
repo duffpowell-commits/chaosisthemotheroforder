@@ -12,11 +12,16 @@
 - [ ] Name the country, city, and regime
 
 ## Phase 1 — Vertical slice spec
-- [ ] 1 district, 1 ally (2 ways to recruit), 1 diversion, 1 tactical mission (6 vs. 6–8)
-- [ ] Define success criteria for "is this fun?"
+- [x] Spec written: docs/slice-spec.md
+- [ ] Duff answers the spec's open questions (names, length, lie-path check, dialogue runner)
 
-## Phase 2 — Build the vertical slice in Godot 4
-- [ ] (to be broken down after Phase 1)
+## Phase 2 — Build the vertical slice (milestones from docs/slice-spec.md §13)
+- [ ] M1 Run state + week loop, headless simulator + unit tests
+- [ ] M2 District map, week planner, weekly report
+- [ ] M3 Dialogue runner + Teodor's three paths
+- [ ] M4 Tactical core: grid, AP, move, cover, shoot, basic AI
+- [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast
+- [ ] M6 Endings, saves, Android pass (5 clean runs on Duff's phone)
 
 ## Review
 _(filled in at the end of each phase)_
