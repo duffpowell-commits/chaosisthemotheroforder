@@ -26,6 +26,8 @@ var mat_window_warm: StandardMaterial3D
 var regime_nodes: Array[Node3D] = []
 var liberated_nodes: Array[Node3D] = []
 var slider: HSlider
+var duff: Node3D
+var cam: Camera3D
 var state_label: Label
 
 
@@ -37,6 +39,7 @@ func _ready() -> void:
 	_build_lamps()
 	_build_regime_props()
 	_build_liberated_props()
+	duff = _person("duff", Vector3(-4.9, 0.2, 3.0), 60, self)
 	_build_rain()
 	_build_camera()
 	_build_grade_and_ui()
@@ -256,6 +259,56 @@ func _figure(pos: Vector3, coat: Color, parent: Node3D, height := 1.75, visor :=
 		_box(Vector3(0.55, 0.9, 0.04), pos + Vector3(0, 1.0 * k, 0.28), _flat(Color(0.45, 0.5, 0.55, 1.0), 0.2), parent)
 
 
+func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield := false) -> Node3D:
+	var ps: PackedScene = load("res://assets/characters/%s.glb" % kind)
+	var n: Node3D = ps.instantiate()
+	n.position = pos
+	n.rotation.y = deg_to_rad(rot_y + 180.0)  # MakeHuman exports face -Z
+	parent.add_child(n)
+	_fix_character_materials(n, 0.22 if shield else 1.0)
+	if shield:
+		# The model faces its local -Z, so gear in front goes at negative z.
+		var sh := _box(Vector3(0.6, 1.0, 0.03), Vector3(0.05, 1.0, -0.34), _flat(Color(0.36, 0.4, 0.44), 0.15), n)
+		sh.rotation.x = deg_to_rad(4)
+		var helmet := MeshInstance3D.new()
+		var hs := SphereMesh.new()
+		hs.radius = 0.145
+		hs.height = 0.15
+		hs.is_hemisphere = true
+		helmet.mesh = hs
+		helmet.material_override = _flat(Color(0.05, 0.06, 0.08), 0.35)
+		helmet.position = Vector3(0, 1.69, -0.01)
+		helmet.scale = Vector3(1.0, 1.0, 1.12)
+		n.add_child(helmet)
+		var visor := _box(Vector3(0.25, 0.12, 0.02), Vector3(0, 1.64, -0.155), _flat(Color(0.12, 0.16, 0.2), 0.05), n)
+		visor.rotation.x = deg_to_rad(-12)
+	return n
+
+
+## MakeHuman skin materials import as alpha-blended, which makes faces render
+## see-through. Skin and clothes become opaque; hair, brows and lashes use
+## alpha scissor so strands stay crisp.
+func _fix_character_materials(root: Node, cloth_tint := 1.0) -> void:
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh: Mesh = (mi as MeshInstance3D).mesh
+		for i in range(mesh.get_surface_count()):
+			var m := mesh.surface_get_material(i) as BaseMaterial3D
+			if m == null:
+				continue
+			var lname := (m.resource_name + " " + mi.name).to_lower()
+			if ("eye" in lname or "high-poly" in lname or "cornea" in lname) and not "brow" in lname and not "lash" in lname:
+				continue  # eyes keep their layered cornea transparency
+			if "hair" in lname or "brow" in lname or "lash" in lname:
+				m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				m.alpha_scissor_threshold = 0.4
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			else:
+				m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				m.cull_mode = BaseMaterial3D.CULL_BACK
+				if cloth_tint < 1.0 and not "skin" in lname and not "body" in lname:
+					m.albedo_color = Color(cloth_tint, cloth_tint * 1.05, cloth_tint * 1.15)
+
+
 func _build_regime_props() -> void:
 	var g := Node3D.new()
 	add_child(g)
@@ -266,9 +319,9 @@ func _build_regime_props() -> void:
 	_model("covered_car", Vector3(2.2, 0.0, -13.0), 15, 1.0, g)
 	# Riot police
 	for p in [Vector3(-1.0, 0, -6.8), Vector3(0.6, 0, -6.6), Vector3(2.4, 0, -7.0), Vector3(3.6, 0, -9.5)]:
-		_figure(p, Color(0.06, 0.07, 0.09), g, 1.85, true)
+		_person("riot_police", p, rng.randf_range(-15, 15), g, true)
 	# A lone civilian hurrying past
-	_figure(Vector3(-5.2, 0.2, -2.0), Color(0.12, 0.12, 0.12), g)
+	_person("civilian_woman", Vector3(-5.2, 0.2, -2.0), 160, g)
 	# Regime poster (propaganda layer)
 	var poster := _box(Vector3(0.05, 3.2, 2.4), Vector3(6.95, 6.0, -1.5), _flat(Color(0.62, 0.11, 0.09), 0.8), g)
 	_box(Vector3(0.06, 1.3, 1.0), Vector3(6.92, 6.4, -1.5), _flat(Color(0.05, 0.04, 0.04), 0.9), g)
@@ -336,9 +389,9 @@ func _build_liberated_props() -> void:
 		_box(Vector3(0.45, 0.25, 0.45), p + Vector3(0, 1.0, 0), _flat(Color(1, 0.5, 0.1), 0.5, Color(1, 0.45, 0.1), 8.0), g)
 	# Crowd
 	var coats := [Color(0.3, 0.12, 0.1), Color(0.14, 0.24, 0.3), Color(0.35, 0.3, 0.2), Color(0.2, 0.2, 0.22), Color(0.4, 0.22, 0.12), Color(0.18, 0.28, 0.18)]
-	for i in range(26):
+	for i in range(18):
 		var p := Vector3(rng.randf_range(-3.6, 3.6), 0, rng.randf_range(-20, 0))
-		_figure(p, coats[i % coats.size()], g, rng.randf_range(1.55, 1.85))
+		_person("civilian_man" if i % 2 == 0 else "civilian_woman", p, rng.randf_range(0, 360), g)
 	# String lights across the street
 	var bulb := _flat(Color.WHITE, 0.3, Color(1.0, 0.75, 0.4), 5.0)
 	for row in range(3):
@@ -407,7 +460,7 @@ func _build_rain() -> void:
 
 
 func _build_camera() -> void:
-	var cam := Camera3D.new()
+	cam = Camera3D.new()
 	cam.position = Vector3(5.2, 7.5, 11.0)
 	cam.fov = 52
 	add_child(cam)
@@ -515,4 +568,16 @@ func _capture() -> void:
 		var img := get_viewport().get_texture().get_image()
 		img.save_png("res://docs/renders/frontline_%s.png" % pair[1])
 		print("saved ", pair[1])
+	# Close-ups to judge the characters
+	var face_dir := duff.global_transform.basis.z.normalized()
+	for shot in [[1.0, "closeup_duff", duff.global_position + face_dir * 1.3 + Vector3(0.3, 1.62, 0), duff.global_position + Vector3(0, 1.58, 0)],
+			[0.0, "closeup_police", Vector3(1.9, 1.65, -4.6), Vector3(0.5, 1.45, -6.7)]]:
+		_apply(shot[0])
+		cam.fov = 35
+		cam.position = shot[2]
+		cam.look_at(shot[3])
+		for i in range(30):
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("res://docs/renders/frontline_%s.png" % shot[1])
+		print("saved ", shot[1])
 	get_tree().quit()
