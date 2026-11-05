@@ -218,9 +218,19 @@ All touch targets are at least 48 px. Nothing depends on hovering.
   writing outgrows it.
 - **Saves:** autosave at the start of every week, plus an optional
   ironman mode with a single slot.
-- **Balance testing:** a headless simulator plays 1,000 random-policy runs
-  and reports the ending spread. **Target:** no single ending above 50%,
-  and capture between 10% and 30% of random runs.
+- **Balance testing:** a headless simulator (`tools/simulate.gd`) plays
+  1,000 runs each with three automated players: random, careful
+  (non-violent) and violent. **Targets** (revised after the first runs;
+  random play *should* mostly fail, so the old "no ending above 50% for
+  random" target was wrong):
+  - Careful player wins 35–60%, captured 15–35%.
+  - Random player captured 10–30%, almost never wins.
+  - Violent player reaches "Occupiers" fastest: violence has to tempt.
+
+  **First tuned results (M1):** careful wins 42% and is captured 31%;
+  random is captured 26%; violent ends as Occupiers 71% by week 3.6. The
+  strike ending is rare (0.5%) because the careful bot rarely lines up the
+  strike before the rally; revisit when a human plays it.
 - **Tests:** headless unit tests for hit chance, noise, Heat thresholds,
   sentiment states and ending conditions, run before every push.
 
