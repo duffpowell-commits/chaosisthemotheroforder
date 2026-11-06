@@ -47,7 +47,9 @@ func _ready() -> void:
 	_build_camera()
 	_build_grade_and_ui()
 	_apply(0.0)
-	if "--capture" in OS.get_cmdline_user_args():
+	if "--portraits" in OS.get_cmdline_user_args():
+		_capture_portraits()
+	elif "--capture" in OS.get_cmdline_user_args():
 		_capture()
 	elif "--gif" in OS.get_cmdline_user_args():
 		_capture_frames()
@@ -681,4 +683,33 @@ func _capture() -> void:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png("res://docs/renders/frontline_%s.png" % shot[1])
 		print("saved ", shot[1])
+	get_tree().quit()
+
+
+## Dialogue portraits (docs/slice-spec.md §11.4): each speaker on the street,
+## regime grade, square crop. Saves docs/renders/portrait_<name>.png.
+func _capture_portraits() -> void:
+	duff.visible = false
+	var spot := duff.global_position
+	var cast := [
+		["teodor", "civilian_man", {"shirt": Color(0.2, 0.22, 0.24), "pants": Color(0.12, 0.13, 0.15), "hair": Color(0.15, 0.13, 0.12)}],
+		["mara", "civilian_woman", {"shirt": Color(0.32, 0.12, 0.1), "pants": Color(0.1, 0.1, 0.12), "hair": Color(0.1, 0.08, 0.07)}],
+		["kesh", "riot_police", {"shirt": Color(0.12, 0.2, 0.16), "pants": Color(0.2, 0.17, 0.13), "hair": Color(0.05, 0.05, 0.05)}],
+	]
+	_apply(0.15)
+	for c in cast:
+		var who := _person(c[1], spot, 25, self, false, c[2], "idle")
+		var face_dir := who.global_transform.basis.z.normalized()
+		cam.fov = 30
+		cam.position = spot + face_dir * 1.4 + who.global_transform.basis.x * 0.25 + Vector3(0, 1.6, 0)
+		cam.look_at(spot + Vector3(0, 1.52, 0))
+		for i in range(40):
+			await get_tree().process_frame
+		var img := get_viewport().get_texture().get_image()
+		var side := mini(img.get_width(), img.get_height())
+		img = img.get_region(Rect2i((img.get_width() - side) / 2, (img.get_height() - side) / 2, side, side))
+		img.resize(512, 512, Image.INTERPOLATE_LANCZOS)
+		img.save_png("res://docs/renders/portrait_%s.png" % c[0])
+		print("saved portrait ", c[0])
+		who.queue_free()
 	get_tree().quit()

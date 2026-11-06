@@ -8,7 +8,7 @@ const ACTIONS := {
 	"scavenge": {"title": "Scavenge", "desc": "Scrapyards: cash, supplies or parts. Small risk of being stopped."},
 	"listen": {"title": "Listen", "desc": "Sit in the bars and stairwells. Confirms what a zone really thinks.", "zone": "Listen where?"},
 	"lay_low": {"title": "Lay low", "desc": "Keep the cell quiet. Heat −3."},
-	"see_teodor": {"title": "See Teodor", "desc": "The dock foreman at the Freight Depot."},
+	"see_teodor": {"title": "See Teodor", "desc": "The dock foreman at the Freight Depot. What you say to him matters."},
 	"diversion": {"title": "Signal Fire", "desc": "Fake a protest to pull the regime's eyes elsewhere. Fails get people arrested.", "zone": "Stage the decoy where?"},
 	"strike": {"title": "Call the strike", "desc": "Teodor stops the cranes. Depot +20, regime attention −1 for 2 weeks. Heat +2."},
 	"signal_box": {"title": "Signal box op", "desc": "Take the signal box and air the raid footage. Sentiment +20 everywhere if it works."},
@@ -18,16 +18,14 @@ const ACTIONS := {
 }
 
 const CHOICES := {
-	"see_teodor": [
-		{"id": "honest", "title": "Be honest with him", "desc": "Works if he's seen your aid reach the depot twice."},
-		{"id": "blackmail", "title": "Use the skimming against him", "desc": "Needs proof (Listen in the Depot). He'll join, and resent it."},
-		{"id": "lie", "title": "Promise to free his brother", "desc": "He'll believe you. There is no plan for Kell."},
-	],
 	"signal_box": [
 		{"id": "quiet", "title": "Go in quiet", "desc": "No killing. Harder, and it builds Legitimacy if it works."},
 		{"id": "loud", "title": "Go in loud", "desc": "Easier. People die. Regime TV gets its footage."},
 	],
 }
+
+## Display names for dialogue speakers.
+const SPEAKERS := {"YOU": "You", "TEODOR": "Teodor", "MARA": "Mara", "KESH": "Kesh"}
 
 const ZONE_NAMES := {"dorms": "The Dormitories", "depot": "The Freight Depot"}
 
