@@ -64,8 +64,8 @@
   character from 8 directions with any Mixamo clip, and
   `tools/compose_sprites.py` turns the frames into sheets and GIFs. Review
   shots: `docs/renders/sprites/`.
-- **Two looks to pick from:** smooth pre-rendered (late-90s isometric) or
-  hard-edged pixel (28 colors with an outline).
+- **Look: pixel** (Duff's pick, Nov 6): hard-edged, 28 colors, 1px outline.
+  It hides modeling flaws better than the smooth pre-rendered version.
 - **The street stays 3D.** Only the units become flat sprites that face the
   camera.
 - **Decision gate: Dec 6.** Switch the units to sprites if either is true:

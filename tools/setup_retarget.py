@@ -57,9 +57,10 @@ def rewrite(path, skeleton_path, anim_loop=None, skip=(), silhouette=True):
 
 for f in glob.glob(os.path.join(ROOT, "assets/characters/rigged/*_rig.glb.import")):
     name = os.path.basename(f).replace("_rig.glb.import", "")
-    # MPFB's Mixamo rig is already in a Mixamo-like rest pose; the silhouette
-    # fix over-corrects it (it tipped the head back), so only axes are fixed.
-    rewrite(f, f"{name}/Skeleton3D", silhouette=False)
+    # The silhouette fix is needed: without it the MPFB rig's A-pose rest makes
+    # every Mixamo clip bend the forearms inward (arms read as crossed).
+    # It was off once because it tipped the head back; check portraits after.
+    rewrite(f, f"{name}/Skeleton3D", silhouette=True)
 for f in glob.glob(os.path.join(ROOT, "assets/animations/*.fbx.import")):
     name = os.path.basename(f).replace(".fbx.import", "")
     rewrite(f, "Skeleton3D", 0 if name in NO_LOOP else 1)

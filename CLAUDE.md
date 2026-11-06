@@ -18,6 +18,10 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Decision gate Dec 6.
 
 ## First thing next session
+- Retarget fix (Nov 6): the silhouette fix is now ON for all four rigs. Without it
+  every Mixamo clip bent the forearms inward (arms looked crossed). Side effect:
+  portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
+- If the jam falls back to sprites, the look is **pixel** (Duff's pick).
 - Ask Duff how the Signal Box played on his phone, and whether 3 vs 4 guards
   should stay brutal (bot: aired 48% quiet, usually nobody gets home) or ease off.
   Numbers: `tasks/todo.md` M5 review.
