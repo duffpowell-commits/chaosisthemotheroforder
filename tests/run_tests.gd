@@ -8,6 +8,7 @@ const Rules = preload("res://scripts/sim/rules.gd")
 const Policies = preload("res://scripts/sim/policies.gd")
 const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
 const Story = preload("res://scripts/dialogue/story.gd")
+const Battle = preload("res://scripts/tactics/battle.gd")
 
 var failures := 0
 var passed := 0
@@ -354,3 +355,129 @@ func test_story_lie_confession() -> void:
 			left += 1
 			check(beats.has("confess_left"), "left scene plays")
 	check(stayed > 0 and left > 0, "confession can go either way (%d stayed, %d left)" % [stayed, left])
+
+
+# ---------- tactics (M4) ----------
+
+## A bare 14x14 yard with the given cover tiles: {Vector2i: Battle.HALF/FULL/HIGH}.
+func yard(cover := {}) -> Battle:
+	var b := Battle.new()
+	b.setup_empty(1)
+	for p in cover:
+		b.set_tile(p, cover[p])
+	return b
+
+
+func test_tactics_hit_table() -> void:
+	var b := yard({Vector2i(5, 6): Battle.HALF, Vector2i(8, 6): Battle.FULL})
+	# Open ground, straight shot.
+	check(b.chance_from(Vector2i(5, 12), Vector2i(2, 2)) == 65, "open shot is 65%")
+	# Target at (5,5) hides behind a crate at (5,6) from a shooter to the south.
+	check(b.chance_from(Vector2i(5, 12), Vector2i(5, 5)) == 45, "half cover is -20")
+	check(b.chance_from(Vector2i(8, 12), Vector2i(8, 5)) == 25, "full cover is -40")
+	# Same target, shooter due east: the crate faces south, so it's flanked.
+	check(b.chance_from(Vector2i(12, 5), Vector2i(5, 5)) == 85, "flanked cover is +20")
+	b.set_tile(Vector2i(5, 12), Battle.HIGH)
+	check(b.chance_from(Vector2i(5, 12), Vector2i(5, 5)) == 55, "high ground is +10")
+	check(Battle.clamp_chance(140) == 95 and Battle.clamp_chance(-30) == 5, "clamped to 5-95")
+
+
+func test_tactics_los() -> void:
+	var b := yard({Vector2i(5, 5): Battle.FULL, Vector2i(9, 5): Battle.HALF})
+	check(not b.line_of_sight(Vector2i(5, 2), Vector2i(5, 8)), "a container blocks sight")
+	check(b.line_of_sight(Vector2i(9, 2), Vector2i(9, 8)), "a crate doesn't block sight")
+	check(b.chance_from(Vector2i(5, 2), Vector2i(5, 8)) == 0, "no sight, no shot")
+	check(b.line_of_sight(Vector2i(0, 13), Vector2i(13, 0)), "open diagonal is clear")
+
+
+func test_tactics_move_range() -> void:
+	var b := yard({Vector2i(6, 5): Battle.FULL})
+	var u := b.add_unit("You", Battle.US, Vector2i(5, 5))
+	var one := b.reachable(u, 1)
+	check(one.has(Vector2i(9, 5)) == false, "a container blocks the straight path")
+	check(one.has(Vector2i(5, 1)), "4 tiles per AP")
+	check(not one.has(Vector2i(5, 0)), "not 5 tiles on 1 AP")
+	check(b.reachable(u, 2).has(Vector2i(5, 13)), "8 tiles on 2 AP")
+	check(not one.has(Vector2i(6, 5)), "can't stand on a container")
+	b.add_unit("G", Battle.REGIME, Vector2i(5, 4))
+	check(not b.reachable(u, 1).has(Vector2i(5, 4)), "can't stand on a unit")
+	check(b.move(u, Vector2i(5, 7)) and u.ap == 1 and u.pos == Vector2i(5, 7), "move costs 1 AP")
+	check(not b.move(u, Vector2i(13, 13)), "too far is refused")
+
+
+func test_tactics_shoot_and_down() -> void:
+	var b := yard()
+	var me := b.add_unit("You", Battle.US, Vector2i(5, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(5, 2))
+	var hits := 0
+	for i in range(200):
+		g.hp = 2
+		me.ap = 2
+		if b.shoot(me, g):
+			hits += 1
+	check(hits > 100 and hits < 160, "65%% shots land about 65%% of the time (%d/200)" % hits)
+	g.hp = 1
+	me.ap = 2
+	b.rng.seed = 3
+	while g.hp > 0:
+		me.ap = 2
+		b.shoot(me, g)
+	check(not g.alive(), "0 HP is down")
+	check(b.winner() == Battle.US, "no guards left is a win")
+
+
+func test_tactics_ai_patrol_then_alert() -> void:
+	var b := yard({Vector2i(4, 4): Battle.FULL, Vector2i(5, 4): Battle.FULL, Vector2i(6, 4): Battle.FULL})
+	var me := b.add_unit("You", Battle.US, Vector2i(5, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(5, 1))
+	g.route = [Vector2i(5, 1), Vector2i(12, 1)]
+	b.end_turn()  # regime acts: it can't see you behind the containers
+	check(g.state == Battle.PATROL, "unseen, the guard patrols")
+	check(g.pos != Vector2i(5, 1), "the patrol moves")
+	check(me.hp == 2, "no shots while patrolling")
+	b.alert_all("test")
+	check(g.state == Battle.ALERT, "a shot or a sighting alerts every guard")
+
+
+func test_tactics_ai_takes_cover_and_retreats() -> void:
+	var b := yard({Vector2i(9, 7): Battle.HALF})
+	b.add_unit("You", Battle.US, Vector2i(9, 13)).hp = 99  # survives the test
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(11, 5))
+	b.alert_all("test")
+	b.rng.seed = 7
+	b.end_turn()
+	check(g.pos == Vector2i(9, 6) or b.cover_against(g.pos, Vector2i(9, 13)) > 0, "alerted guard moves into cover (at %s)" % g.pos)
+	b.add_unit("Mara", Battle.US, Vector2i(1, 13)).hp = 99  # 2 v 2: outnumbered enough to run
+	var w := b.add_unit("W", Battle.REGIME, Vector2i(3, 6))
+	w.hp = 1
+	w.state = Battle.ALERT
+	b.end_turn()
+	b.end_turn()
+	check(w.state == Battle.RETREAT, "a wounded guard retreats when not outnumbering you")
+	check(w.pos.y < 6 or w.escaped, "retreat runs for the north edge")
+
+
+func test_tactics_skirmish_deterministic_and_both_outcomes() -> void:
+	var a = Battle.play_auto(11)
+	var b = Battle.play_auto(11)
+	check(a.winner() == b.winner() and a.turn == b.turn, "same seed, same fight")
+	var wins := 0
+	var losses := 0
+	for i in range(60):
+		var r: String = Battle.play_auto(i + 1).winner()
+		if r == Battle.US:
+			wins += 1
+		elif r == Battle.REGIME:
+			losses += 1
+	check(wins > 0 and losses > 0, "skirmish is winnable and losable (%d won, %d lost)" % [wins, losses])
+
+
+func test_tactics_wounded_guard_holds_when_ahead() -> void:
+	var b := yard()
+	b.add_unit("You", Battle.US, Vector2i(9, 13))
+	b.add_unit("G1", Battle.REGIME, Vector2i(2, 2))
+	var w := b.add_unit("W", Battle.REGIME, Vector2i(11, 2))
+	w.hp = 1
+	b.alert_all("test")
+	b.end_turn()
+	check(w.state == Battle.ALERT, "2 v 1: the wounded guard keeps fighting")

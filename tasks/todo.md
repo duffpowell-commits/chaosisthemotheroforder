@@ -22,19 +22,20 @@
 - [ ] M4 Tactical core: grid, AP, move, cover, shoot, basic AI
   Done when: a skirmish on the street map is winnable and losable.
   Plan (same split as M1/M2: pure rules first, scene second):
-  - [ ] `scripts/tactics/battle.gd`: pure data. 14x14 grid, tiles (floor,
+  - [x] `scripts/tactics/battle.gd`: pure data. 14x14 grid, tiles (floor,
         half cover, full cover, high ground), units (side, pos, AP, HP).
-  - [ ] Rules: 2 AP/unit, Move 1 AP = 5 tiles (BFS, blocked by cover/units),
+  - [x] Rules: 2 AP/unit, 2 HP (hit = 1, Duff's call), Move 1 AP = 4 tiles (Duff's call; spec said 5) (BFS, blocked by cover/units),
         Shoot 1 AP, hit 65% / half -20 / full -40 / high +10 / flank +20,
         clamp 5-95. Cover read per direction; flanked = no cover from that side.
-  - [ ] Line of sight: grid raycast, full cover blocks, half doesn't.
-  - [ ] AI: patrol fixed route -> alerted (sees you / you shoot) -> move to
-        best covered tile in range and shoot -> retreat at 1 HP.
-  - [ ] Skirmish layout from the Rail Yards street: containers = full,
+  - [x] Line of sight: grid raycast, full cover blocks, half doesn't.
+  - [x] AI: patrol fixed route -> alerted (sees you / you shoot) -> move to
+        best covered tile in range and shoot -> retreat at 1 HP when not outnumbering you
+        (always-retreat: 76% dumb-policy wins; never: 29%; this: 58%).
+  - [x] Skirmish layout from the Rail Yards street: containers = full,
         crates = half, gantry = high ground. 3 of ours vs 4 guards.
-  - [ ] Tests: hit-chance table, LOS, BFS move range, flank, AI states,
+  - [x] Tests: hit-chance table, LOS, BFS move range, flank, AI states,
         seeded skirmish deterministic.
-  - [ ] `tools/skirmish_sim.gd`: 500 seeded skirmishes, dumb player policy.
+  - [x] `tools/skirmish_sim.gd`: 500 seeded skirmishes, dumb player policy.
         Pass = both wins and losses occur (target win rate 35-65%).
   - [ ] Scene: 3D street + grid overlay, tap unit / tap tile, Shoot button
         shows hit %, AP pips, end turn. Touch targets >= 48 px.
