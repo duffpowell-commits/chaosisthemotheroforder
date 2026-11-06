@@ -2,7 +2,15 @@ extends SceneTree
 ## Signal Box balance check (M5). Two simple player policies against the guard AI:
 ##   quiet: sneak, take guards down by hand, talk the Wavering one over, shoot only once spotted
 ##   loud:  walk in and shoot anything worth shooting
-## godot --headless --path . --script tools/mission_sim.gd -- [missions]
+## godot --headless --path . --script tools/mission_sim.gd -- [missions] [focus]
+## "focus" runs only the cases that decide the jam's difficulty (3 or 5 vs 4).
+##
+## Tension (does it feel close, not just who wins):
+##   close   share of missions that came down to the wire: aired after someone
+##           went down, or failed after the upload had started
+##   flips   coin-flip shots per mission (35-65% hit chance), the rolls that
+##           make you hold your breath
+## Target for the jam: close 40-70%, flips 2+ per mission.
 
 const Battle = preload("res://scripts/tactics/battle.gd")
 
@@ -18,8 +26,9 @@ const SQUAD := [
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var n := int(args[0]) if args.size() > 0 else 500
+	var focus := "focus" in args
 	for size in [3, 5]:
-		for guards in [2, 4, 6]:
+		for guards in ([4] if focus else [2, 4, 6]):
 			for loud in [false, true]:
 				_report(guards, size, loud, n)
 	quit()
@@ -34,6 +43,8 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 	var dead := 0
 	var defections := 0
 	var turns := 0
+	var close := 0
+	var flips := 0
 	for i in range(n):
 		var b = play({"guards": guards, "legitimacy": 1, "squad": SQUAD.slice(0, size), "seed": i + 1}, loud)
 		var r: Dictionary = b.mission_result()
@@ -49,9 +60,29 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 		dead += r.dead.size()
 		defections += r.defections
 		turns += b.turn
-	print("squad %d v %d guards, %s: aired %d%% (clean %d%%), nobody out %d%%, alarm %d%%, kills %.1f, our dead %.2f, defections %.2f, turns %.1f" % [
+		var hurt_any := false
+		for u in b.units:
+			if u.side == Battle.US and not u.defected and (u.hp < Battle.MAX_HP or u.dead):
+				hurt_any = true
+		if (r.aired and hurt_any) or (not r.aired and b.upload >= 1):
+			close += 1
+		for line in b.log:
+			var m := _chance_re().search(line)
+			if m != null and (" hit" in line or " miss" in line):
+				var c := int(m.get_string(1))
+				if c >= 35 and c <= 65:
+					flips += 1
+	print("squad %d v %d guards, %s: aired %d%% (clean %d%%), nobody out %d%%, alarm %d%%, kills %.1f, our dead %.2f, defections %.2f, turns %.1f | close %d%%, flips %.1f" % [
 		size, guards, "loud " if loud else "quiet", 100 * aired / n, 100 * clean / n, 100 * wiped / n,
-		100 * alarms / n, float(kills) / n, float(dead) / n, float(defections) / n, float(turns) / n])
+		100 * alarms / n, float(kills) / n, float(dead) / n, float(defections) / n, float(turns) / n,
+		100 * close / n, float(flips) / n])
+
+
+static var _re: RegEx
+static func _chance_re() -> RegEx:
+	if _re == null:
+		_re = RegEx.create_from_string("\\((\\d+)%\\)")
+	return _re
 
 
 static func play(params: Dictionary, loud: bool) -> RefCounted:

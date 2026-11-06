@@ -75,6 +75,14 @@
 - [ ] J5 (Dec 21–27) itch page + upload; submit Dec 28
 
 ## Review
+- **Signal Box tuning (Nov 6, Duff: "slightly less brutal"):** the deaths came on
+  the run home, after the broadcast alerts every guard, not from being spotted
+  (sight range, bleed time and reinforcement size changed nothing). New rule:
+  the broadcast freezes the guards for one regime turn (`BROADCAST_STUN`).
+  3 v 4 quiet: nobody out 75% -> 65%, our dead 2.22 -> 1.99, aired 45% (same).
+  A 2-turn freeze gave 56% / 1.81; kept at 1 for "slightly".
+  Duff confirmed: the fight carries on when You go down (it already did).
+  Tension metrics added to `tools/mission_sim.gd` (close %, coin-flip shots).
 - **M5 (Nov 6):** the Signal Box is a played mission now. Planning the op sends
   you plus everyone free that week into the depot; the result (aired, kills,
   defections, dead, hurt) comes back and finishes the week. Departures from the

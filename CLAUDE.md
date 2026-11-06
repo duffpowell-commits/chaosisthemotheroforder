@@ -23,14 +23,11 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
 - If the jam falls back to sprites, the look is **pixel** (Duff's pick).
 - Autoplay found (Nov 6, `docs/renders/autoplay_quiet.gif`): when units bunch up, their
-  name/HP labels pile on top of each other and can't be read (fix in J1). And when
-  You go down the mission ends and everyone still on the map counts as dead, even a
-  stabilized squadmate. Ask Duff if that's intended.
-- Ask Duff how the Signal Box played on his phone, and whether 3 vs 4 guards
-  should stay brutal (bot: aired 48% quiet, usually nobody gets home) or ease off.
-  Numbers: `tasks/todo.md` M5 review.
-- Saves: a mission isn't saved mid-fight. Quitting during it rewinds to the
-  autosave from before the week was planned. Decide in M6 if that's OK.
+  name/HP labels pile on top of each other and can't be read (fix in J1).
+- Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
+  guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
+  yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
+  Advance Wars** (see `docs/design.md` pillars).
 
 ## Layout
 - `scripts/sim/` pure game rules (`RunState`, `Rules`, `Policies`). No scenes.
@@ -49,6 +46,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Balance: `godot --headless --path . --script tools/simulate.gd`
 - Skirmish balance: `godot --headless --path . --script tools/skirmish_sim.gd`
 - Mission balance: `godot --headless --path . --script tools/mission_sim.gd -- 500`
+  (`-- 300 focus` for just the 3 v 4 and 5 v 4 cases; prints tension: close %, coin-flip shots)
 - Run -> mission -> run hook: `godot --headless --path . --script tools/mission_flow_check.gd`
 - Tactical renders: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --capture-tactical`
   (`--capture-mission` for the Signal Box). Fresh clone: run `godot --headless --path . --import` first.

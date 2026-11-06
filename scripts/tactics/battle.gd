@@ -47,6 +47,7 @@ const UPLOAD_TURNS := 2
 const BLEED_TURNS := 2
 const PERSUADE_RANGE := 3
 const NOISE_SHOUT := 2      # a guard who spots you yells for the others
+const BROADCAST_STUN := 1   # regime turns the guards lose watching the footage air
 
 
 class Unit:
@@ -90,6 +91,7 @@ var sight := SIGHT
 var noise := 0
 var alarm := false
 var reinforce_in := 0       # turns until reinforcements arrive (0 = none coming)
+var stunned := 0            # regime turns the guards spend staring at the broadcast
 var upload := 0
 var last_upload_turn := 0
 var box := Vector2i(-1, -1)
@@ -497,6 +499,7 @@ func do_upload(u: Unit) -> bool:
 		return true
 	log.append("The footage is on every screen in the district")
 	alert_all("the broadcast")
+	stunned = BROADCAST_STUN
 	return true
 
 
@@ -661,8 +664,12 @@ func end_turn() -> void:
 	side = REGIME
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
-	for g in alive_units(REGIME):
-		act_unit(g)
+	if stunned > 0:
+		stunned -= 1
+		log.append("Every guard stares at the screens")
+	else:
+		for g in alive_units(REGIME):
+			act_unit(g)
 	if mission and reinforce_in > 0:
 		reinforce_in -= 1
 		if reinforce_in == 0:

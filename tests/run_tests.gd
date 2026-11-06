@@ -600,6 +600,19 @@ func test_mission_upload_takes_two_turns_and_trips_alarm() -> void:
 	check(not b.can_upload(far), "can't upload from across the yard")
 
 
+func test_mission_broadcast_freezes_guards() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Battle.BOX_POS + Vector2i(0, 1))
+	var g := b.add_unit("G", Battle.REGIME, Battle.BOX_POS + Vector2i(3, 2))
+	b.upload = Battle.UPLOAD_TURNS - 1
+	check(b.do_upload(you) and b.stunned == Battle.BROADCAST_STUN, "airing it freezes the guards")
+	var hp_before := you.hp
+	var pos_before := g.pos
+	b.end_turn()
+	check(you.hp == hp_before and g.pos == pos_before, "frozen guards neither move nor shoot")
+	check(b.stunned == 0 and "Every guard stares at the screens" in b.log, "the freeze lasts one turn")
+
+
 func test_mission_persuade() -> void:
 	var b := mission_yard(6)
 	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
