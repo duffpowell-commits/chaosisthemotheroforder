@@ -1,12 +1,14 @@
 extends Control
-## The playable slice (M2): title, district map + week planner, weekly report,
-## ending. Built in code from the M1 rules; phone-first (big touch targets,
+## The playable slice (M2-M3): title, district map + week planner, dialogue
+## scenes, weekly report, ending. Built in code from the M1 rules; phone-first (big touch targets,
 ## nothing on hover). Run with `-- --shots` to save screenshots of each screen.
 
 const RunState = preload("res://scripts/sim/run_state.gd")
 const Rules = preload("res://scripts/sim/rules.gd")
 const Policies = preload("res://scripts/sim/policies.gd")
 const Text = preload("res://scripts/ui/text.gd")
+const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
+const Story = preload("res://scripts/dialogue/story.gd")
 
 const SAVE_PATH := "user://run.save"
 
@@ -29,6 +31,11 @@ var backdrop_regime: TextureRect
 var backdrop_free: TextureRect
 var overlay: Control
 var message: Label
+# The dialogue scene on screen (M3): its runner, what to call when it ends,
+# and the portrait to keep showing through narration.
+var dlg_runner
+var dlg_done: Callable
+var dlg_portrait := ""
 
 
 func _ready() -> void:
@@ -151,6 +158,83 @@ func show_report() -> void:
 		show_ending if s.is_over() else _start_planning, 0))
 
 
+## A dialogue scene (docs/slice-spec.md §11.4): portrait, speaker, line, then
+## either Continue or the choices. Calls on_done(vars) when the scene ends.
+func show_dialogue(node: String, on_done: Callable) -> void:
+	dlg_runner = Dialogue.Runner.new(Story.load_nodes(), Story.context(s))
+	dlg_runner.start(node)
+	dlg_done = on_done
+	dlg_portrait = ""
+	_dialogue_step()
+
+
+func _dialogue_step() -> void:
+	var ev: Dictionary = dlg_runner.next()
+	if ev.type == "end":
+		dlg_done.call(dlg_runner.vars)
+		return
+	_clear()
+	_set_backdrop(_liberation())
+	var col := _vbox(14)
+	screen.add_child(col)
+	var speaker: String = ev.get("speaker", "")
+	if Story.PORTRAITS.has(speaker):
+		dlg_portrait = Story.PORTRAITS[speaker]
+	var row := _hbox(18)
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(row)
+	if dlg_portrait != "" and ResourceLoader.exists(dlg_portrait):
+		var frame := _panel(C_PANEL, C_LINE, 2)
+		frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var pic := TextureRect.new()
+		pic.texture = load(dlg_portrait)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		pic.custom_minimum_size = Vector2(300, 300)
+		frame.add_child(pic)
+		row.add_child(frame)
+	var talk := _panel(C_PANEL, C_LINE, 2)
+	talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	talk.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_child(talk)
+	var tc := _vbox(12)
+	talk.add_child(tc)
+	if ev.type == "line":
+		if speaker == "":
+			tc.add_child(_label(ev.text, 22, C_MUTED, true))
+		else:
+			tc.add_child(_label(Text.SPEAKERS.get(speaker, speaker.capitalize()), 18, C_ACCENT))
+			tc.add_child(_label(ev.text, 24, C_FG, true))
+		var go := _button("Continue", _dialogue_step, 0)
+		go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_child(go)
+	else:
+		tc.add_child(_label("What do you say?", 18, C_ACCENT))
+		for o in ev.options:
+			var b := _button(o.text, func():
+				dlg_runner.choose(o.index)
+				_dialogue_step(), 0)
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.custom_minimum_size = Vector2(0, 64)
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tc.add_child(b)
+
+
+## Skips to the end of the scenes on screen, taking the first choice each time (screenshots only).
+func _dialogue_finish_fast() -> void:
+	while dlg_runner != null:
+		var r = dlg_runner
+		var ev: Dictionary = r.next()
+		if ev.type == "choices":
+			r.choose(ev.options[0].index)
+		elif ev.type == "end":
+			dlg_runner = null
+			dlg_done.call(r.vars)  # may start the next scene and set dlg_runner again
+			if dlg_runner == r:
+				dlg_runner = null
+
+
 func show_ending() -> void:
 	_clear()
 	var e: Dictionary = Text.ENDINGS[s.ending]
@@ -204,10 +288,30 @@ func _end_week() -> void:
 	if err != "":
 		message.text = err
 		return
+	# Teodor's scenes play first: what you say in them decides the plan's choice.
+	_play_scenes(Story.pre_scenes(s, entries), entries, func(): _resolve(entries))
+
+
+func _resolve(entries: Array) -> void:
+	var before: Dictionary = s.teodor.duplicate(true)
 	Rules.resolve_week(s, entries)
 	plan.clear()
 	_save()
-	show_report()
+	var beats := Story.post_beats(before, s.teodor, entries).map(func(n): return {"node": n})
+	_play_scenes(beats, [], show_report)
+
+
+## Plays scenes one after another, then calls `done`. A scene tied to a plan
+## entry writes its `choice` into that entry.
+func _play_scenes(scenes: Array, entries: Array, done: Callable) -> void:
+	if scenes.is_empty():
+		done.call()
+		return
+	var scene: Dictionary = scenes.pop_front()
+	show_dialogue(scene.node, func(vars: Dictionary):
+		if scene.has("entry") and vars.has("choice"):
+			entries[scene.entry].choice = str(vars.choice)
+		_play_scenes(scenes, entries, done))
 
 
 func _save() -> void:
@@ -271,7 +375,7 @@ func _after_action(op: int, a: String) -> void:
 func _after_zone(entry: Dictionary, zone: String) -> void:
 	_close_overlay()
 	entry.zone = zone
-	var needs_choice: bool = Text.CHOICES.has(entry.action) and not (entry.action == "see_teodor" and s.teodor.state == "unmet")
+	var needs_choice: bool = Text.CHOICES.has(entry.action)
 	if needs_choice:
 		var box := _overlay_box("How?")
 		for c in Text.CHOICES[entry.action]:
@@ -535,11 +639,15 @@ func _take_shots() -> void:
 	await _snap(dir + "/3_pick_action.png")
 	_close_overlay()
 	_end_week()
-	await _snap(dir + "/4_report.png")
+	if dlg_runner != null:
+		_dialogue_step()  # past Teodor's first line, onto the scene proper
+	await _snap(dir + "/4_dialogue.png")
+	_dialogue_finish_fast()
+	await _snap(dir + "/5_report.png")
 	while not s.is_over():
 		Rules.resolve_week(s, Policies.careful_plan(s))
 	show_ending()
-	await _snap(dir + "/5_ending.png")
+	await _snap(dir + "/6_ending.png")
 	get_tree().quit()
 
 

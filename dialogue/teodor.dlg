@@ -1,0 +1,135 @@
+# Teodor, night foreman at the Freight Depot. docs/slice-spec.md §7.
+# Voice: short, plain, subtext. People in a police state talk around things.
+#
+# Context you can test: aid_runs, knows_skim, lied, confessed, path, loyalty,
+# legitimacy, heat, week. Setting `choice` tells the rules what you did:
+# "honest", "blackmail", "lie", or "" (nothing decided).
+
+== meet
+> Container yard, two in the morning. The cranes are still. One man is not.
+TEODOR: You're the one handing out soup in the dormitories.
+YOU: Some of it.
+TEODOR: Soup gets people killed here. Did they tell you that?
+YOU: They told me you run the night shift.
+TEODOR: I run cranes. Nights, I run cranes.
+> He lights a cigarette with a hand that doesn't shake.
+TEODOR: My brother ran a newsletter. Four pages. Recipes, mostly. Some opinions.
+TEODOR: He's in Kell now. Six years. For recipes.
+YOU: I'm sorry.
+TEODOR: Everyone's sorry. Come back when you're something else.
+-> END
+
+== talk
+> The tea shack behind Gate 4. Teodor pours two cups and drinks neither.
+TEODOR: Back again.
+if knows_skim -> talk_knows
+-> talk_menu
+
+== talk_knows
+> He watches you watch the cargo manifests on the wall.
+TEODOR: You've been listening in the depot. People notice who listens.
+-> talk_menu
+
+== talk_menu
+* Tell him what you're really doing. -> honest
+* [if knows_skim] You know about the cargo. -> blackmail
+* I can get your brother out of Kell. -> lie
+* Talk about nothing for an hour. -> around
+
+== honest
+set choice = "honest"
+YOU: We want the yards back. Not burned. Back.
+if aid_runs >= 2 -> honest_yes
+TEODOR: Everyone wants something back.
+TEODOR: Words are cheap at two in the morning. Show me, don't tell me.
+> He means the depot. He means his people eating.
+-> END
+
+== honest_yes
+> He turns the cup in his hands.
+TEODOR: The flour came twice. Nobody got arrested for eating it.
+TEODOR: That's more than the government managed.
+TEODOR: All right. The night shift is with you. Don't make me sorry.
+-> END
+
+== blackmail
+set choice = "blackmail"
+YOU: Crates go out the east gate light. Smugglers pay you for the difference.
+> He sets the cup down very carefully.
+TEODOR: And who would you tell?
+YOU: Nobody. If you help us.
+TEODOR: So that's what you are.
+TEODOR: Fine. I'll carry your boxes. Don't turn your back on me.
+-> END
+
+== lie
+set choice = "lie"
+YOU: We have people inside Kell. Help us, and your brother walks out.
+> Something in his face opens. It is hard to watch.
+TEODOR: You can do that?
+YOU: We can do that.
+TEODOR: Then I'm yours. The whole shift is yours.
+> There is no one inside Kell. There never was.
+-> END
+
+== around
+set choice = ""
+> You talk about the weather, the price of bread, a football match neither of you watched.
+TEODOR: Good tea. Come back when you've decided who you are.
+-> END
+
+== confess
+> You find him on the crane ladder at shift change.
+* Just say it. -> confess_plain
+* Start with why you lied. -> confess_why
+* Tell him what he's done for the cause first. -> confess_soft
+
+== confess_plain
+YOU: There's no one in Kell. There's no plan for your brother. I lied.
+-> confess_wait
+
+== confess_why
+YOU: I needed the dock. I needed it fast. So I told you what you wanted to hear.
+YOU: There's no plan for Kell.
+-> confess_wait
+
+== confess_soft
+YOU: The strike, the shift, all of it. None of this happens without you.
+YOU: And none of it was fair to you. There's no plan for Kell.
+-> confess_wait
+
+== confess_wait
+> He doesn't answer. Below you, the cranes start up one by one.
+-> END
+
+== confess_stayed
+> Three days of silence. Then he's at the safehouse door with a crate of parts.
+TEODOR: My brother would have told me the truth sooner.
+TEODOR: He'd also have stayed. So.
+-> END
+
+== confess_left
+> His locker at the depot is empty. Someone has scratched out the name tape.
+MARA: He said to tell you he's not angry. He said angry would mean he expected better.
+-> END
+
+== found_out
+> A guard at Kell takes a carton of cigarettes to answer one question.
+> Teodor learns there was never anyone inside. Not from you.
+MARA: He came by the safehouse. Didn't knock. Just stood across the street.
+MARA: Then he went back to the depot and told the night shift to go home.
+-> END
+
+== betrayal
+> Sirens on Varga Street at four in the morning. They knew which door.
+KESH: They came straight for the safehouse. Nobody followed us. Somebody told them.
+KESH: Teodor was the only one who knew the new address.
+> You remember what he said. Don't turn your back on me.
+-> END
+
+== strike
+> The east dock, end of shift. Teodor stands on a cable drum.
+TEODOR: They took my brother for four pages of recipes.
+TEODOR: Tonight the cranes stop. Nobody loads anything for anybody until they listen.
+> One by one, the floodlights go dark.
+-> END

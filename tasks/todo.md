@@ -18,10 +18,15 @@
 ## Phase 2 — Build the vertical slice (milestones from docs/slice-spec.md §13)
 - [x] M1 Run state + week loop, headless simulator + unit tests (12 tests; balance tuned)
 - [x] M2 District map, week planner, weekly report (playable 6-week run; autosave + continue)
-- [ ] M3 Dialogue runner + Teodor's three paths
+- [x] M3 Dialogue runner + Teodor's three paths (20 tests; portraits rendered)
 - [ ] M4 Tactical core: grid, AP, move, cover, shoot, basic AI
 - [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast
 - [ ] M6 Endings, saves, Android pass (5 clean runs on Duff's phone)
 
 ## Review
-_(filled in at the end of each phase)_
+- **M3 (Nov 6):** custom runner reads `dialogue/teodor.dlg` (lines, narration,
+  conditional choices, jumps, `set`). Teodor's choice now happens in the scene,
+  not on a card. All three paths reachable in tests; betrayal, found-out and
+  confession beats fire. Rules untouched, so balance is unchanged.
+  Open: portraits are a first pass (Kesh uses the riot-police base mesh);
+  Duff to judge them. The confession is still a dice roll (50% + 10%/Legitimacy).
