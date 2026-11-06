@@ -19,7 +19,7 @@
 - [x] M1 Run state + week loop, headless simulator + unit tests (12 tests; balance tuned)
 - [x] M2 District map, week planner, weekly report (playable 6-week run; autosave + continue)
 - [x] M3 Dialogue runner + Teodor's three paths (20 tests; portraits rendered)
-- [x] M4 Tactical core: grid, AP, move, cover, shoot, basic AI (29 tests; dumb-policy skirmish 58% won)
+- [x] M4 Tactical core: grid, AP, move, cover, shoot, basic AI (28 tests; dumb-policy skirmish 58% won)
   Done when: a skirmish on the street map is winnable and losable.
   Plan (same split as M1/M2: pure rules first, scene second):
   - [x] `scripts/tactics/battle.gd`: pure data. 14x14 grid, tiles (floor,
