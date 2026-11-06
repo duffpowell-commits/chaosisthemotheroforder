@@ -17,3 +17,10 @@ _Patterns learned from corrections. Reviewed at the start of each session._
   (ClaudeTokenSAP) blocked image reads in the M4 session, so the renders went
   to Duff unchecked. Try one Read on a render early; if it's blocked, say so
   and name the plugin from the error.
+- **A script that fails to compile can still print "all passed".** The test
+  runner counted tests as passed when their script failed to parse (errors
+  showed as "Nil" calls). `test_scripts_compile` now loads every game script;
+  still read the output for SCRIPT ERROR, not just the last line.
+- **Check the bot before tuning the game.** The first mission sim said the
+  Signal Box was nearly unwinnable; traces showed the bot walking into patrol
+  lines and stalling. Trace a couple of seeded runs before changing numbers.

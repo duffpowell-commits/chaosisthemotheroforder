@@ -7,16 +7,17 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Design: `docs/design.md` (locked decisions + open questions).
 - Current work: the vertical slice, `docs/slice-spec.md`. Progress: `tasks/todo.md`.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
-  M4 tactical core (skirmish from the title's Skirmish button).
-- Next: **M5 Signal Box mission** (noise, Sneak/Subdue/Overwatch/Interact, Persuade +
-  defection, broadcast, reinforcements, permadeath) feeding results back into the run.
+  M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays
+  the mission; the result finishes the week).
+- Next: **M6 endings, saves, Android pass** (five endings reachable; 5 clean runs
+  on Duff's phone).
 
 ## First thing next session
-- Open `docs/renders/tactical_*.png` with Read and judge them before M5. The M4
-  session couldn't: Duff's **ClaudeTokenSAP** plugin (shows as token-optimizer,
-  by Satyam Pandey) blocked every .png/.jpg read. Duff is turning it off. If
-  reads are still blocked, tell him which plugin the error names (also suspect
-  claude-context-optimizer) instead of judging renders by pixel stats.
+- Ask Duff how the Signal Box played on his phone, and whether 3 vs 4 guards
+  should stay brutal (bot: aired 48% quiet, usually nobody gets home) or ease off.
+  Numbers: `tasks/todo.md` M5 review.
+- Saves: a mission isn't saved mid-fight. Quitting during it rewinds to the
+  autosave from before the week was planned. Decide in M6 if that's OK.
 
 ## Layout
 - `scripts/sim/` pure game rules (`RunState`, `Rules`, `Policies`). No scenes.
@@ -24,15 +25,20 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   `story.gd` (which scene plays when). Scripts live in `dialogue/*.dlg`.
 - `scripts/ui/game.gd` the playable slice UI, built in code. `text.gd` player text.
 - `scripts/render_test.gd` the Rail Yards street (`-- --capture`, `--portraits`).
-- `scripts/tactics/battle.gd` pure tactical rules + AI. `tactical.gd` the scene
-  (extends render_test.gd; 2D grid overlay so the grade doesn't grey it out).
+- `scripts/tactics/battle.gd` pure tactical rules + AI, skirmish and Signal Box
+  mission (`create_mission`). `tactical.gd` the scene (extends render_test.gd;
+  2D grid overlay so the grade doesn't grey it out). The run hands the mission
+  over through `Engine` meta `"mission"` (game.gd `_resolve` / `_after_mission`).
 - `tests/run_tests.gd` headless tests. `tools/simulate.gd` balance simulator.
 
 ## Commands
 - Tests (run before every push): `godot --headless --path . --script tests/run_tests.gd`
 - Balance: `godot --headless --path . --script tools/simulate.gd`
 - Skirmish balance: `godot --headless --path . --script tools/skirmish_sim.gd`
+- Mission balance: `godot --headless --path . --script tools/mission_sim.gd -- 500`
+- Run -> mission -> run hook: `godot --headless --path . --script tools/mission_flow_check.gd`
 - Tactical renders: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --capture-tactical`
+  (`--capture-mission` for the Signal Box). Fresh clone: run `godot --headless --path . --import` first.
 - UI screenshots: `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shots`
 - Portraits: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/render_test.tscn -- --portraits`
 - In the cloud sandbox Godot isn't installed: download the 4.5-stable Linux zip

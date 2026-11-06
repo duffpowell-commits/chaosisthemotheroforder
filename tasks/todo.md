@@ -43,31 +43,39 @@
   - [x] Merge to main, update CLAUDE.md handoff.
   Deferred to M5 (spec §9): Sneak, Subdue, Overwatch, Interact, Persuade,
   noise meter, reinforcements, stabilize/permadeath.
-- [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast
+- [x] M5 Signal Box mission: noise, Persuade/defection, broadcast (43 tests; flow check passes)
   Done when: mission outcomes feed back into the run.
-  Pre-fix from the M4 renders: bottom HUD covered the squad's start row
-  (Mara/Kesh drawn behind the panel). Reframe the camera above the HUD.
-  Plan (pure rules first, then the scene, then the run hook):
-  - [ ] `battle.gd` mission mode (skirmish untouched): signal box tile, noise 0-10
-        (Shoot +3, Subdue +1; noise wakes patrols within 3 tiles per point),
-        alarm at 10 -> 3 reinforcements from the north 2 turns later.
-  - [ ] Abilities: Sneak (2 AP, one 4-tile move, hard to spot), Subdue (adjacent,
-        non-lethal), Overwatch (reaction shot on a guard moving in sight),
-        Upload (adjacent to the box, 2 separate turns; airing trips the alarm),
-        Stabilize (adjacent downed squadmate), Leave (south edge), Persuade
-        (You only, Wavering guard within 3: 40% + 10% x Legitimacy).
-  - [ ] Permadeath: downed squadmate dies after 2 of your turns unless stabilized.
-  - [ ] `Rules`: split resolve into begin (pay + diversions) / finish; mission
-        params (guards 4 + Depot attention - 2 if diversion to the Dorms, squad,
-        Legitimacy); apply the result (aired, kills, defections, dead, hurt).
-        No mission result = old auto-resolve, so the run simulator still works.
-  - [ ] Scene: noise + upload meters, action column, Wavering tag, extract row.
-  - [ ] Run hook: a planned Signal Box op plays the mission, then the week resolves.
-  - [ ] Tests + `tools/mission_sim.gd` (quiet and loud policies both win and lose).
-  - [ ] Renders `docs/renders/mission_*.png`; merge; CLAUDE.md handoff.
+  - [x] Pre-fix from the M4 renders: bottom HUD covered the squad's start row.
+        Camera reframed; actions moved to a right-hand column.
+  - [x] `battle.gd` mission mode (skirmish untouched, still 58% won): signal box
+        tile, noise 0-10 (Shoot +3, Subdue +1, a guard's shout +2; noise wakes
+        patrols within 3 tiles per point), alarm at 10 -> 3 reinforcements from
+        the north 2 turns later.
+  - [x] Sneak, Subdue, Overwatch, Upload (2 separate turns), Stabilize, Leave,
+        Persuade (You only, Wavering guard within 3: 40% + 10% x Legitimacy).
+  - [x] Permadeath: downed squadmate dies after 2 of your turns unless
+        stabilized; left behind = dead, carried out = 2 weeks out.
+  - [x] `Rules`: begin_resolve / finish_resolve, mission_params, apply_mission.
+        No result = old auto-resolve (run simulator unchanged but for 1 run in
+        1000, from the new 8-guard cap).
+  - [x] Scene: noise/upload/alarm meter, action column, Wavering tag, green exit row.
+  - [x] Run hook: a planned Signal Box op plays the mission, then the week resolves.
+  - [x] Tests + `tools/mission_sim.gd` + `tools/mission_flow_check.gd`.
+  - [x] Renders `docs/renders/mission_*.png`; merge; CLAUDE.md handoff.
 - [ ] M6 Endings, saves, Android pass (5 clean runs on Duff's phone)
 
 ## Review
+- **M5 (Nov 6):** the Signal Box is a played mission now. Planning the op sends
+  you plus everyone free that week into the depot; the result (aired, kills,
+  defections, dead, hurt) comes back and finishes the week. Departures from the
+  spec, all in the spirit of it: a spotting guard shouts (+2 noise, wakes guards
+  near him) instead of alerting the whole map, airing the footage alerts every
+  guard but doesn't sound the alarm, and the quiet/loud plan choice is gone
+  because you choose that in the mission. Balance (simple bot, 500 runs,
+  Legitimacy 1): squad of 3 vs 4 guards airs it 48% quiet / 9% loud and usually
+  nobody gets home; squad of 5 vs 4 airs it 96% / 92%. Recruiting and the
+  diversion decide it. A human should beat the bot. Open: is 3 vs 4 too harsh?
+  The M4 HUD bug is fixed and the M4 renders are re-shot.
 - **M4 (Nov 6):** pure rules in `scripts/tactics/battle.gd` (grid, LOS, per-side
   cover, flanking, high ground, 2 AP / 2 HP, 4 tiles per AP) with a guard AI
   (patrol -> alert -> best covered tile + shoot -> retreat at 1 HP when not

@@ -11,18 +11,15 @@ const ACTIONS := {
 	"see_teodor": {"title": "See Teodor", "desc": "The dock foreman at the Freight Depot. What you say to him matters."},
 	"diversion": {"title": "Signal Fire", "desc": "Fake a protest to pull the regime's eyes elsewhere. Fails get people arrested.", "zone": "Stage the decoy where?"},
 	"strike": {"title": "Call the strike", "desc": "Teodor stops the cranes. Depot +20, regime attention −1 for 2 weeks. Heat +2."},
-	"signal_box": {"title": "Signal box op", "desc": "Take the signal box and air the raid footage. Sentiment +20 everywhere if it works."},
+	"signal_box": {"title": "Signal box op", "desc": "Lead a squad into the depot, air the raid footage, get out. Everyone free this week goes with you."},
 	"confess": {"title": "Tell Teodor the truth", "desc": "There was never a plan for Kell. He might stay. He might not."},
 	"rally": {"title": "Call the rally", "desc": "Both zones are Ready. Fill the Rail Yards. Without proof, it gets crushed."},
 	"seize": {"title": "Seize the district", "desc": "Take the Rail Yards by force. Fast. You will hold it like an occupier."},
 }
 
-const CHOICES := {
-	"signal_box": [
-		{"id": "quiet", "title": "Go in quiet", "desc": "No killing. Harder, and it builds Legitimacy if it works."},
-		{"id": "loud", "title": "Go in loud", "desc": "Easier. People die. Regime TV gets its footage."},
-	],
-}
+## Plan actions that ask "how?" before they're committed. The Signal Box used to
+## (quiet or loud); since M5 you decide that in the mission itself.
+const CHOICES := {}
 
 ## Display names for dialogue speakers.
 const SPEAKERS := {"YOU": "You", "TEODOR": "Teodor", "MARA": "Mara", "KESH": "Kesh"}

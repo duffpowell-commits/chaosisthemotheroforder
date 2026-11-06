@@ -60,6 +60,10 @@ func _ready() -> void:
 	_set_backdrop(0.0)
 	if "--shots" in OS.get_cmdline_user_args():
 		_take_shots.call_deferred()
+	elif Engine.has_meta("mission") and Engine.get_meta("mission").has("result"):
+		var m: Dictionary = Engine.get_meta("mission")
+		Engine.remove_meta("mission")
+		_after_mission.call_deferred(m)
 	else:
 		show_title()
 
@@ -296,7 +300,27 @@ func _end_week() -> void:
 
 func _resolve(entries: Array) -> void:
 	var before: Dictionary = s.teodor.duplicate(true)
-	Rules.resolve_week(s, entries)
+	if entries.any(func(e): return e.action == "signal_box"):
+		# M5: pay and run diversions, play the mission, finish the week after.
+		Rules.begin_resolve(s, entries)
+		if not s.is_over():
+			Engine.set_meta("mission", {"state": s, "entries": entries, "teodor_before": before,
+				"params": Rules.mission_params(s, entries)})
+			get_tree().change_scene_to_file("res://scenes/tactical.tscn")
+			return
+	else:
+		Rules.resolve_week(s, entries)
+	_after_resolve(entries, before)
+
+
+## Back from the Signal Box with its result: finish the week it interrupted.
+func _after_mission(m: Dictionary) -> void:
+	s = m.state
+	Rules.finish_resolve(s, m.entries, m.result)
+	_after_resolve(m.entries, m.teodor_before)
+
+
+func _after_resolve(entries: Array, before: Dictionary) -> void:
 	plan.clear()
 	_save()
 	var beats := Story.post_beats(before, s.teodor, entries).map(func(n): return {"node": n})

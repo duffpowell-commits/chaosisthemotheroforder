@@ -1,10 +1,14 @@
 extends "res://scripts/render_test.gd"
-## Tactical map (M4): the Rail Yards street with a grid on it, driven by
-## scripts/tactics/battle.gd. Tap a squad member (or their button), tap a
-## blue tile to move, tap a guard to aim, then Shoot. End turn hands over to
-## the regime.
-## Run `res://scenes/tactical.tscn -- --capture-tactical` to save renders
-## to docs/renders/tactical_*.png.
+## Tactical map: the Rail Yards street with a grid on it, driven by
+## scripts/tactics/battle.gd. Two modes:
+## - Skirmish (M4, the title's Skirmish button): kill or rout the guards.
+## - Signal Box mission (M5): launched by game.gd with Engine meta "mission".
+##   Upload the footage at the box, get out the south edge, and the result goes
+##   back to the run.
+## Tap a squad member (or their button), tap a blue tile to move, tap a guard to
+## aim. Actions sit in the column on the right.
+## `res://scenes/tactical.tscn -- --capture-tactical` saves skirmish renders,
+## `-- --capture-mission` saves mission renders, both to docs/renders/.
 
 const Battle = preload("res://scripts/tactics/battle.gd")
 
@@ -12,27 +16,40 @@ const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
 const C_ACCENT := Color("e2713b")
 const C_PANEL := Color("171a1f")
+const C_RED := Color("e05a46")
+const C_GOOD := Color("7fbf7a")
+const C_MOVE := Color(0.3, 0.62, 1.0, 0.32)
+const C_SNEAK := Color(0.62, 0.42, 1.0, 0.36)
+const C_EXIT := Color(0.45, 0.85, 0.45, 0.30)
+
+const TOP_H := 56
+const BOTTOM_H := 148
+const COLUMN_W := 210
 
 var battle
 var seed_value := 1
-var unit_nodes := {}   # Battle.Unit -> Node3D
-var unit_tags := {}    # Battle.Unit -> Label3D
+var mission_meta := {}  # set when the run launched the Signal Box
+var unit_nodes := {}    # Battle.Unit -> Node3D
+var unit_tags := {}     # Battle.Unit -> Label3D
 ## Grid highlights are drawn in 2D above the colour grade, so the grade
 ## can't wash out the move range and the target.
 var overlay: Node2D
-var tile_fill := {}    # Vector2i -> Color for this frame
+var tile_fill := {}     # Vector2i -> Color for this frame
 var selected = null
 var aimed = null
+var sneaking := false
 var busy := false
 var world_root: Node3D
 
 var top_label: Label
+var meter_label: Label
 var log_label: Label
 var squad_row: HBoxContainer
-var shoot_btn: Button
+var column: VBoxContainer
 var end_btn: Button
 var result_panel: PanelContainer
 var result_label: Label
+var result_buttons: VBoxContainer
 
 
 func _ready() -> void:
@@ -47,9 +64,18 @@ func _ready() -> void:
 	_build_hud()
 	_apply(0.0)
 	env.fog_density = 0.012  # keep the far end of the grid readable
+	var args := OS.get_cmdline_user_args()
+	if "--capture-mission" in args and not Engine.has_meta("mission"):
+		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
+			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
+			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
+	if Engine.has_meta("mission"):
+		mission_meta = Engine.get_meta("mission")
 	_new_battle(seed_value)
-	if "--capture-tactical" in OS.get_cmdline_user_args():
+	if "--capture-tactical" in args:
 		_capture_tactical()
+	elif "--capture-mission" in args:
+		_capture_mission()
 
 
 # ---------- coordinates ----------
@@ -68,12 +94,14 @@ func _ground(p: Vector2i) -> float:
 
 # ---------- build ----------
 
+## Framed so the whole 14x14 grid sits between the top bar, the bottom panel
+## and the action column (M4's camera put the squad's start row under the HUD).
 func _build_tactical_camera() -> void:
 	cam = Camera3D.new()
-	cam.fov = 50
+	cam.fov = 52
 	add_child(cam)
-	cam.position = Vector3(4.5, 12.5, 8.5)
-	cam.look_at(Vector3(0.0, 0.0, -3.2))
+	cam.position = Vector3(3.6, 13.6, 9.4)
+	cam.look_at(Vector3(0.6, 0.0, -0.4))
 	cam.current = true
 
 
@@ -96,15 +124,17 @@ func _new_battle(s: int) -> void:
 		world_root.queue_free()
 	world_root = Node3D.new()
 	add_child(world_root)
-	battle = Battle.create_skirmish(s)
+	if mission_meta.is_empty():
+		battle = Battle.create_skirmish(s)
+	else:
+		battle = Battle.create_mission(mission_meta.params)
 	unit_nodes.clear()
 	unit_tags.clear()
-	selected = null
+	selected = battle.alive_units(Battle.US)[0]
 	aimed = null
+	sneaking = false
 	busy = false
 	_build_cover()
-	for u in battle.units:
-		_spawn_unit(u)
 	result_panel.visible = false
 	_refresh()
 
@@ -137,6 +167,23 @@ func _build_cover() -> void:
 					for c in [Vector3(-0.45, 0.42, -0.45), Vector3(0.45, 0.42, 0.45)]:
 						_box(Vector3(0.08, 0.84, 0.08), w + c, rib, world_root)
 					_box(Vector3(1.0, 0.05, 0.05), w + Vector3(0, 1.85, -0.48), rail, world_root)
+				Battle.BOX:
+					_build_signal_box(w)
+
+
+## The signal box: a grey relay cabinet with a lit screen facing the yard and
+## a cable mast. The light is the only warm thing in the depot.
+func _build_signal_box(w: Vector3) -> void:
+	_box(Vector3(0.9, 1.9, 0.8), w + Vector3(0, 0.95, 0), _flat(Color(0.3, 0.31, 0.3), 0.5), world_root)
+	_box(Vector3(0.95, 0.08, 0.85), w + Vector3(0, 1.94, 0), _flat(Color(0.1, 0.1, 0.11), 0.6), world_root)
+	_box(Vector3(0.62, 0.42, 0.03), w + Vector3(0, 1.3, 0.42), _flat(Color(0.1, 0.12, 0.1), 0.3, Color(0.95, 0.6, 0.25), 2.2), world_root)
+	_box(Vector3(0.06, 1.6, 0.06), w + Vector3(0.38, 2.7, -0.3), _flat(Color(0.08, 0.08, 0.09), 0.6), world_root)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.62, 0.3)
+	glow.light_energy = 1.6
+	glow.omni_range = 3.2
+	glow.position = w + Vector3(0, 1.3, 0.9)
+	world_root.add_child(glow)
 
 
 func _spawn_unit(u) -> void:
@@ -152,14 +199,19 @@ func _spawn_unit(u) -> void:
 		"Kesh":
 			n = _person("riot_police", p, 180, world_root, false, {"shirt": Color(0.12, 0.2, 0.16), "pants": Color(0.2, 0.17, 0.13), "hair": Color(0.05, 0.05, 0.05)})
 		_:
-			n = _person("riot_police", p, 0, world_root, true, {}, "weight_shift")
+			if u.side == Battle.US:
+				# Teodor and new recruits: work clothes until they get their own models.
+				n = _person("civilian_woman" if u.name.length() % 2 == 0 else "riot_police", p, 180, world_root, false,
+					{"shirt": Color(0.24, 0.2, 0.12), "pants": Color(0.12, 0.13, 0.16), "hair": Color(0.2, 0.18, 0.16)})
+			else:
+				n = _person("riot_police", p, 0, world_root, true, {}, "weight_shift")
 	unit_nodes[u] = n
 	var tag := Label3D.new()
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	tag.no_depth_test = true
-	tag.font_size = 44
+	tag.font_size = 56
 	tag.pixel_size = 0.006
-	tag.outline_size = 10
+	tag.outline_size = 12
 	tag.position = Vector3(0, 2.15, 0)
 	n.add_child(tag)
 	unit_tags[u] = tag
@@ -175,50 +227,73 @@ func _build_hud() -> void:
 	var ui := CanvasLayer.new()
 	ui.layer = 3
 	add_child(ui)
+
 	var top := PanelContainer.new()
 	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top.custom_minimum_size = Vector2(0, TOP_H)
 	top.add_theme_stylebox_override("panel", _panel_style())
 	ui.add_child(top)
 	var tb := HBoxContainer.new()
+	tb.add_theme_constant_override("separation", 24)
 	top.add_child(tb)
 	top_label = _hud_label("", 24, C_FG)
 	top_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	tb.add_child(top_label)
+	meter_label = _hud_label("", 22, C_FG)
+	meter_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tb.add_child(meter_label)
 
 	var bottom := PanelContainer.new()
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -150
+	bottom.offset_top = -BOTTOM_H
 	bottom.add_theme_stylebox_override("panel", _panel_style())
 	ui.add_child(bottom)
 	var col := VBoxContainer.new()
 	bottom.add_child(col)
 	log_label = _hud_label("", 18, C_MUTED)
-	log_label.custom_minimum_size = Vector2(0, 52)
+	log_label.custom_minimum_size = Vector2(0, 50)
 	col.add_child(log_label)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	col.add_child(row)
 	squad_row = HBoxContainer.new()
-	squad_row.add_theme_constant_override("separation", 10)
+	squad_row.add_theme_constant_override("separation", 8)
 	squad_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(squad_row)
-	shoot_btn = _hud_button("Shoot", _on_shoot)
-	row.add_child(shoot_btn)
 	end_btn = _hud_button("End turn", _on_end_turn)
+	end_btn.custom_minimum_size = Vector2(COLUMN_W - 20, 56)
 	row.add_child(end_btn)
+
+	# Actions for the selected unit, stacked on the right above the bottom panel.
+	column = VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	column.anchor_left = 1.0
+	column.anchor_right = 1.0
+	column.anchor_bottom = 1.0
+	column.offset_left = -COLUMN_W
+	column.offset_right = -10
+	column.offset_top = TOP_H + 10
+	column.offset_bottom = -BOTTOM_H - 10
+	column.alignment = BoxContainer.ALIGNMENT_END
+	ui.add_child(column)
 
 	result_panel = PanelContainer.new()
 	result_panel.set_anchors_preset(Control.PRESET_CENTER)
+	result_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	result_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	result_panel.add_theme_stylebox_override("panel", _panel_style())
 	ui.add_child(result_panel)
 	var rc := VBoxContainer.new()
 	rc.add_theme_constant_override("separation", 14)
 	result_panel.add_child(rc)
-	result_label = _hud_label("", 30, C_FG)
+	result_label = _hud_label("", 28, C_FG)
 	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_label.custom_minimum_size = Vector2(560, 0)
 	rc.add_child(result_label)
-	rc.add_child(_hud_button("Fight again", func(): _new_battle(seed_value + 1)))
-	rc.add_child(_hud_button("Back to the run", func(): get_tree().change_scene_to_file("res://scenes/game.tscn")))
+	result_buttons = VBoxContainer.new()
+	result_buttons.add_theme_constant_override("separation", 10)
+	rc.add_child(result_buttons)
 	result_panel.visible = false
 
 
@@ -253,55 +328,144 @@ func _hud_button(t: String, cb: Callable) -> Button:
 # ---------- state -> screen ----------
 
 func _refresh() -> void:
-	var w: String = battle.winner()
-	top_label.text = "Turn %d  ·  %s  ·  Guards left: %d" % [battle.turn,
-		"Your move" if battle.side == Battle.US else "Regime move", battle.alive_units(Battle.REGIME).size()]
+	var over: bool = battle.is_over()
+	var who := "Your move" if battle.side == Battle.US else "Regime move"
+	if battle.mission:
+		top_label.text = "Turn %d  ·  %s  ·  The Signal Box" % [battle.turn, who]
+		var up := "Upload %d/%d" % [battle.upload, Battle.UPLOAD_TURNS] if battle.upload < Battle.UPLOAD_TURNS else "AIRED: get out south"
+		var alarm := ""
+		if battle.alarm:
+			alarm = "  ·  ALARM" + (": %d more in %d" % [Battle.REINFORCEMENTS, battle.reinforce_in] if battle.reinforce_in > 0 else "")
+		meter_label.text = "Noise %d/%d  ·  %s%s" % [battle.noise, Battle.NOISE_MAX, up, alarm]
+		meter_label.add_theme_color_override("font_color", C_RED if battle.alarm else (C_GOOD if battle.upload >= Battle.UPLOAD_TURNS else C_FG))
+	else:
+		top_label.text = "Turn %d  ·  %s  ·  Guards left: %d" % [battle.turn, who, battle.alive_units(Battle.REGIME).size()]
+		meter_label.text = ""
 	log_label.text = "\n".join(battle.log.slice(maxi(0, battle.log.size() - 2)))
+	if selected != null and not selected.alive():
+		selected = null
+	if aimed != null and (not aimed.alive() or aimed.side == Battle.US):
+		aimed = null
+	_refresh_squad()
+	_refresh_units()
+	_refresh_tiles()
+	_refresh_column()
+	end_btn.disabled = busy or over
+	if over and not result_panel.visible:
+		_show_result()
+
+
+func _refresh_squad() -> void:
 	for c in squad_row.get_children():
 		c.queue_free()
-	for u in battle.units:
-		if u.side != Battle.US:
-			continue
-		var b := _hud_button("%s  %s  %s" % [u.name, _pips(u.hp, "♥"), _pips(u.ap, "●")], func(): _select(u))
-		b.custom_minimum_size = Vector2(190, 56)
+	var ours: Array = battle.units.filter(func(u): return u.side == Battle.US)
+	var w := 188 if ours.size() <= 4 else 150
+	for u in ours:
+		var state := "%s  %s" % [_pips(u.hp, "♥"), _pips(u.ap, "●")]
+		if u.escaped:
+			state = "out"
+		elif u.dead:
+			state = "dead"
+		elif u.downed():
+			state = "stable" if u.stabilized else "bleeding %d" % u.bleed
+		var b := _hud_button("%s  %s" % [u.name, state], func(): _select(u))
+		b.custom_minimum_size = Vector2(w, 56)
+		b.add_theme_font_size_override("font_size", 20 if ours.size() <= 4 else 17)
 		b.disabled = not u.alive() or busy
 		if u == selected:
 			b.add_theme_color_override("font_color", C_ACCENT)
+		elif u.downed() and not u.stabilized:
+			b.add_theme_color_override("font_color_disabled", C_RED)
 		squad_row.add_child(b)
+
+
+func _refresh_units() -> void:
 	for u in battle.units:
+		if not unit_nodes.has(u):
+			_spawn_unit(u)  # reinforcements
 		var n: Node3D = unit_nodes[u]
 		var tag: Label3D = unit_tags[u]
-		if not u.alive():
-			tag.visible = false
-			if u.escaped:
-				n.visible = false
-			else:
-				n.rotation.x = deg_to_rad(-88)  # downed
+		if u.escaped:
+			n.visible = false
 			continue
-		tag.text = "%s %s" % [u.name if u.side == Battle.US else "", _pips(u.hp, "♥")]
-		tag.modulate = C_FG if u.side == Battle.US else Color(1.0, 0.55, 0.45)
-		if u.side == Battle.REGIME and u.state == Battle.PATROL:
-			tag.text += " ?"
+		if not u.alive():
+			n.rotation.x = deg_to_rad(-88)  # downed
+			tag.visible = u.side == Battle.US and u.downed()
+			tag.text = "%s %s" % [u.name, "stable" if u.stabilized else "bleeding"]
+			tag.modulate = C_FG if u.stabilized else C_RED
+			continue
+		tag.visible = true
+		if u.side == Battle.US:
+			tag.text = "%s %s" % [u.name, _pips(u.hp, "♥")]
+			tag.modulate = C_ACCENT if u == selected else C_FG
+			if u.hidden:
+				tag.text += " (hidden)"
+			if u.overwatch:
+				tag.text += " ◎"
+		else:
+			tag.text = _pips(u.hp, "♥")
+			if u.wavering:
+				tag.text = "Wavering " + tag.text
+			if u.state == Battle.PATROL:
+				tag.text += " ?"
+			tag.modulate = Color(1.0, 0.85, 0.45) if u.wavering else Color(1.0, 0.55, 0.45)
 		_face(u)
-	# Tiles
+
+
+func _refresh_tiles() -> void:
 	tile_fill.clear()
-	if selected != null and selected.alive() and battle.side == Battle.US and not busy:
-		for p in battle.reachable(selected, selected.ap):
-			tile_fill[p] = Color(0.3, 0.62, 1.0, 0.32)
-	if selected != null and selected.alive():
+	var ours: bool = battle.side == Battle.US and not busy and not battle.is_over()
+	if battle.mission and battle.upload >= Battle.UPLOAD_TURNS:
+		for x in range(Battle.W):
+			tile_fill[Vector2i(x, Battle.H - 1)] = C_EXIT
+	if selected != null and ours:
+		if sneaking:
+			for p in battle.reachable(selected, 1):
+				tile_fill[p] = C_SNEAK
+		else:
+			for p in battle.reachable(selected, selected.ap):
+				tile_fill[p] = C_MOVE
+	if selected != null:
 		tile_fill[selected.pos] = Color(1.0, 0.75, 0.25, 0.5)
-	if aimed != null and aimed.alive():
+	if aimed != null:
 		tile_fill[aimed.pos] = Color(1.0, 0.25, 0.15, 0.55)
 	overlay.queue_redraw()
+
+
+## Only actions that make sense right now; a phone has no room for greyed-out walls.
+func _refresh_column() -> void:
+	for c in column.get_children():
+		c.queue_free()
+	if busy or battle.is_over() or battle.side != Battle.US or selected == null:
+		return
+	var u = selected
+	if battle.mission:
+		if u.ap >= Battle.AP_PER_TURN:
+			var sb := _hud_button("Sneak: on" if sneaking else "Sneak", _on_sneak_toggle)
+			if sneaking:
+				sb.add_theme_color_override("font_color", C_ACCENT)
+			column.add_child(sb)
+		if battle.can_upload(u):
+			column.add_child(_hud_button("Upload %d/%d" % [battle.upload + 1, Battle.UPLOAD_TURNS], _on_upload))
+		var hurt = battle.stabilize_target(u)
+		if hurt != null:
+			column.add_child(_hud_button("Stabilize %s" % hurt.name, _on_stabilize))
+		if battle.can_leave(u):
+			column.add_child(_hud_button("Leave", _on_leave))
+		if battle.can_persuade(u, aimed):
+			column.add_child(_hud_button("Persuade %d%%" % battle.persuade_chance(), _on_persuade))
+		if battle.can_subdue(u, aimed):
+			column.add_child(_hud_button("Subdue", _on_subdue))
+		if u.ap >= 1:
+			column.add_child(_hud_button("Overwatch", _on_overwatch))
 	var c := 0
-	if selected != null and aimed != null:
-		c = battle.chance(selected, aimed)
-	shoot_btn.text = "Shoot %d%%" % c if c > 0 else "Shoot"
-	shoot_btn.disabled = busy or c <= 0 or selected == null or selected.ap < 1
-	end_btn.disabled = busy or w != ""
-	if w != "":
-		result_label.text = "The yard is ours." if w == Battle.US else "The squad is down."
-		result_panel.visible = true
+	if aimed != null:
+		c = battle.chance(u, aimed)
+	var shoot := _hud_button("Shoot %d%%" % c if c > 0 else "Shoot", _on_shoot)
+	shoot.disabled = c <= 0 or u.ap < 1
+	column.add_child(shoot)
+	for b in column.get_children():
+		b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
 
 
 func _tile_poly(p: Vector2i, inset: float) -> PackedVector2Array:
@@ -320,7 +484,7 @@ func _draw_overlay() -> void:
 		for x in range(Battle.W):
 			var p := Vector2i(x, y)
 			var t: int = battle.tile(p)
-			if t == Battle.HALF or t == Battle.FULL:
+			if t != Battle.FLOOR and t != Battle.HIGH:
 				continue
 			var poly := _tile_poly(p, 0.04)
 			if tile_fill.has(p):
@@ -346,6 +510,50 @@ func _face(u) -> void:
 	unit_nodes[u].rotation.y = atan2(d.x, d.z) + PI
 
 
+# ---------- the end ----------
+
+func _show_result() -> void:
+	for c in result_buttons.get_children():
+		c.queue_free()
+	if not battle.mission:
+		var w: String = battle.winner()
+		result_label.text = "The yard is ours." if w == Battle.US else "The squad is down."
+		result_buttons.add_child(_hud_button("Fight again", func(): _new_battle(seed_value + 1)))
+		result_buttons.add_child(_hud_button("Back to the run", func(): get_tree().change_scene_to_file("res://scenes/game.tscn")))
+		result_panel.visible = true
+		return
+	var r: Dictionary = battle.mission_result()
+	var lines: Array[String] = []
+	lines.append("The footage aired." if r.aired else "The screens stayed on the regime's channel.")
+	if not r.out.is_empty():
+		lines.append("Got out: %s." % ", ".join(r.out))
+	if not r.hurt.is_empty():
+		lines.append("Carried out: %s." % ", ".join(r.hurt))
+	if not r.dead.is_empty():
+		lines.append("Didn't make it: %s." % ", ".join(r.dead))
+	var counts := []
+	if r.kills > 0:
+		counts.append("%d killed" % r.kills)
+	if r.subdued > 0:
+		counts.append("%d subdued" % r.subdued)
+	if r.defections > 0:
+		counts.append("%d came over" % r.defections)
+	if not counts.is_empty():
+		lines.append(", ".join(counts) + ".")
+	result_label.text = "\n".join(lines)
+	result_buttons.add_child(_hud_button("Back to the week", func(): _return_to_run(r)))
+	result_panel.visible = true
+
+
+func _return_to_run(r: Dictionary) -> void:
+	if mission_meta.has("state"):
+		mission_meta["result"] = r
+		Engine.set_meta("mission", mission_meta)
+	else:
+		Engine.remove_meta("mission")  # a test launch with no run behind it
+	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+
 # ---------- input ----------
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -357,7 +565,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		pressed = true
 		at = event.position
-	if not pressed or busy or battle.winner() != "" or battle.side != Battle.US:
+	if not pressed or busy or battle.is_over() or battle.side != Battle.US:
 		return
 	var o := cam.project_ray_origin(at)
 	var d := cam.project_ray_normal(at)
@@ -378,29 +586,42 @@ func tap_tile(p: Vector2i) -> void:
 		aimed = u
 		_refresh()
 		return
-	if selected != null and battle.reachable(selected, selected.ap).has(p):
-		_move_selected(p)
+	if selected == null:
+		return
+	if sneaking and battle.reachable(selected, 1).has(p):
+		_move_selected(p, true)
+	elif not sneaking and battle.reachable(selected, selected.ap).has(p):
+		_move_selected(p, false)
 
 
 func _select(u) -> void:
 	if not u.alive():
 		return
+	if u != selected:
+		sneaking = false
 	selected = u
 	_refresh()
 
 
-func _move_selected(p: Vector2i) -> void:
+func _move_selected(p: Vector2i, sneak: bool) -> void:
 	var path: Array[Vector2i] = battle.path_to(selected, p)
-	if not battle.move(selected, p):
+	var ok: bool = battle.sneak(selected, p) if sneak else battle.move(selected, p)
+	if not ok:
 		return
+	sneaking = false
 	busy = true
 	_refresh()
 	var n: Node3D = unit_nodes[selected]
 	var tw := create_tween()
 	for step in path:
-		tw.tween_property(n, "position", to_world(step) + Vector3(0, _ground(step), 0), 0.12)
+		tw.tween_property(n, "position", to_world(step) + Vector3(0, _ground(step), 0), 0.2 if sneak else 0.12)
 	await tw.finished
 	busy = false
+	_refresh()
+
+
+func _on_sneak_toggle() -> void:
+	sneaking = not sneaking
 	_refresh()
 
 
@@ -410,40 +631,81 @@ func _on_shoot() -> void:
 	var target = aimed
 	var hit: bool = battle.shoot(selected, target)
 	_flash(selected, target, hit)
-	if not target.alive():
-		aimed = null
+	_refresh()
+
+
+func _on_subdue() -> void:
+	if battle.subdue(selected, aimed):
+		_pop(aimed, "SUBDUED", C_FG)
+	_refresh()
+
+
+func _on_persuade() -> void:
+	var target = aimed
+	var ok: bool = battle.persuade(selected, target)
+	_pop(target, "JOINS YOU" if ok else "REFUSES", C_GOOD if ok else C_MUTED)
+	_refresh()
+
+
+func _on_overwatch() -> void:
+	battle.overwatch(selected)
+	_refresh()
+
+
+func _on_upload() -> void:
+	battle.do_upload(selected)
+	_refresh()
+
+
+func _on_stabilize() -> void:
+	battle.stabilize(selected)
+	_refresh()
+
+
+func _on_leave() -> void:
+	battle.leave(selected)
+	selected = null
+	var left: Array = battle.alive_units(Battle.US)
+	if not left.is_empty():
+		selected = left[0]
 	_refresh()
 
 
 func _flash(from, to, hit: bool) -> void:
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
-	var b := to_world(to.pos) + Vector3(0, _ground(to.pos) + 1.2, 0)
 	var light := OmniLight3D.new()
 	light.position = a
 	light.light_color = Color(1.0, 0.75, 0.4)
 	light.light_energy = 6.0
 	light.omni_range = 5.0
 	world_root.add_child(light)
+	var tw := create_tween()
+	tw.tween_property(light, "light_energy", 0.0, 0.25)
+	tw.tween_callback(light.queue_free)
+	_pop(to, "HIT" if hit else "MISS", Color(1.0, 0.4, 0.3) if hit else C_MUTED)
+
+
+func _pop(at, text: String, col: Color) -> void:
+	var b := to_world(at.pos) + Vector3(0, _ground(at.pos) + 1.2, 0)
 	var pop := Label3D.new()
-	pop.text = "HIT" if hit else "MISS"
+	pop.text = text
 	pop.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	pop.no_depth_test = true
 	pop.font_size = 64
 	pop.pixel_size = 0.007
 	pop.outline_size = 12
-	pop.modulate = Color(1.0, 0.4, 0.3) if hit else C_MUTED
+	pop.modulate = col
 	pop.position = b + Vector3(0, 1.1, 0)
 	world_root.add_child(pop)
 	var tw := create_tween()
-	tw.tween_property(light, "light_energy", 0.0, 0.25)
-	tw.parallel().tween_property(pop, "position:y", pop.position.y + 0.6, 0.9)
-	tw.tween_callback(light.queue_free)
+	tw.tween_property(pop, "position:y", pop.position.y + 0.6, 0.9)
 	tw.tween_callback(pop.queue_free)
 
 
 func _on_end_turn() -> void:
 	busy = true
 	aimed = null
+	sneaking = false
 	var before := {}
 	for u in battle.units:
 		before[u] = u.pos
@@ -452,16 +714,17 @@ func _on_end_turn() -> void:
 	_refresh()
 	var tw := create_tween().set_parallel(true)
 	for u in battle.units:
-		if u.side == Battle.REGIME and before[u] != u.pos:
+		if u.side == Battle.REGIME and before.has(u) and before[u] != u.pos:
 			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
 	tw.tween_interval(0.5)
 	await tw.finished
 	for line in battle.log.slice(log_start):
-		if " hits " in line or " misses " in line:
+		if _shot_line(line):
 			_flash_from_line(line)
 	busy = false
-	if selected != null and not selected.alive():
-		selected = null
+	if selected == null or not selected.alive():
+		var left: Array = battle.alive_units(Battle.US)
+		selected = left[0] if not left.is_empty() else null
 	_refresh()
 
 
@@ -471,10 +734,17 @@ func _flash_from_line(line: String) -> void:
 	for u in battle.units:
 		if line.begins_with(u.name + " "):
 			shooter = u
-		elif (" " + u.name + " ") in line:
+		elif (" " + u.name + " ") in line or line.contains(" " + u.name + " ("):
 			target = u
 	if shooter != null and target != null:
-		_flash(shooter, target, " hits " in line)
+		_flash(shooter, target, " hits " in line or " hit " in line)
+
+
+static func _shot_line(line: String) -> bool:
+	for w in [" hits ", " hit ", " misses ", " miss "]:
+		if w in line:
+			return true
+	return false
 
 
 # ---------- renders ----------
@@ -486,20 +756,57 @@ func _wait(frames: int) -> void:
 
 func _shot(name: String) -> void:
 	await _wait(30)
-	get_viewport().get_texture().get_image().save_png("res://docs/renders/tactical_%s.png" % name)
-	print("saved tactical_", name)
+	get_viewport().get_texture().get_image().save_png("res://docs/renders/%s.png" % name)
+	print("saved ", name)
 
 
 func _capture_tactical() -> void:
-	await _shot("start")
+	await _shot("tactical_start")
 	_select(battle.units[1])
-	await _shot("move_range")
-	await _move_selected(Vector2i(6, 9))
+	await _shot("tactical_move_range")
+	await _move_selected(Vector2i(6, 9), false)
 	var g = battle.units[5]  # the depot-yard patrol
 	aimed = g
 	_refresh()
-	await _shot("aim")
+	await _shot("tactical_aim")
 	_on_end_turn()
 	await _wait(50)
-	await _shot("regime_turn")
+	await _shot("tactical_regime_turn")
+	get_tree().quit()
+
+
+## Scripted beats of one Signal Box run (seeded), saved as mission_*.png.
+func _capture_mission() -> void:
+	await _shot("mission_start")
+	sneaking = true
+	_refresh()
+	await _shot("mission_sneak")
+	await _move_selected(Vector2i(3, 9), true)
+	# Fast-forward a scripted approach so the box and the Wavering guard are in frame.
+	var you = battle.units[0]
+	sneaking = false
+	you.pos = Vector2i(6, 2)
+	battle.units[1].pos = Vector2i(8, 2)
+	for u in battle.alive_units(Battle.US):
+		unit_nodes[u].position = to_world(u.pos) + Vector3(0, _ground(u.pos), 0)
+	for g in battle.alive_units(Battle.REGIME):
+		if g.wavering:
+			g.pos = Vector2i(4, 2)
+			unit_nodes[g].position = to_world(g.pos)
+			aimed = g
+	you.ap = 2
+	selected = you
+	_refresh()
+	await _shot("mission_persuade")
+	battle.do_upload(you)
+	battle.noise = 7
+	battle.alarm = true
+	battle.reinforce_in = 1
+	_refresh()
+	await _shot("mission_upload")
+	battle.upload = Battle.UPLOAD_TURNS
+	for u in battle.alive_units(Battle.US):
+		u.escaped = true
+	_refresh()
+	await _shot("mission_result")
 	get_tree().quit()
