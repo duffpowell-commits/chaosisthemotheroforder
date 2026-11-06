@@ -5,7 +5,7 @@ config_version=5
 
 config/name="Chaos Is the Mother of Order"
 config/description="Render test: Rail Yards street, Frontline grade."
-run/main_scene="res://scenes/render_test.tscn"
+run/main_scene="res://scenes/game.tscn"
 config/features=PackedStringArray("4.5", "Mobile")
 
 [display]

@@ -17,7 +17,7 @@
 
 ## Phase 2 — Build the vertical slice (milestones from docs/slice-spec.md §13)
 - [x] M1 Run state + week loop, headless simulator + unit tests (12 tests; balance tuned)
-- [ ] M2 District map, week planner, weekly report
+- [x] M2 District map, week planner, weekly report (playable 6-week run; autosave + continue)
 - [ ] M3 Dialogue runner + Teodor's three paths
 - [ ] M4 Tactical core: grid, AP, move, cover, shoot, basic AI
 - [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast

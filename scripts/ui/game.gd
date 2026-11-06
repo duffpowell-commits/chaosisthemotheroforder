@@ -1,0 +1,550 @@
+extends Control
+## The playable slice (M2): title, district map + week planner, weekly report,
+## ending. Built in code from the M1 rules; phone-first (big touch targets,
+## nothing on hover). Run with `-- --shots` to save screenshots of each screen.
+
+const RunState = preload("res://scripts/sim/run_state.gd")
+const Rules = preload("res://scripts/sim/rules.gd")
+const Policies = preload("res://scripts/sim/policies.gd")
+const Text = preload("res://scripts/ui/text.gd")
+
+const SAVE_PATH := "user://run.save"
+
+# Palette: dark field-dossier UI, woodcut paper for the propaganda layer.
+const C_BG := Color("0e1013")
+const C_PANEL := Color("171a1f")
+const C_LINE := Color("2c3139")
+const C_FG := Color("e7e3da")
+const C_MUTED := Color("9b988f")
+const C_ACCENT := Color("e2713b")
+const C_PAPER := Color("e9e0cc")
+const C_INK := Color("1b1714")
+const C_RED := Color("c8372d")
+const C_GOOD := Color("6fa36b")
+
+var s: RunState
+var plan := {}  # operative index -> plan entry
+var screen: Control
+var backdrop_regime: TextureRect
+var backdrop_free: TextureRect
+var overlay: Control
+var message: Label
+
+
+func _ready() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	theme = _make_theme()
+	var bg := ColorRect.new()
+	bg.color = C_BG
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+	# The Rail Yards street behind everything: regime render fading into the liberated one.
+	backdrop_regime = _backdrop("res://docs/renders/frontline_regime.png")
+	backdrop_free = _backdrop("res://docs/renders/frontline_liberated.png")
+	var shade := ColorRect.new()
+	shade.color = Color(0.03, 0.035, 0.045, 0.72)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(shade)
+	screen = MarginContainer.new()
+	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		screen.add_theme_constant_override("margin_" + side, 20)
+	add_child(screen)
+	_set_backdrop(0.0)
+	if "--shots" in OS.get_cmdline_user_args():
+		_take_shots.call_deferred()
+	else:
+		show_title()
+
+
+# ---------- screens ----------
+
+func show_title() -> void:
+	_clear()
+	var box := _vbox(18)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	screen.add_child(box)
+	box.add_child(_label("CHAOS IS THE MOTHER OF ORDER", 44, C_FG))
+	box.add_child(_label("The Rail Yards  ·  District 7, Port Varga", 22, C_MUTED))
+	box.add_child(_spacer(12))
+	box.add_child(_label("Six weeks. One district. The Continuity Government is watching.", 20, C_FG, true))
+	box.add_child(_spacer(12))
+	var row := _hbox(14)
+	box.add_child(row)
+	row.add_child(_button("New run", _new_run, 220))
+	if FileAccess.file_exists(SAVE_PATH):
+		row.add_child(_button("Continue", _continue_run, 220))
+
+
+func show_district() -> void:
+	_clear()
+	_set_backdrop(_liberation())
+	var col := _vbox(12)
+	screen.add_child(col)
+	col.add_child(_top_bar())
+	var body := _hbox(16)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(body)
+	# Left: the two zones (propaganda-layer paper cards).
+	var zones := _vbox(12)
+	zones.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	zones.size_flags_stretch_ratio = 1.0
+	body.add_child(zones)
+	for zone in Rules.ZONES:
+		zones.add_child(_zone_card(zone))
+	zones.add_child(_teodor_line())
+	# Right: this week's plan.
+	var right := _panel(C_PANEL)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_stretch_ratio = 1.15
+	body.add_child(right)
+	var pcol := _vbox(10)
+	right.add_child(pcol)
+	pcol.add_child(_label("THIS WEEK", 16, C_MUTED))
+	pcol.add_child(_label("Give up to 3 operatives a job. Everyone else rests.", 17, C_FG, true))
+	var used := plan.size()
+	for i in s.ready_operatives():
+		pcol.add_child(_operative_row(i, used))
+	for i in range(s.operatives.size()):
+		var o: Dictionary = s.operatives[i]
+		if not o.dead and o.out_weeks > 0:
+			pcol.add_child(_label("%s — out for %d more week%s" % [o.name, o.out_weeks, "" if o.out_weeks == 1 else "s"], 16, C_MUTED))
+	message = _label("", 17, C_ACCENT, true)
+	pcol.add_child(message)
+	var end := _button("End week %d" % s.week, _end_week, 0)
+	end.size_flags_vertical = Control.SIZE_SHRINK_END
+	pcol.add_child(end)
+
+
+func show_report() -> void:
+	_clear()
+	_set_backdrop(_liberation())
+	var col := _vbox(14)
+	screen.add_child(col)
+	col.add_child(_label("WEEK %d REPORT" % (s.week - (0 if s.is_over() else 1)), 16, C_MUTED))
+	var row := _hbox(16)
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(row)
+	# State TV: the woodcut propaganda layer.
+	var tv := _panel(C_PAPER, C_INK, 3)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(tv)
+	var tvc := _vbox(10)
+	tv.add_child(tvc)
+	var slug := _panel(C_RED)
+	slug.add_child(_label("CONTINUITY NEWS 24", 20, C_PAPER))
+	tvc.add_child(slug)
+	for line in Text.regime_bulletin(s):
+		tvc.add_child(_label(line, 18, C_INK, true))
+	# Pirate radio: what actually happened.
+	var radio := _panel(Color("0a0703"), C_ACCENT, 2)
+	radio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(radio)
+	var rc := _vbox(10)
+	radio.add_child(rc)
+	rc.add_child(_label("UNBROKEN RADIO · what really happened", 18, C_ACCENT))
+	if s.report.is_empty():
+		rc.add_child(_label("A quiet week. Nobody moved.", 18, C_FG, true))
+	for line in s.report:
+		rc.add_child(_label("— " + line, 18, C_FG, true))
+	col.add_child(_button("See the ending" if s.is_over() else "Plan week %d" % s.week,
+		show_ending if s.is_over() else _start_planning, 0))
+
+
+func show_ending() -> void:
+	_clear()
+	var e: Dictionary = Text.ENDINGS[s.ending]
+	_set_backdrop(e.grade)
+	var box := _vbox(16)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	screen.add_child(box)
+	box.add_child(_label(e.title.to_upper(), 46, C_FG))
+	box.add_child(_label(e.text, 21, C_FG, true))
+	box.add_child(_spacer(6))
+	box.add_child(_label("Week %d  ·  Legitimacy %d  ·  Kills %d  ·  Broadcast %s  ·  Teodor: %s" % [
+		mini(s.week, RunState.MAX_WEEKS), s.legitimacy, s.kills, "aired" if s.broadcast_aired else "never aired",
+		_teodor_status()], 17, C_MUTED, true))
+	box.add_child(_button("New run", _new_run, 240))
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+
+# ---------- flow ----------
+
+func _new_run() -> void:
+	s = RunState.create(int(Time.get_unix_time_from_system()) % 1000000)
+	Rules.start_week(s)
+	plan.clear()
+	_save()
+	show_district()
+
+
+func _continue_run() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var d = JSON.parse_string(f.get_as_text())
+	if d == null:
+		_new_run()
+		return
+	s = RunState.from_dict(_fix_ints(d))
+	plan.clear()
+	if s.is_over():
+		show_ending()
+	else:
+		show_district()
+
+
+func _start_planning() -> void:
+	plan.clear()
+	show_district()
+
+
+func _end_week() -> void:
+	var entries := plan.values()
+	var err := Rules.validate(s, entries)
+	if err != "":
+		message.text = err
+		return
+	Rules.resolve_week(s, entries)
+	plan.clear()
+	_save()
+	show_report()
+
+
+func _save() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(s.to_dict()))
+
+
+## JSON turns every number into a float; the rules expect ints.
+func _fix_ints(v):
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[k] = _fix_ints(v[k])
+		return out
+	if v is Array:
+		return v.map(func(x): return _fix_ints(x))
+	if v is float and v == floor(v):
+		return int(v)
+	return v
+
+
+# ---------- picking an action ----------
+
+func _pick_action(op: int) -> void:
+	var who: Dictionary = s.operatives[op]
+	var list := _overlay_box("What do you do this week?" if who.is_you else "What does %s do this week?" % who.name)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	list.add_child(grid)
+	for a in Rules.available_actions(s):
+		var info: Dictionary = Text.ACTIONS[a]
+		var cost: Dictionary = Rules.ACTIONS[a]
+		var cost_txt := []
+		if cost.cash > 0:
+			cost_txt.append("%d cash" % cost.cash)
+		if cost.supplies > 0:
+			cost_txt.append("%d supplies" % cost.supplies)
+		var b := _card_button(info.title, info.desc + ("" if cost_txt.is_empty() else "\nCost: " + ", ".join(cost_txt)),
+			func(): _after_action(op, a))
+		grid.add_child(b)
+	list.add_child(_button("Cancel", _close_overlay, 0))
+
+
+func _after_action(op: int, a: String) -> void:
+	_close_overlay()
+	var entry := {"action": a, "op": op, "zone": "", "choice": ""}
+	if Rules.ACTIONS[a].zone:
+		var box := _overlay_box(Text.ACTIONS[a].get("zone", "Where?"))
+		for zone in Rules.ZONES:
+			var r := Rules.reading(s, zone)
+			box.add_child(_card_button(Text.ZONE_NAMES[zone], "%s (%s)" % [r.label, r.certainty],
+				func(): _after_zone(entry, zone)))
+		box.add_child(_button("Cancel", _close_overlay, 0))
+		return
+	_after_zone(entry, "")
+
+
+func _after_zone(entry: Dictionary, zone: String) -> void:
+	_close_overlay()
+	entry.zone = zone
+	var needs_choice: bool = Text.CHOICES.has(entry.action) and not (entry.action == "see_teodor" and s.teodor.state == "unmet")
+	if needs_choice:
+		var box := _overlay_box("How?")
+		for c in Text.CHOICES[entry.action]:
+			box.add_child(_card_button(c.title, c.desc, func(): _commit(entry, c.id)))
+		box.add_child(_button("Cancel", _close_overlay, 0))
+		return
+	_commit(entry, "")
+
+
+func _commit(entry: Dictionary, choice: String) -> void:
+	_close_overlay()
+	entry.choice = choice
+	var trial := plan.duplicate()
+	trial[entry.op] = entry
+	var err := Rules.validate(s, trial.values())
+	if err != "":
+		show_district()
+		message.text = err
+		return
+	plan = trial
+	show_district()
+
+
+# ---------- widgets ----------
+
+func _top_bar() -> Control:
+	var bar := _panel(C_PANEL)
+	var row := _hbox(26)
+	bar.add_child(row)
+	row.add_child(_stat("WEEK", "%d / %d" % [s.week, RunState.MAX_WEEKS]))
+	var heat_col := C_GOOD if s.heat < 3 else (C_ACCENT if s.heat < 7 else C_RED)
+	row.add_child(_stat("HEAT", "%d · %s" % [s.heat, Text.heat_label(s.heat)], heat_col))
+	row.add_child(_stat("CASH", str(s.cash)))
+	row.add_child(_stat("SUPPLIES", str(s.supplies)))
+	row.add_child(_stat("PARTS", str(s.parts)))
+	row.add_child(_stat("LEGITIMACY", str(s.legitimacy)))
+	return bar
+
+
+func _zone_card(zone: String) -> Control:
+	var r := Rules.reading(s, zone)
+	var card := _panel(C_PAPER, C_INK, 3)
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var col := _vbox(6)
+	card.add_child(col)
+	col.add_child(_label(Text.ZONE_NAMES[zone].to_upper(), 22, C_INK))
+	col.add_child(_label("Mood: %s" % r.label, 20, C_INK))
+	var cert := _label("Intel: %s" % r.certainty, 16, C_RED if r.certainty == "Rumor" else C_INK)
+	col.add_child(cert)
+	var eyes := "unknown (Listen to find out)" if int(r.attention) < 0 else ("●".repeat(int(r.attention)) if int(r.attention) > 0 else "none")
+	col.add_child(_label("Regime eyes: %s" % eyes, 16, C_INK))
+	return card
+
+
+func _teodor_line() -> Control:
+	return _label("Teodor, dock foreman: %s" % _teodor_status(), 17, C_MUTED, true)
+
+
+func _teodor_status() -> String:
+	var t: Dictionary = s.teodor
+	match t.state:
+		"unmet":
+			return "you haven't met"
+		"met":
+			return "met, not with you yet" + (" (you know about the skimming)" if t.knows_skim else "")
+		"ally":
+			return "with you (%s)" % {"trust": "trusts you", "leverage": "blackmailed", "lie": "believes your promise"}[t.path]
+		_:
+			return "gone"
+
+
+func _operative_row(i: int, used: int) -> Control:
+	var o: Dictionary = s.operatives[i]
+	var row := _hbox(10)
+	var name_lbl := _label(o.name, 19, C_FG)
+	name_lbl.custom_minimum_size = Vector2(110, 0)
+	row.add_child(name_lbl)
+	if plan.has(i):
+		var e: Dictionary = plan[i]
+		var txt: String = Text.ACTIONS[e.action].title
+		if e.get("zone", "") != "":
+			txt += " · " + Text.ZONE_NAMES[e.zone]
+		if e.get("choice", "") != "":
+			for c in Text.CHOICES.get(e.action, []):
+				if c.id == e.choice:
+					txt += " · " + c.title
+		var b := _button(txt, func(): _pick_action(i), 0)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(b)
+		row.add_child(_button("✕", func(): plan.erase(i); show_district(), 56))
+	else:
+		var b := _button("Assign a job" if used < 3 else "Resting", func(): _pick_action(i), 0)
+		b.disabled = used >= 3
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(b)
+	return row
+
+
+func _stat(title: String, value: String, col := C_FG) -> Control:
+	var v := _vbox(0)
+	v.add_child(_label(title, 13, C_MUTED))
+	v.add_child(_label(value, 21, col))
+	return v
+
+
+func _overlay_box(title: String) -> VBoxContainer:
+	_close_overlay()
+	overlay = Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var p := _panel(C_PANEL, C_LINE, 2)
+	p.custom_minimum_size = Vector2(min(get_viewport_rect().size.x - 40, 980), 0)
+	center.add_child(p)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, min(get_viewport_rect().size.y - 60, 640))
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	p.add_child(scroll)
+	var box := _vbox(10)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
+	box.add_child(_label(title, 24, C_FG, true))
+	return box
+
+
+func _close_overlay() -> void:
+	if overlay:
+		overlay.queue_free()
+		overlay = null
+
+
+func _card_button(title: String, desc: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = title + "\n" + desc
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size = Vector2(440, 96)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.pressed.connect(cb)
+	return b
+
+
+func _button(text: String, cb: Callable, min_w: int) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(min_w, 56)
+	b.pressed.connect(cb)
+	return b
+
+
+func _label(text: String, font_size: int, col: Color, wrap := false) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", col)
+	if wrap:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
+
+
+func _panel(bg: Color, border := Color(0, 0, 0, 0), width := 0) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(width)
+	sb.set_content_margin_all(14)
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+
+func _vbox(sep: int) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", sep)
+	return v
+
+
+func _hbox(sep: int) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", sep)
+	return h
+
+
+func _spacer(h: int) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(0, h)
+	return c
+
+
+func _clear() -> void:
+	_close_overlay()
+	for c in screen.get_children():
+		screen.remove_child(c)
+		c.queue_free()
+
+
+func _backdrop(path: String) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load(path)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(t)
+	return t
+
+
+## How liberated the district feels: drives the street behind the UI.
+func _liberation() -> float:
+	var avg := (int(s.zones.dorms.sentiment) + int(s.zones.depot.sentiment)) / 2.0
+	return clampf((avg - 25.0) / 40.0, 0.0, 1.0)
+
+
+func _set_backdrop(t: float) -> void:
+	backdrop_free.modulate.a = t
+
+
+func _make_theme() -> Theme:
+	var th := Theme.new()
+	th.default_font_size = 18
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("232830")
+	normal.border_color = C_LINE
+	normal.set_border_width_all(1)
+	normal.set_content_margin_all(12)
+	var hover := normal.duplicate()
+	hover.bg_color = Color("2e343e")
+	var pressed := normal.duplicate()
+	pressed.bg_color = C_ACCENT.darkened(0.4)
+	var disabled := normal.duplicate()
+	disabled.bg_color = Color("16191d")
+	for st in [["normal", normal], ["hover", hover], ["pressed", pressed], ["disabled", disabled], ["focus", hover]]:
+		th.set_stylebox(st[0], "Button", st[1])
+	th.set_color("font_color", "Button", C_FG)
+	th.set_color("font_disabled_color", "Button", C_MUTED.darkened(0.3))
+	th.set_font_size("font_size", "Button", 18)
+	return th
+
+
+# ---------- screenshots for review (-- --shots) ----------
+
+func _take_shots() -> void:
+	var dir := "res://docs/renders/ui"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	show_title()
+	await _snap(dir + "/1_title.png")
+	s = RunState.create(11)
+	Rules.start_week(s)
+	plan.clear()
+	for e in Policies.careful_plan(s):
+		plan[e.op] = e
+	show_district()
+	await _snap(dir + "/2_district.png")
+	_pick_action(s.ready_operatives()[0])
+	await _snap(dir + "/3_pick_action.png")
+	_close_overlay()
+	_end_week()
+	await _snap(dir + "/4_report.png")
+	while not s.is_over():
+		Rules.resolve_week(s, Policies.careful_plan(s))
+	show_ending()
+	await _snap(dir + "/5_ending.png")
+	get_tree().quit()
+
+
+func _snap(path: String) -> void:
+	for i in range(4):
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(path)
+	print("saved ", path)

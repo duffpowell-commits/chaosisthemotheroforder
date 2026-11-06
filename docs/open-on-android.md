@@ -7,6 +7,6 @@
    pick `project.godot` → **Import & Edit**.
 4. The first import takes a few minutes (it converts the textures).
 5. Tap **Run** (the play button, top right).
-6. Drag the slider at the bottom to take the district from the regime.
+6. Play a run: give operatives jobs, end the week, read the report. (The street render test is `scenes/render_test.tscn`.)
 
 The project uses Godot 4.5 and the Mobile renderer.
