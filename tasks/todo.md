@@ -44,6 +44,27 @@
   Deferred to M5 (spec §9): Sneak, Subdue, Overwatch, Interact, Persuade,
   noise meter, reinforcements, stabilize/permadeath.
 - [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast
+  Done when: mission outcomes feed back into the run.
+  Pre-fix from the M4 renders: bottom HUD covered the squad's start row
+  (Mara/Kesh drawn behind the panel). Reframe the camera above the HUD.
+  Plan (pure rules first, then the scene, then the run hook):
+  - [ ] `battle.gd` mission mode (skirmish untouched): signal box tile, noise 0-10
+        (Shoot +3, Subdue +1; noise wakes patrols within 3 tiles per point),
+        alarm at 10 -> 3 reinforcements from the north 2 turns later.
+  - [ ] Abilities: Sneak (2 AP, one 4-tile move, hard to spot), Subdue (adjacent,
+        non-lethal), Overwatch (reaction shot on a guard moving in sight),
+        Upload (adjacent to the box, 2 separate turns; airing trips the alarm),
+        Stabilize (adjacent downed squadmate), Leave (south edge), Persuade
+        (You only, Wavering guard within 3: 40% + 10% x Legitimacy).
+  - [ ] Permadeath: downed squadmate dies after 2 of your turns unless stabilized.
+  - [ ] `Rules`: split resolve into begin (pay + diversions) / finish; mission
+        params (guards 4 + Depot attention - 2 if diversion to the Dorms, squad,
+        Legitimacy); apply the result (aired, kills, defections, dead, hurt).
+        No mission result = old auto-resolve, so the run simulator still works.
+  - [ ] Scene: noise + upload meters, action column, Wavering tag, extract row.
+  - [ ] Run hook: a planned Signal Box op plays the mission, then the week resolves.
+  - [ ] Tests + `tools/mission_sim.gd` (quiet and loud policies both win and lose).
+  - [ ] Renders `docs/renders/mission_*.png`; merge; CLAUDE.md handoff.
 - [ ] M6 Endings, saves, Android pass (5 clean runs on Duff's phone)
 
 ## Review

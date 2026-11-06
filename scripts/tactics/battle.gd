@@ -7,6 +7,10 @@ extends RefCounted
 ## Each unit: 2 AP, 2 HP. Move = 1 AP per 4 tiles. Shoot = 1 AP, a hit does 1.
 ## Hit chance: 65 base, half cover -20, full -40, high ground +10, flanking +20,
 ## clamped 5-95. Cover only counts on the side facing the shooter.
+##
+## Mission mode (M5, the Signal Box): the same rules plus noise, an alarm with
+## reinforcements, the signal box upload, extraction from the south edge,
+## Sneak / Subdue / Overwatch / Stabilize / Persuade, and permadeath.
 
 const W := 14
 const H := 14
@@ -15,6 +19,7 @@ const FLOOR := 0
 const HALF := 1
 const FULL := 2
 const HIGH := 3
+const BOX := 4  # the signal box: blocks like a container, upload from next to it
 
 const US := "us"
 const REGIME := "regime"
@@ -30,6 +35,19 @@ const BASE_HIT := 65
 const SIGHT := 9  # Chebyshev tiles a patrolling guard can spot you from
 const TURN_LIMIT := 40
 
+const MISSION_SIGHT := 7    # guards see less far in the dark depot yard
+const HIDDEN_SIGHT := 2     # a sneaking unit is only spotted this close
+const NOISE_MAX := 10
+const NOISE_SHOT := 3
+const NOISE_SUBDUE := 1
+const NOISE_RADIUS := 3     # tiles of hearing per point of noise made
+const REINFORCE_DELAY := 2
+const REINFORCEMENTS := 3
+const UPLOAD_TURNS := 2
+const BLEED_TURNS := 2
+const PERSUADE_RANGE := 3
+const NOISE_SHOUT := 2      # a guard who spots you yells for the others
+
 
 class Unit:
 	var name := ""
@@ -41,9 +59,23 @@ class Unit:
 	var route: Array = []
 	var route_i := 0
 	var escaped := false
+	# Mission mode
+	var is_you := false
+	var op := -1             # index into the run's operatives (-1 = not one of ours)
+	var wavering := false
+	var defected := false
+	var hidden := false      # moved by Sneak and hasn't been loud since
+	var overwatch := false
+	var subdued := false
+	var bleed := 0           # your turns left before a downed squadmate dies
+	var stabilized := false
+	var dead := false
 
 	func alive() -> bool:
 		return hp > 0 and not escaped
+
+	func downed() -> bool:
+		return hp <= 0 and not dead and not escaped
 
 
 var tiles := PackedInt32Array()
@@ -52,6 +84,18 @@ var rng := RandomNumberGenerator.new()
 var side := US
 var turn := 1
 var log: Array[String] = []
+
+var mission := false
+var sight := SIGHT
+var noise := 0
+var alarm := false
+var reinforce_in := 0       # turns until reinforcements arrive (0 = none coming)
+var upload := 0
+var last_upload_turn := 0
+var box := Vector2i(-1, -1)
+var legitimacy := 0
+var kills := 0
+var defections := 0
 
 
 # ---------- setup ----------
@@ -105,6 +149,46 @@ static func create_skirmish(seed_value: int) -> RefCounted:
 	for i in range(routes.size()):
 		var g = b.add_unit("Guard %d" % (i + 1), REGIME, routes[i][0])
 		g.route = routes[i]
+	return b
+
+
+## The Signal Box (spec §9). `params`: {guards, legitimacy, squad: [{name, op,
+## is_you}], seed}. The box sits at the north end of the depot yard; the squad
+## comes in from the south edge and leaves the same way.
+const BOX_POS := Vector2i(7, 1)
+const GUARD_ROUTES := [
+	[Vector2i(1, 2), Vector2i(7, 2)],
+	[Vector2i(12, 3), Vector2i(12, 7)],
+	[Vector2i(5, 6), Vector2i(8, 6)],
+	[Vector2i(9, 0), Vector2i(4, 0)],
+	[Vector2i(10, 9), Vector2i(13, 9)],
+	[Vector2i(1, 6), Vector2i(1, 10)],
+	[Vector2i(5, 3), Vector2i(10, 3)],
+	[Vector2i(8, 8), Vector2i(12, 8)],
+]
+const SQUAD_XS := [3, 7, 11, 1, 5, 9]
+
+
+static func create_mission(params: Dictionary) -> RefCounted:
+	var b = create_skirmish(int(params.get("seed", 1)))
+	b.units.clear()
+	b.mission = true
+	b.sight = MISSION_SIGHT
+	b.legitimacy = int(params.get("legitimacy", 0))
+	b.box = BOX_POS
+	b.set_tile(BOX_POS, BOX)
+	var squad: Array = params.get("squad", [{"name": "You", "op": 0, "is_you": true}])
+	for i in range(mini(squad.size(), SQUAD_XS.size())):
+		var m: Dictionary = squad[i]
+		var u = b.add_unit(str(m.name), US, Vector2i(SQUAD_XS[i], H - 1))
+		u.op = int(m.get("op", -1))
+		u.is_you = bool(m.get("is_you", false))
+	var n := clampi(int(params.get("guards", 4)), 1, GUARD_ROUTES.size())
+	var waver: int = b.rng.randi_range(0, n - 1)
+	for i in range(n):
+		var g = b.add_unit("Guard %d" % (i + 1), REGIME, GUARD_ROUTES[i][0])
+		g.route = GUARD_ROUTES[i]
+		g.wavering = i == waver
 	return b
 
 
@@ -162,7 +246,12 @@ func enemies_of(u: Unit) -> Array:
 
 
 func standable(p: Vector2i) -> bool:
-	return in_bounds(p) and tile(p) != HALF and tile(p) != FULL and unit_at(p) == null
+	return in_bounds(p) and (tile(p) == FLOOR or tile(p) == HIGH) and unit_at(p) == null
+
+
+## Containers and the signal box block sight and give full cover.
+func _blocks(p: Vector2i) -> bool:
+	return tile(p) == FULL or tile(p) == BOX
 
 
 ## Tiles reachable with `ap` action points: {Vector2i: steps}. 4-way steps,
@@ -229,7 +318,7 @@ func line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 			break
 		if _cheb(p, a) <= 1 or _cheb(p, b) <= 1:
 			continue
-		if tile(p) == FULL:
+		if _blocks(p):
 			return false
 	return true
 
@@ -247,7 +336,7 @@ func cover_against(target: Vector2i, shooter: Vector2i) -> int:
 		if n == target or not in_bounds(n):
 			continue
 		var t := tile(n)
-		if t == FULL:
+		if t == FULL or t == BOX:
 			best = FULL
 		elif t == HALF and best != FULL:
 			best = HALF
@@ -257,7 +346,7 @@ func cover_against(target: Vector2i, shooter: Vector2i) -> int:
 func _has_any_cover(p: Vector2i) -> bool:
 	for d in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
 		var n: Vector2i = p + d
-		if in_bounds(n) and (tile(n) == HALF or tile(n) == FULL):
+		if in_bounds(n) and tile(n) != FLOOR and tile(n) != HIGH:
 			return true
 	return false
 
@@ -285,6 +374,8 @@ func chance(shooter: Unit, target: Unit) -> int:
 
 
 func winner() -> String:
+	if mission:
+		return ""
 	if alive_units(US).is_empty():
 		return REGIME
 	if alive_units(REGIME).is_empty():
@@ -300,23 +391,249 @@ func move(u: Unit, dest: Vector2i) -> bool:
 		return false
 	u.ap -= ceili(float(r[dest]) / TILES_PER_AP)
 	u.pos = dest
+	u.hidden = false
+	if u.side == REGIME:
+		_trigger_overwatch(u)
 	return true
 
 
 ## Returns true on a hit. Shooting (and being shot at) alerts every guard.
 func shoot(u: Unit, target: Unit) -> bool:
 	var c := chance(u, target)
-	if u.ap < 1 or c <= 0 or not target.alive():
+	if not u.alive() or u.ap < 1 or c <= 0 or not target.alive():
 		return false
 	u.ap -= 1
+	return _fire(u, target, c)
+
+
+func _fire(u: Unit, target: Unit, c: int) -> bool:
+	u.hidden = false
 	alert_all("%s fires" % u.name)
+	if u.side == US:
+		add_noise(NOISE_SHOT, u.pos)
 	var hit := rng.randi_range(1, 100) <= c
 	if hit:
 		target.hp -= 1
 		log.append("%s hits %s (%d%%)%s" % [u.name, target.name, c, ", down" if target.hp <= 0 else ""])
+		if target.hp <= 0 and mission:
+			if target.side == REGIME:
+				kills += 1
+			else:
+				target.bleed = BLEED_TURNS
 	else:
 		log.append("%s misses %s (%d%%)" % [u.name, target.name, c])
 	return hit
+
+
+# ---------- mission actions ----------
+
+## One silent move of up to 4 tiles for both AP. Patrols only spot a sneaking
+## unit from HIDDEN_SIGHT tiles away.
+func sneak(u: Unit, dest: Vector2i) -> bool:
+	if not mission or u.ap < AP_PER_TURN or not reachable(u, 1).has(dest):
+		return false
+	u.ap = 0
+	u.pos = dest
+	u.hidden = true
+	return true
+
+
+func can_subdue(u: Unit, target: Unit) -> bool:
+	return mission and u.alive() and u.ap >= 1 and target != null and target.alive() \
+		and target.side != u.side and _cheb(u.pos, target.pos) == 1
+
+
+## Non-lethal takedown from an adjacent tile. Always works; it's close and quiet.
+func subdue(u: Unit, target: Unit) -> bool:
+	if not can_subdue(u, target):
+		return false
+	u.ap -= 1
+	target.hp = 0
+	target.subdued = true
+	log.append("%s subdues %s" % [u.name, target.name])
+	add_noise(NOISE_SUBDUE, target.pos)
+	return true
+
+
+## Spend the rest of the turn watching: the first guard that moves where this
+## unit can see it draws a shot.
+func overwatch(u: Unit) -> bool:
+	if not mission or not u.alive() or u.ap < 1:
+		return false
+	u.ap = 0
+	u.overwatch = true
+	log.append("%s is on overwatch" % u.name)
+	return true
+
+
+func _trigger_overwatch(g: Unit) -> void:
+	for w in alive_units(US):
+		if not g.alive():
+			return
+		if not w.overwatch or _cheb(w.pos, g.pos) > sight:
+			continue
+		var c := chance(w, g)
+		if c > 0:
+			w.overwatch = false
+			log.append("%s reacts" % w.name)
+			_fire(w, g, c)
+
+
+func can_upload(u: Unit) -> bool:
+	return mission and u.alive() and u.ap >= 1 and upload < UPLOAD_TURNS \
+		and last_upload_turn != turn and _cheb(u.pos, box) == 1
+
+
+## Work the signal box. Two separate turns of it and the footage airs; every
+## screen in the district lights up and every guard knows where you are.
+func do_upload(u: Unit) -> bool:
+	if not can_upload(u):
+		return false
+	u.ap -= 1
+	upload += 1
+	last_upload_turn = turn
+	if upload < UPLOAD_TURNS:
+		log.append("%s starts the upload" % u.name)
+		return true
+	log.append("The footage is on every screen in the district")
+	alert_all("the broadcast")
+	return true
+
+
+func stabilize_target(u: Unit) -> Unit:
+	if not mission or not u.alive() or u.ap < 1:
+		return null
+	for o in units:
+		if o.side == US and o.downed() and not o.stabilized and _cheb(u.pos, o.pos) <= 1:
+			return o
+	return null
+
+
+func stabilize(u: Unit) -> bool:
+	var o := stabilize_target(u)
+	if o == null:
+		return false
+	u.ap -= 1
+	o.stabilized = true
+	log.append("%s stabilizes %s" % [u.name, o.name])
+	return true
+
+
+func can_leave(u: Unit) -> bool:
+	return mission and u.alive() and u.pos.y == H - 1
+
+
+## Off the south edge and out of the mission.
+func leave(u: Unit) -> bool:
+	if not can_leave(u):
+		return false
+	u.ap = 0
+	u.escaped = true
+	log.append("%s gets out" % u.name)
+	return true
+
+
+func persuade_chance() -> int:
+	return clamp_chance(40 + 10 * legitimacy)
+
+
+func can_persuade(u: Unit, target: Unit) -> bool:
+	return mission and u.is_you and u.alive() and u.ap >= 1 and target != null and target.alive() \
+		and target.side == REGIME and target.wavering and _cheb(u.pos, target.pos) <= PERSUADE_RANGE \
+		and line_of_sight(u.pos, target.pos)
+
+
+## Talk a Wavering guard over. One try: if it fails, they stop wavering.
+func persuade(u: Unit, target: Unit) -> bool:
+	if not can_persuade(u, target):
+		return false
+	u.ap -= 1
+	var c := persuade_chance()
+	target.wavering = false
+	if rng.randi_range(1, 100) <= c:
+		target.side = US
+		target.defected = true
+		target.state = ALERT
+		target.ap = 0
+		target.route = []
+		defections += 1
+		log.append("%s lowers his rifle and joins you (%d%%)" % [target.name, c])
+		return true
+	target.state = ALERT
+	log.append("%s won't listen (%d%%)" % [target.name, c])
+	return false
+
+
+## Mission noise. Wakes patrols within NOISE_RADIUS tiles per point; at 10 the
+## alarm sounds and reinforcements come REINFORCE_DELAY turns later.
+func add_noise(n: int, at: Vector2i) -> void:
+	if not mission or n <= 0:
+		return
+	noise = mini(NOISE_MAX, noise + n)
+	for g in alive_units(REGIME):
+		if g.state == PATROL and _cheb(g.pos, at) <= n * NOISE_RADIUS:
+			g.state = ALERT
+			log.append("%s hears something" % g.name)
+	if noise >= NOISE_MAX and not alarm:
+		alarm = true
+		reinforce_in = REINFORCE_DELAY
+		log.append("The alarm sounds")
+		alert_all("the alarm")
+
+
+func _reinforce() -> void:
+	var n := 0
+	for x in [7, 2, 12, 5, 9, 0, 13]:
+		if n >= REINFORCEMENTS:
+			break
+		var p := Vector2i(x, 0)
+		if not standable(p):
+			continue
+		var g := add_unit("Riot %d" % (n + 1), REGIME, p)
+		g.state = ALERT
+		g.ap = 0
+		n += 1
+	log.append("Reinforcements pour in from the north")
+
+
+func is_over() -> bool:
+	if mission:
+		return alive_units(US).is_empty() or turn > TURN_LIMIT
+	return winner() != ""
+
+
+## What happened, for the run. Call once the mission is over. Downed squadmates
+## left behind die; stabilized ones are carried out if anyone got out.
+func mission_result() -> Dictionary:
+	var anyone_out := false
+	for u in units:
+		if u.side == US and u.escaped:
+			anyone_out = true
+	var dead: Array = []
+	var hurt: Array = []
+	var out: Array = []
+	var subdued := 0
+	for u in units:
+		if u.subdued:
+			subdued += 1
+		if u.side != US or u.defected:
+			continue
+		if u.escaped:
+			out.append(u.name)
+		elif u.dead or not (u.stabilized and anyone_out):
+			dead.append(u.name)
+		else:
+			hurt.append(u.name)
+	return {"aired": upload >= UPLOAD_TURNS, "kills": kills, "defections": defections,
+		"subdued": subdued, "dead": dead, "hurt": hurt, "out": out,
+		"you_dead": dead.has(_you_name())}
+
+
+func _you_name() -> String:
+	for u in units:
+		if u.is_you:
+			return u.name
+	return ""
 
 
 func alert_all(why: String) -> void:
@@ -327,14 +644,26 @@ func alert_all(why: String) -> void:
 
 
 func end_turn() -> void:
+	if mission:
+		for u in units:
+			if u.side == US and u.downed() and not u.stabilized:
+				u.bleed -= 1
+				if u.bleed <= 0:
+					u.dead = true
+					log.append("%s bleeds out" % u.name)
 	side = REGIME
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
 	for g in alive_units(REGIME):
 		act_unit(g)
+	if mission and reinforce_in > 0:
+		reinforce_in -= 1
+		if reinforce_in == 0:
+			_reinforce()
 	side = US
 	for u in alive_units(US):
 		u.ap = AP_PER_TURN
+		u.overwatch = false
 	turn += 1
 
 
@@ -358,14 +687,26 @@ func act_unit(u: Unit) -> void:
 
 func _sees_enemy(u: Unit) -> bool:
 	for e in enemies_of(u):
-		if _cheb(u.pos, e.pos) <= SIGHT and line_of_sight(u.pos, e.pos):
+		var r := HIDDEN_SIGHT if e.hidden else sight
+		if _cheb(u.pos, e.pos) <= r and line_of_sight(u.pos, e.pos):
 			return true
 	return false
 
 
+## Skirmish: one sighting alerts everyone. Mission: the guard shouts, which
+## is noise; only guards in earshot react, and it pushes toward the alarm.
+func _spotted_by(u: Unit) -> void:
+	if not mission:
+		alert_all("%s spots you" % u.name)
+		return
+	u.state = ALERT
+	log.append("%s spots you and shouts" % u.name)
+	add_noise(NOISE_SHOUT, u.pos)
+
+
 func _patrol(u: Unit) -> void:
 	if _sees_enemy(u):
-		alert_all("%s spots you" % u.name)
+		_spotted_by(u)
 		_fight(u)
 		return
 	var goal: Vector2i = u.route[u.route_i]
@@ -382,8 +723,8 @@ func _patrol(u: Unit) -> void:
 			best_d = d
 	if best != u.pos:
 		move(u, best)
-	if _sees_enemy(u):
-		alert_all("%s spots you" % u.name)
+	if u.alive() and _sees_enemy(u):
+		_spotted_by(u)
 		_fight(u)
 
 
@@ -397,6 +738,8 @@ func _retreat(u: Unit) -> void:
 				best = p
 		if best == u.pos or not move(u, best):
 			break
+		if not u.alive():
+			return
 		if u.ap > 0 and u.pos.y > 0:
 			var t := _best_target(u)
 			if t != null and chance(u, t) >= 40:
@@ -425,6 +768,8 @@ func _fight(u: Unit) -> void:
 		best = _advance_tile(u, r, foes)
 	if best != u.pos and u.ap > 0:
 		move(u, best)
+	if not u.alive():
+		return
 	# 2. Spend what's left on shots.
 	while u.ap > 0:
 		var t := _best_target(u)
