@@ -1,0 +1,40 @@
+name: tests
+
+# Runs on every push and PR so a broken build shows a red X on GitHub,
+# whichever Claude session (or Duff) pushed it.
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.5
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.5-stable/Godot_v4.5-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          mv Godot_v4.5-stable_linux.x86_64 /usr/local/bin/godot
+
+      - name: Import assets
+        run: godot --headless --path . --import || true
+
+      - name: Parse every script
+        # A parse error makes a scene hang instead of failing, so check them all.
+        run: |
+          fail=0
+          for f in $(git ls-files '*.gd'); do
+            if godot --headless --path . --check-only --script "$f" 2>&1 | grep -E "Parse Error|SCRIPT ERROR"; then
+              echo "::error file=$f::parse error"; fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Unit tests
+        run: godot --headless --path . --script tests/run_tests.gd
+
+      - name: Run -> mission -> run flow
+        run: godot --headless --path . --script tools/mission_flow_check.gd

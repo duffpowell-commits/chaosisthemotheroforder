@@ -22,6 +22,10 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   every Mixamo clip bent the forearms inward (arms looked crossed). Side effect:
   portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
 - If the jam falls back to sprites, the look is **pixel** (Duff's pick).
+- Autoplay found (Nov 6, `docs/renders/autoplay_quiet.gif`): when units bunch up, their
+  name/HP labels pile on top of each other and can't be read (fix in J1). And when
+  You go down the mission ends and everyone still on the map counts as dead, even a
+  stabilized squadmate. Ask Duff if that's intended.
 - Ask Duff how the Signal Box played on his phone, and whether 3 vs 4 guards
   should stay brutal (bot: aired 48% quiet, usually nobody gets home) or ease off.
   Numbers: `tasks/todo.md` M5 review.
@@ -50,12 +54,21 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (`--capture-mission` for the Signal Box). Fresh clone: run `godot --headless --path . --import` first.
 - UI screenshots: `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shots`
 - Portraits: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/render_test.tscn -- --portraits`
+- Autoplay (watch a whole mission, ~6 min in the sandbox):
+  `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --autoplay [--loud] --out /tmp/autoplay`
+  then `python3 tools/make_gif.py /tmp/autoplay docs/renders/autoplay_quiet.gif`. Exits 1 if it stalls.
+  Run it after any change to the tactical scene and look at the frames before pushing.
+- CI: `.github/workflows/tests.yml` parses every script and runs the tests + flow check on
+  every push. Check the result with `gh run list -L 3` before calling a milestone done.
 - Sprite bake: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake`
   then `python3 tools/compose_sprites.py /tmp/bake docs/renders/sprites`
 - In the cloud sandbox Godot isn't installed: download the 4.5-stable Linux zip
   from github.com/godotengine/godot/releases with curl (not `gh`).
 
 ## House rules
+- **One Claude Code session per repo at a time.** On Nov 6 two sessions pushed to `main`
+  at once and had to be untangled by hand. Work on a branch named for the milestone,
+  `git fetch` before starting and before pushing, and merge at the end.
 - Duff works phone-only (Godot Android editor). No desktop-only tools. GDScript only.
 - **Push after every chunk of work and merge to `main` at the end of every
   milestone.** Unmerged side branches got lost once; never again.

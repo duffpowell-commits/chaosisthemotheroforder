@@ -24,3 +24,8 @@ _Patterns learned from corrections. Reviewed at the start of each session._
 - **Check the bot before tuning the game.** The first mission sim said the
   Signal Box was nearly unwinnable; traces showed the bot walking into patrol
   lines and stalling. Trace a couple of seeded runs before changing numbers.
+- (Nov 6) A GDScript parse error doesn't crash a scene launched with xvfb; Godot just sits
+  there forever. Always run with `timeout`, and CI parses every script first.
+- (Nov 6) MPFB rigs need the retarget silhouette fix ON, or every Mixamo clip bends the
+  forearms inward. Check arms in a render after touching `tools/setup_retarget.py`.
+- (Nov 6) Two sessions on one repo collided on `main`. One session per repo; fetch first.

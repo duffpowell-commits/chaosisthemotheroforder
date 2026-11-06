@@ -65,7 +65,7 @@ func _ready() -> void:
 	_apply(0.0)
 	env.fog_density = 0.012  # keep the far end of the grid readable
 	var args := OS.get_cmdline_user_args()
-	if "--capture-mission" in args and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--autoplay" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -76,6 +76,8 @@ func _ready() -> void:
 		_capture_tactical()
 	elif "--capture-mission" in args:
 		_capture_mission()
+	elif "--autoplay" in args:
+		_autoplay("--loud" in args, _arg_after(args, "--out", "/tmp/autoplay"))
 
 
 # ---------- coordinates ----------
@@ -810,3 +812,65 @@ func _capture_mission() -> void:
 	_refresh()
 	await _shot("mission_result")
 	get_tree().quit()
+
+
+# ---------- autoplay (-- --autoplay [--loud] [--out DIR]) ----------
+# Plays a whole Signal Box mission through the real scene with the balance
+# sim's player policy, saving a frame after every unit's turn. Lets Claude
+# "watch" a run: frames -> GIF with tools/make_gif.py, log -> log.txt.
+# Fails loudly (exit 1) if the mission stalls past MAX_AUTO_TURNS.
+
+const MissionSim = preload("res://tools/mission_sim.gd")
+const MAX_AUTO_TURNS := 30
+
+
+static func _arg_after(args: PackedStringArray, flag: String, fallback: String) -> String:
+	var i := args.find(flag)
+	return args[i + 1] if i >= 0 and i + 1 < args.size() else fallback
+
+
+func _autoplay(loud: bool, out: String) -> void:
+	DirAccess.make_dir_recursive_absolute(out)
+	var n := 0
+	await _wait(20)
+	n = await _auto_frame(out, n)
+	while not battle.is_over() and battle.turn <= MAX_AUTO_TURNS:
+		for u in battle.alive_units(Battle.US):
+			if battle.is_over():
+				break
+			selected = u
+			MissionSim.act(battle, u, loud)
+			await _sync_nodes()
+			n = await _auto_frame(out, n)
+		if battle.is_over():
+			break
+		await _on_end_turn()
+		n = await _auto_frame(out, n)
+	_refresh()
+	await _wait(20)
+	n = await _auto_frame(out, n)
+	var stalled: bool = not battle.is_over()
+	var f := FileAccess.open(out.path_join("log.txt"), FileAccess.WRITE)
+	f.store_line("policy: %s, turns: %d, frames: %d, stalled: %s" % ["loud" if loud else "quiet", battle.turn, n, stalled])
+	f.store_line(str(battle.mission_result()) if battle.mission else "winner: " + battle.winner())
+	for line in battle.log:
+		f.store_line(line)
+	f.close()
+	print("autoplay: %d frames, %d turns, stalled=%s -> %s" % [n, battle.turn, stalled, out])
+	get_tree().quit(1 if stalled else 0)
+
+
+func _sync_nodes() -> void:
+	var tw := create_tween().set_parallel(true)
+	for u in battle.units:
+		if unit_nodes.has(u):
+			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.25)
+	tw.tween_interval(0.25)
+	await tw.finished
+	_refresh()
+
+
+func _auto_frame(out: String, n: int) -> int:
+	await _wait(6)
+	get_viewport().get_texture().get_image().save_png(out.path_join("f%03d.png" % n))
+	return n + 1
