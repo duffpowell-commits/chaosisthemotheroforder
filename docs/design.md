@@ -127,6 +127,27 @@ action, not a procedure). The game shows *why* and *at what cost*, never *how*.
 
 ## Tactical combat
 
+### Feel: XCOM meets Advance Wars (Duff, Nov 6)
+XCOM gives the stakes; Advance Wars gives the clarity. Every combat feature
+should pass both tests: *does it cost you something?* and *can you read it in
+one glance on a phone?*
+
+From **XCOM** (stakes):
+- Cover, flanking and a visible hit % on every shot. Coin flips you sweat.
+- Overwatch, fog of war, the noise meter and the alarm.
+- Permadeath. Losses stay with the run.
+
+From **Advance Wars** (clarity):
+- **No hidden math.** Before you commit, the preview shows the hit %, what
+  happens on a hit (down or wounded), and the noise it costs.
+- **Show the threat.** Tap a guard to see where he can move and what he can
+  shoot next turn. Tap a tile to see its cover.
+- **Chunky, readable units.** Faction color and a ring under every unit; you
+  can tell who's who from across the board. (This favours the pixel-sprite look.)
+- **Snappy turns.** Short animations you can skip; the enemy turn plays fast.
+- **Roles that counter each other** (later, after the jam): e.g. a medic, a
+  talker, a shooter, so squad choice matters like unit choice in Advance Wars.
+
 - Squad of 6, grid tactics with height, facing, cover, and hit chance.
 - **Presentation:** FF-style dramatic camera on top of the grid (swoops on
   big moments, close-ups on abilities, anime cut-ins on defections). No ATB.

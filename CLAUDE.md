@@ -4,15 +4,19 @@ Grim Godot 4.5 strategy-RPG about organizing a revolution against a modern
 police state. Owner: Duff. Read this first; it is the handoff between sessions.
 
 ## Where things stand
-- Design: `docs/design.md` (locked decisions + open questions).
+- Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).
+- Look: `docs/style-guide.md` (palette, readability rules). Check renders against it.
 - Current work: the vertical slice, `docs/slice-spec.md`. Progress: `tasks/todo.md`.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
   M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays
   the mission; the result finishes the week).
 - **Jam target:** 2026 Jam on itch, submit by Dec 28. Plan, fixes and scope cuts:
   `docs/jam-slice-spec.md` (J1–J5; M6 becomes J2).
-- Next: **J1** readability (unit rings, rim light, lighter grain on the tactical
-  map) + web export spike (web needs the Compatibility renderer), then M6 as J2.
+- Next: **J1** readability (unit rings, label stacking, rim light, lighter grain on
+  the tactical map), Advance Wars clarity (threat on tap, full shot preview), and a
+  web export spike (web needs the Compatibility renderer). Then J2 = M6 + mid-fight saves.
+- **End of every milestone:** run autoplay, the tension numbers, and an independent
+  design review (fresh agent, pillars + style guide + renders). Jam spec §5b.
 - Fallback art: `scripts/sprite_bake.gd` bakes rigs into 8-direction sprites;
   `tools/compose_sprites.py` makes review sheets (`docs/renders/sprites/`).
   Decision gate Dec 6.

@@ -50,6 +50,14 @@
   walk while moving, `rifle_aim` to shoot, `death_front` when downed, plus a
   simple rifle prop on the hand bone.
 
+### 3.2b Advance Wars clarity (from `docs/design.md`, "XCOM meets Advance Wars")
+- **Threat on tap:** tapping a guard shades the tiles he can move to and shoot
+  next turn. J1.
+- **Full action preview:** the Shoot button shows hit %, "down" or "wounded" on
+  a hit, and the noise cost, before you commit. J1.
+- **Fast enemy turn:** cap the enemy turn's animations at about 1.5 s total,
+  with a tap to skip. J3.
+
 ### 3.3 The web build (the biggest technical risk)
 - Godot's web export only runs the **Compatibility** renderer. The project
   uses **Mobile**. Test the web build in week 1, not week 7.
@@ -98,11 +106,22 @@ renders in `docs/renders/`.
 |---|---|---|
 | Done | M5 Signal Box mission | Mission outcomes feed back into the run |
 | Nov 9–15 | **J1: readability + web spike** | §3.2 fixes in; a web build runs in Duff's phone browser; guard count decided |
-| Nov 16–29 | **J2: endings, saves, Android pass** (M6) | Five endings reachable; 5 clean runs on the phone |
+| Nov 16–29 | **J2: endings, saves (incl. mid-fight), Android pass** (M6) | Five endings reachable; quitting mid-mission resumes the fight; 5 clean runs on the phone |
 | Nov 30–Dec 6 | **J3: animation pass + fallback gate** | Units walk, aim and fall; the Dec 6 call is made |
 | Dec 7–20 | **J4: playtests + polish** | 2 outside playtesters finish a run; their worst problems fixed |
 | Dec 21–27 | **J5: itch page + upload** | Page live as a draft; build tested from itch on the phone |
 | Dec 28 | **Submit** | Entry shows on the jam page |
+
+## 5b. Automatic checks at every milestone
+- **Autoplay** (`--autoplay`) plays a full mission; look at the frames.
+- **Tension numbers** (`tools/mission_sim.gd -- 300 focus`): close calls 40–70%,
+  2+ coin-flip shots per mission.
+- **Independent design review:** a fresh agent that didn't do the work reviews
+  the milestone against `docs/design.md` pillars and `docs/style-guide.md`,
+  using the renders and the autoplay GIF. Top findings get fixed or logged.
+- **Playtest telemetry (J5):** the web build logs each run (choices, turns,
+  time per turn, quits, deaths) and posts it to the playtest Sheet, so tester
+  data arrives without anyone filling in a form.
 
 ## 6. The itch page
 
