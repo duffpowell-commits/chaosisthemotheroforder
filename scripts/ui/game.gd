@@ -81,6 +81,8 @@ func show_title() -> void:
 	row.add_child(_button("New run", _new_run, 220))
 	if FileAccess.file_exists(SAVE_PATH):
 		row.add_child(_button("Continue", _continue_run, 220))
+	# M4 test entry; the Signal Box mission (M5) launches it from the run instead.
+	row.add_child(_button("Skirmish", func(): get_tree().change_scene_to_file("res://scenes/tactical.tscn"), 220))
 
 
 func show_district() -> void:
