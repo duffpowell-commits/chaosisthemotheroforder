@@ -11,6 +11,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Next: **M5 Signal Box mission** (noise, Sneak/Subdue/Overwatch/Interact, Persuade +
   defection, broadcast, reinforcements, permadeath) feeding results back into the run.
 
+## First thing next session
+- Open `docs/renders/tactical_*.png` with Read and judge them before M5. The M4
+  session couldn't: Duff's **ClaudeTokenSAP** plugin (shows as token-optimizer,
+  by Satyam Pandey) blocked every .png/.jpg read. Duff is turning it off. If
+  reads are still blocked, tell him which plugin the error names (also suspect
+  claude-context-optimizer) instead of judging renders by pixel stats.
+
 ## Layout
 - `scripts/sim/` pure game rules (`RunState`, `Rules`, `Policies`). No scenes.
 - `scripts/dialogue/` dialogue runner (`dialogue.gd`, format in its header) and
