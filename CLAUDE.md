@@ -9,8 +9,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
   M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays
   the mission; the result finishes the week).
-- Next: **M6 endings, saves, Android pass** (five endings reachable; 5 clean runs
-  on Duff's phone).
+- **Jam target:** 2026 Jam on itch, submit by Dec 28. Plan, fixes and scope cuts:
+  `docs/jam-slice-spec.md` (J1–J5; M6 becomes J2).
+- Next: **J1** readability (unit rings, rim light, lighter grain on the tactical
+  map) + web export spike (web needs the Compatibility renderer), then M6 as J2.
+- Fallback art: `scripts/sprite_bake.gd` bakes rigs into 8-direction sprites;
+  `tools/compose_sprites.py` makes review sheets (`docs/renders/sprites/`).
+  Decision gate Dec 6.
 
 ## First thing next session
 - Ask Duff how the Signal Box played on his phone, and whether 3 vs 4 guards
@@ -41,6 +46,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (`--capture-mission` for the Signal Box). Fresh clone: run `godot --headless --path . --import` first.
 - UI screenshots: `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shots`
 - Portraits: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/render_test.tscn -- --portraits`
+- Sprite bake: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake`
+  then `python3 tools/compose_sprites.py /tmp/bake docs/renders/sprites`
 - In the cloud sandbox Godot isn't installed: download the 4.5-stable Linux zip
   from github.com/godotengine/godot/releases with curl (not `gh`).
 
