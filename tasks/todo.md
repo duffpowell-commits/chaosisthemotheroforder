@@ -19,7 +19,7 @@
 - [x] M1 Run state + week loop, headless simulator + unit tests (12 tests; balance tuned)
 - [x] M2 District map, week planner, weekly report (playable 6-week run; autosave + continue)
 - [x] M3 Dialogue runner + Teodor's three paths (20 tests; portraits rendered)
-- [ ] M4 Tactical core: grid, AP, move, cover, shoot, basic AI
+- [x] M4 Tactical core: grid, AP, move, cover, shoot, basic AI (29 tests; dumb-policy skirmish 58% won)
   Done when: a skirmish on the street map is winnable and losable.
   Plan (same split as M1/M2: pure rules first, scene second):
   - [x] `scripts/tactics/battle.gd`: pure data. 14x14 grid, tiles (floor,
@@ -37,16 +37,26 @@
         seeded skirmish deterministic.
   - [x] `tools/skirmish_sim.gd`: 500 seeded skirmishes, dumb player policy.
         Pass = both wins and losses occur (target win rate 35-65%).
-  - [ ] Scene: 3D street + grid overlay, tap unit / tap tile, Shoot button
+  - [x] Scene: 3D street + grid overlay, tap unit / tap tile, Shoot button
         shows hit %, AP pips, end turn. Touch targets >= 48 px.
-  - [ ] Renders to `docs/renders/tactical_*.png`; Duff judges them.
-  - [ ] Merge to main, update CLAUDE.md handoff.
+  - [x] Renders to `docs/renders/tactical_*.png`; Duff judges them.
+  - [x] Merge to main, update CLAUDE.md handoff.
   Deferred to M5 (spec §9): Sneak, Subdue, Overwatch, Interact, Persuade,
   noise meter, reinforcements, stabilize/permadeath.
 - [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast
 - [ ] M6 Endings, saves, Android pass (5 clean runs on Duff's phone)
 
 ## Review
+- **M4 (Nov 6):** pure rules in `scripts/tactics/battle.gd` (grid, LOS, per-side
+  cover, flanking, high ground, 2 AP / 2 HP, 4 tiles per AP) with a guard AI
+  (patrol -> alert -> best covered tile + shoot -> retreat at 1 HP when not
+  outnumbering you). Scene `scenes/tactical.tscn` on the Rail Yards street, launched
+  from the title's Skirmish button. Grid highlights are drawn in 2D over the
+  colour grade (in 3D the grade turned the blue move range grey).
+  Balance: both sides on the simple AI, 500 fights: 58% won, 42% lost, 0 stalls.
+  A human should beat that; M5's noise and reinforcements push back.
+  Open: units glide (no walk/shoot/death clips yet); downed = tipped over.
+  Duff to judge `docs/renders/tactical_*.png` and play it on the phone.
 - **M3 (Nov 6):** custom runner reads `dialogue/teodor.dlg` (lines, narration,
   conditional choices, jumps, `set`). Teodor's choice now happens in the scene,
   not on a card. All three paths reachable in tests; betrayal, found-out and
