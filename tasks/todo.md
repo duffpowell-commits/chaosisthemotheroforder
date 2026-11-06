@@ -20,6 +20,28 @@
 - [x] M2 District map, week planner, weekly report (playable 6-week run; autosave + continue)
 - [x] M3 Dialogue runner + Teodor's three paths (20 tests; portraits rendered)
 - [ ] M4 Tactical core: grid, AP, move, cover, shoot, basic AI
+  Done when: a skirmish on the street map is winnable and losable.
+  Plan (same split as M1/M2: pure rules first, scene second):
+  - [ ] `scripts/tactics/battle.gd`: pure data. 14x14 grid, tiles (floor,
+        half cover, full cover, high ground), units (side, pos, AP, HP).
+  - [ ] Rules: 2 AP/unit, Move 1 AP = 5 tiles (BFS, blocked by cover/units),
+        Shoot 1 AP, hit 65% / half -20 / full -40 / high +10 / flank +20,
+        clamp 5-95. Cover read per direction; flanked = no cover from that side.
+  - [ ] Line of sight: grid raycast, full cover blocks, half doesn't.
+  - [ ] AI: patrol fixed route -> alerted (sees you / you shoot) -> move to
+        best covered tile in range and shoot -> retreat at 1 HP.
+  - [ ] Skirmish layout from the Rail Yards street: containers = full,
+        crates = half, gantry = high ground. 3 of ours vs 4 guards.
+  - [ ] Tests: hit-chance table, LOS, BFS move range, flank, AI states,
+        seeded skirmish deterministic.
+  - [ ] `tools/skirmish_sim.gd`: 500 seeded skirmishes, dumb player policy.
+        Pass = both wins and losses occur (target win rate 35-65%).
+  - [ ] Scene: 3D street + grid overlay, tap unit / tap tile, Shoot button
+        shows hit %, AP pips, end turn. Touch targets >= 48 px.
+  - [ ] Renders to `docs/renders/tactical_*.png`; Duff judges them.
+  - [ ] Merge to main, update CLAUDE.md handoff.
+  Deferred to M5 (spec §9): Sneak, Subdue, Overwatch, Interact, Persuade,
+  noise meter, reinforcements, stabilize/permadeath.
 - [ ] M5 Signal Box mission: noise, Persuade/defection, broadcast
 - [ ] M6 Endings, saves, Android pass (5 clean runs on Duff's phone)
 
