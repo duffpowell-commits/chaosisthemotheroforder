@@ -46,6 +46,7 @@ const REINFORCEMENTS := 3
 const UPLOAD_TURNS := 2
 const BLEED_TURNS := 2
 const PERSUADE_RANGE := 3
+const NOISE_SHOUT := 2      # a guard who spots you yells for the others
 
 
 class Unit:
@@ -483,8 +484,8 @@ func can_upload(u: Unit) -> bool:
 		and last_upload_turn != turn and _cheb(u.pos, box) == 1
 
 
-## Work the signal box. Two separate turns of it and the footage airs, which
-## lights up every screen in the district and trips the alarm.
+## Work the signal box. Two separate turns of it and the footage airs; every
+## screen in the district lights up and every guard knows where you are.
 func do_upload(u: Unit) -> bool:
 	if not can_upload(u):
 		return false
@@ -496,7 +497,6 @@ func do_upload(u: Unit) -> bool:
 		return true
 	log.append("The footage is on every screen in the district")
 	alert_all("the broadcast")
-	add_noise(NOISE_MAX, box)
 	return true
 
 
@@ -693,9 +693,20 @@ func _sees_enemy(u: Unit) -> bool:
 	return false
 
 
+## Skirmish: one sighting alerts everyone. Mission: the guard shouts, which
+## is noise; only guards in earshot react, and it pushes toward the alarm.
+func _spotted_by(u: Unit) -> void:
+	if not mission:
+		alert_all("%s spots you" % u.name)
+		return
+	u.state = ALERT
+	log.append("%s spots you and shouts" % u.name)
+	add_noise(NOISE_SHOUT, u.pos)
+
+
 func _patrol(u: Unit) -> void:
 	if _sees_enemy(u):
-		alert_all("%s spots you" % u.name)
+		_spotted_by(u)
 		_fight(u)
 		return
 	var goal: Vector2i = u.route[u.route_i]
@@ -713,7 +724,7 @@ func _patrol(u: Unit) -> void:
 	if best != u.pos:
 		move(u, best)
 	if u.alive() and _sees_enemy(u):
-		alert_all("%s spots you" % u.name)
+		_spotted_by(u)
 		_fight(u)
 
 

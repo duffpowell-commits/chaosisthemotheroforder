@@ -595,7 +595,7 @@ func test_mission_upload_takes_two_turns_and_trips_alarm() -> void:
 	check(b.upload == 1 and not b.alarm, "half done, quiet")
 	b.end_turn()
 	check(b.do_upload(you) and b.upload == 2, "second turn finishes it")
-	check(b.alarm, "the broadcast trips the alarm")
+	check(not b.alarm, "airing it doesn't sound the alarm by itself")
 	var far := b.add_unit("Kesh", Battle.US, Vector2i(2, 12))
 	check(not b.can_upload(far), "can't upload from across the yard")
 
