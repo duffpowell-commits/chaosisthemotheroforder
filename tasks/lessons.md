@@ -13,3 +13,7 @@ _Patterns learned from corrections. Reviewed at the start of each session._
   current so any session can pick up cold.
 - **Keep sessions small.** A long session full of inline renders force-closes
   the mobile app. One milestone per session; renders go to files.
+- **Check that you can see renders before you judge them.** A plugin hook
+  (ClaudeTokenSAP) blocked image reads in the M4 session, so the renders went
+  to Duff unchecked. Try one Read on a render early; if it's blocked, say so
+  and name the plugin from the error.
