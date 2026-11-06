@@ -584,7 +584,7 @@ func test_mission_overwatch() -> void:
 	check(b.overwatch(you) and you.ap == 0, "overwatch spends the turn")
 	b.move(g, Vector2i(7, 7))
 	check(not you.overwatch, "the reaction shot is used up")
-	check(b.log.any(func(l): return l.begins_with("You reacts")), "you fire at the moving guard")
+	check(b.log.any(func(l): return l.begins_with("You react")), "you fire at the moving guard")
 
 
 func test_mission_upload_takes_two_turns_and_trips_alarm() -> void:
@@ -715,3 +715,13 @@ func test_mission_split_resolve_matches_auto() -> void:
 	Rules.begin_resolve(b, plan)
 	Rules.finish_resolve(b, plan)
 	check(JSON.stringify(a.to_dict()) == JSON.stringify(b.to_dict()), "split resolve is identical")
+
+
+func test_log_grammar_for_you() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Battle.BOX_POS + Vector2i(0, 1))
+	var mara := b.add_unit("Mara", Battle.US, Battle.BOX_POS + Vector2i(1, 1))
+	b.do_upload(you)
+	b.overwatch(mara)
+	check(b.log.has("You start the upload"), "You start: %s" % [b.log])
+	check(b.log.has("Mara is on overwatch"), "Mara is")

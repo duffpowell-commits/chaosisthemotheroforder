@@ -414,14 +414,14 @@ func _fire(u: Unit, target: Unit, c: int) -> bool:
 	var hit := rng.randi_range(1, 100) <= c
 	if hit:
 		target.hp -= 1
-		log.append("%s hits %s (%d%%)%s" % [u.name, target.name, c, ", down" if target.hp <= 0 else ""])
+		log.append("%s %s %s (%d%%)%s" % [u.name, _verb(u, "hits"), target.name, c, ", down" if target.hp <= 0 else ""])
 		if target.hp <= 0 and mission:
 			if target.side == REGIME:
 				kills += 1
 			else:
 				target.bleed = BLEED_TURNS
 	else:
-		log.append("%s misses %s (%d%%)" % [u.name, target.name, c])
+		log.append("%s %s %s (%d%%)" % [u.name, _verb(u, "misses"), target.name, c])
 	return hit
 
 
@@ -450,7 +450,7 @@ func subdue(u: Unit, target: Unit) -> bool:
 	u.ap -= 1
 	target.hp = 0
 	target.subdued = true
-	log.append("%s subdues %s" % [u.name, target.name])
+	log.append("%s %s %s" % [u.name, _verb(u, "subdues"), target.name])
 	add_noise(NOISE_SUBDUE, target.pos)
 	return true
 
@@ -462,7 +462,7 @@ func overwatch(u: Unit) -> bool:
 		return false
 	u.ap = 0
 	u.overwatch = true
-	log.append("%s is on overwatch" % u.name)
+	log.append("%s %s on overwatch" % [u.name, _verb(u, "is")])
 	return true
 
 
@@ -475,7 +475,7 @@ func _trigger_overwatch(g: Unit) -> void:
 		var c := chance(w, g)
 		if c > 0:
 			w.overwatch = false
-			log.append("%s reacts" % w.name)
+			log.append("%s %s" % [w.name, _verb(w, "reacts")])
 			_fire(w, g, c)
 
 
@@ -493,7 +493,7 @@ func do_upload(u: Unit) -> bool:
 	upload += 1
 	last_upload_turn = turn
 	if upload < UPLOAD_TURNS:
-		log.append("%s starts the upload" % u.name)
+		log.append("%s %s the upload" % [u.name, _verb(u, "starts")])
 		return true
 	log.append("The footage is on every screen in the district")
 	alert_all("the broadcast")
@@ -515,7 +515,7 @@ func stabilize(u: Unit) -> bool:
 		return false
 	u.ap -= 1
 	o.stabilized = true
-	log.append("%s stabilizes %s" % [u.name, o.name])
+	log.append("%s %s %s" % [u.name, _verb(u, "stabilizes"), o.name])
 	return true
 
 
@@ -529,7 +529,7 @@ func leave(u: Unit) -> bool:
 		return false
 	u.ap = 0
 	u.escaped = true
-	log.append("%s gets out" % u.name)
+	log.append("%s %s out" % [u.name, _verb(u, "gets")])
 	return true
 
 
@@ -629,6 +629,13 @@ func mission_result() -> Dictionary:
 		"you_dead": dead.has(_you_name())}
 
 
+## "You" takes the plain verb: "You hit", "Mara hits".
+static func _verb(u: Unit, third: String) -> String:
+	if u.name != "You":
+		return third
+	return {"is": "are", "hits": "hit", "misses": "miss", "gets": "get"}.get(third, third.trim_suffix("s"))
+
+
 func _you_name() -> String:
 	for u in units:
 		if u.is_you:
@@ -650,7 +657,7 @@ func end_turn() -> void:
 				u.bleed -= 1
 				if u.bleed <= 0:
 					u.dead = true
-					log.append("%s bleeds out" % u.name)
+					log.append("%s %s out" % [u.name, _verb(u, "bleeds")])
 	side = REGIME
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN

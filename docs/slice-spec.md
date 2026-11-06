@@ -176,6 +176,13 @@ dormitory raid, and get out.
 - Once alerted, move to cover and shoot.
 - At low health they retreat toward reinforcements.
 
+**Build notes (M5):** spotting a squad member makes the guard shout (+2
+noise, wakes guards within 6 tiles) rather than alerting everyone; gunfire
+still alerts everyone. Airing the footage alerts every guard but doesn't sound
+the alarm by itself. The squad is you plus everyone free that week (max 6).
+Sentiment +20 (not 15) on airing, matching the tuned auto-resolve. Guards cap at
+8. Quiet vs loud is chosen in the mission, not on the plan card.
+
 ## 10. Endings (five)
 
 | Ending | How you get it |
