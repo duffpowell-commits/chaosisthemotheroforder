@@ -481,3 +481,237 @@ func test_tactics_wounded_guard_holds_when_ahead() -> void:
 	b.alert_all("test")
 	b.end_turn()
 	check(w.state == Battle.ALERT, "2 v 1: the wounded guard keeps fighting")
+
+
+# ---------- the Signal Box mission (M5) ----------
+
+## Every script the game needs compiles. A parse error otherwise shows up as
+## "Nil" errors while the count still says everything passed.
+func test_scripts_compile() -> void:
+	for path in ["res://scripts/tactics/battle.gd", "res://scripts/sim/rules.gd",
+			"res://scripts/sim/run_state.gd", "res://scripts/tactics/tactical.gd",
+			"res://scripts/ui/game.gd", "res://scripts/dialogue/dialogue.gd"]:
+		var sc: GDScript = load(path)
+		check(sc != null and sc.can_instantiate(), "%s compiles" % path)
+
+
+## A bare mission yard: the box at its spot, one squad member, no guards.
+func mission_yard(legit := 0) -> Battle:
+	var b := yard({Battle.BOX_POS: Battle.BOX})
+	b.mission = true
+	b.sight = Battle.MISSION_SIGHT
+	b.box = Battle.BOX_POS
+	b.legitimacy = legit
+	return b
+
+
+func test_mission_setup() -> void:
+	var b = Battle.create_mission({"guards": 6, "legitimacy": 2, "seed": 3,
+		"squad": [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}]})
+	check(b.alive_units(Battle.US).size() == 2, "two of ours")
+	check(b.alive_units(Battle.REGIME).size() == 6, "six guards")
+	check(b.units.filter(func(u): return u.wavering).size() == 1, "exactly one Wavering guard")
+	check(b.tile(Battle.BOX_POS) == Battle.BOX, "the box is on the map")
+	for u in b.alive_units(Battle.US):
+		check(u.pos.y == Battle.H - 1, "squad starts on the south edge")
+	check(b.winner() == "" and not b.is_over(), "mission doesn't end on its own")
+
+
+func test_mission_noise_alarm_reinforcements() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(7, 4))
+	g.state = Battle.ALERT
+	b.add_noise(3, you.pos)
+	b.add_noise(3, you.pos)
+	b.add_noise(3, you.pos)
+	check(b.noise == 9 and not b.alarm, "9 noise, no alarm yet")
+	b.add_noise(3, you.pos)
+	check(b.noise == 10 and b.alarm, "noise caps at 10 and the alarm sounds")
+	var before := b.units.size()
+	b.end_turn()
+	check(b.units.size() == before, "reinforcements not there after one turn")
+	b.end_turn()
+	check(b.units.size() == before + Battle.REINFORCEMENTS, "3 reinforcements after two turns")
+
+
+func test_mission_noise_wakes_nearby_patrols() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
+	var near := b.add_unit("Near", Battle.REGIME, Vector2i(7, 10))
+	var far := b.add_unit("Far", Battle.REGIME, Vector2i(7, 3))
+	b.add_noise(Battle.NOISE_SUBDUE, you.pos)
+	check(near.state == Battle.ALERT, "a guard 2 tiles away hears a takedown")
+	check(far.state == Battle.PATROL, "a guard 9 tiles away doesn't")
+	var shooter := b.add_unit("Kesh", Battle.US, Vector2i(2, 12))
+	shooter.ap = 2
+	b.shoot(shooter, near)
+	check(b.noise == Battle.NOISE_SUBDUE + Battle.NOISE_SHOT, "a shot adds 3 noise")
+
+
+func test_mission_sneak_is_hard_to_spot() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(7, 4))
+	g.route = [Vector2i(7, 4), Vector2i(7, 4)]
+	check(not b.sneak(you, Vector2i(7, 5)), "can't sneak further than one move")
+	check(b.sneak(you, Vector2i(7, 8)), "sneak 4 tiles")
+	check(you.ap == 0 and you.hidden, "sneak costs both AP and hides you")
+	b.end_turn()
+	check(g.state == Battle.PATROL, "a patrol 4 tiles away misses a sneaking unit")
+	b.move(you, Vector2i(6, 8))
+	b.end_turn()
+	check(g.state == Battle.ALERT, "a normal move in sight gets spotted")
+
+
+func test_mission_subdue() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(9, 12))
+	check(not b.subdue(you, g), "can't subdue from 2 tiles")
+	b.move(you, Vector2i(8, 12))
+	check(b.subdue(you, g), "subdue from next to them")
+	check(not g.alive() and g.subdued and b.kills == 0, "down, not dead")
+	check(b.noise == Battle.NOISE_SUBDUE, "a takedown makes 1 noise")
+
+
+func test_mission_overwatch() -> void:
+	var b := mission_yard()
+	b.rng.seed = 2
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(7, 5))
+	g.state = Battle.ALERT
+	check(b.overwatch(you) and you.ap == 0, "overwatch spends the turn")
+	b.move(g, Vector2i(7, 7))
+	check(not you.overwatch, "the reaction shot is used up")
+	check(b.log.any(func(l): return l.begins_with("You reacts")), "you fire at the moving guard")
+
+
+func test_mission_upload_takes_two_turns_and_trips_alarm() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Battle.BOX_POS + Vector2i(0, 1))
+	check(b.do_upload(you), "start the upload next to the box")
+	check(not b.do_upload(you), "only one upload per turn")
+	check(b.upload == 1 and not b.alarm, "half done, quiet")
+	b.end_turn()
+	check(b.do_upload(you) and b.upload == 2, "second turn finishes it")
+	check(b.alarm, "the broadcast trips the alarm")
+	var far := b.add_unit("Kesh", Battle.US, Vector2i(2, 12))
+	check(not b.can_upload(far), "can't upload from across the yard")
+
+
+func test_mission_persuade() -> void:
+	var b := mission_yard(6)
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 12))
+	you.is_you = true
+	var mara := b.add_unit("Mara", Battle.US, Vector2i(6, 12))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(7, 10))
+	g.wavering = true
+	var plain := b.add_unit("P", Battle.REGIME, Vector2i(9, 11))
+	check(b.persuade_chance() == 95, "40 + 10 x 6 clamps to 95")
+	check(not b.can_persuade(mara, g), "only you can persuade")
+	check(not b.can_persuade(you, plain), "only a Wavering guard")
+	g.pos = Vector2i(7, 8)
+	check(not b.can_persuade(you, g), "not from 4 tiles")
+	g.pos = Vector2i(7, 9)
+	var ok := false
+	for seed_value in range(1, 6):  # 95%: at least one of these rolls lands
+		b.rng.seed = seed_value
+		if b.rng.randi_range(1, 100) <= 95:
+			b.rng.seed = seed_value
+			ok = b.persuade(you, g)
+			break
+	check(ok, "persuaded at 95%")
+	check(g.side == Battle.US and g.defected and b.defections == 1, "he's on your side now")
+	check(not g.wavering, "one try per guard")
+	var b2 := mission_yard(-10)
+	var you2 := b2.add_unit("You", Battle.US, Vector2i(7, 12))
+	you2.is_you = true
+	var g2 := b2.add_unit("G", Battle.REGIME, Vector2i(7, 10))
+	g2.wavering = true
+	check(b2.persuade_chance() == 5, "floor of 5%")
+
+
+func test_mission_bleed_out_and_stabilize() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 13))
+	you.is_you = true
+	var mara := b.add_unit("Mara", Battle.US, Vector2i(3, 13))
+	var kesh := b.add_unit("Kesh", Battle.US, Vector2i(11, 13))
+	for u in [mara, kesh]:
+		u.hp = 0
+		u.bleed = Battle.BLEED_TURNS
+	b.end_turn()
+	check(mara.downed() and kesh.downed(), "still alive after one of your turns")
+	b.move(you, Vector2i(4, 13))
+	check(b.stabilize(you) and mara.stabilized, "stabilize next to Mara")
+	b.end_turn()
+	check(kesh.dead and not mara.dead, "Kesh bleeds out on the second turn; Mara holds")
+	check(b.leave(you), "leave from the south edge")
+	check(b.is_over(), "nobody left on the map")
+	var r: Dictionary = b.mission_result()
+	check(r.dead == ["Kesh"] and r.hurt == ["Mara"] and r.out == ["You"], "result: %s" % r)
+	check(not r.aired and not r.you_dead, "no broadcast, you made it")
+
+
+func test_mission_left_behind_dies() -> void:
+	var b := mission_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(7, 13))
+	you.is_you = true
+	var mara := b.add_unit("Mara", Battle.US, Vector2i(3, 12))
+	mara.hp = 0
+	mara.bleed = 2
+	mara.stabilized = true
+	you.hp = 0
+	you.bleed = 2
+	check(b.is_over(), "everyone down")
+	var r: Dictionary = b.mission_result()
+	check(r.you_dead and r.dead.size() == 2, "nobody got out to carry them")
+
+
+func test_mission_params_from_run() -> void:
+	var s := fresh()
+	s.week = 3
+	s.zones.depot.attention = 2
+	var plan := [act("signal_box", 1), act("scavenge", 2)]
+	var m := Rules.mission_params(s, plan)
+	check(m.guards == 6, "4 + 2 depot attention")
+	var names: Array = m.squad.map(func(x): return x.name)
+	check(names == ["You", "Mara"], "the op lead plus everyone not busy, you first: %s" % [names])
+	s.diversion_zone = "dorms"
+	check(Rules.signal_box_guards(s) == 4, "diversion to the dorms pulls 2 off")
+
+
+func test_mission_result_feeds_the_run() -> void:
+	var s := fresh()
+	var l0 := s.legitimacy
+	var h0 := s.heat
+	var d0: int = s.zones.dorms.sentiment
+	Rules.apply_mission(s, act("signal_box", 0), {"aired": true, "kills": 0, "defections": 1,
+		"dead": ["Mara"], "hurt": ["Kesh"], "out": ["You"]})
+	check(s.broadcast_aired, "broadcast aired")
+	check(s.zones.dorms.sentiment == d0 + 20, "sentiment up")
+	check(s.legitimacy == l0 + 3, "clean (+2) and a defector (+1)")
+	check(s.heat == h0 + 1, "a clean op still adds 1 heat")
+	check(s.operatives[1].dead and s.operatives[2].out_weeks == 2, "Mara's gone, Kesh is out 2 weeks")
+	var s2 := fresh()
+	Rules.apply_mission(s2, act("signal_box", 0), {"aired": false, "kills": 2, "defections": 0,
+		"dead": [], "hurt": [], "out": ["You"]})
+	check(not s2.broadcast_aired and s2.kills == 2, "failed, 2 kills on the books")
+	check(s2.legitimacy == -2 and s2.heat == h0 + 3, "kills cost Legitimacy and heat")
+	var s3 := fresh()
+	Rules.apply_mission(s3, act("signal_box", 0), {"aired": true, "dead": ["You"]})
+	check(s3.ending == "captured", "dying in the depot ends the run")
+
+
+func test_mission_split_resolve_matches_auto() -> void:
+	# Same seed, same plan: resolve_week and begin+finish land in the same place.
+	var plan := [act("scavenge", 0), act("aid", 1, "dorms")]
+	var a := fresh(9)
+	a.supplies = 4
+	var b := fresh(9)
+	b.supplies = 4
+	Rules.resolve_week(a, plan)
+	Rules.begin_resolve(b, plan)
+	Rules.finish_resolve(b, plan)
+	check(JSON.stringify(a.to_dict()) == JSON.stringify(b.to_dict()), "split resolve is identical")

@@ -138,18 +138,37 @@ static func start_week(s: RunState) -> void:
 		s.report.append("Teodor has been asking the night shift about Kell Prison.")
 
 
-static func resolve_week(s: RunState, plan: Array) -> void:
+## `mission` is the Signal Box result from the tactical scene (Battle.mission_result()).
+## Empty = auto-resolve it, which the simulator and tests rely on.
+static func resolve_week(s: RunState, plan: Array, mission := {}) -> void:
+	begin_resolve(s, plan)
+	if not s.is_over():
+		finish_resolve(s, plan, mission)
+
+
+## First half: pay for everything and resolve diversions, which move the
+## regime's eyes for everything else. The game plays the mission after this.
+static func begin_resolve(s: RunState, plan: Array) -> void:
 	assert(validate(s, plan) == "", validate(s, plan))
 	s.report.clear()
-	# Pay for everything up front.
 	for p in plan:
 		s.cash -= ACTIONS[p.action].cash
 		s.supplies -= ACTIONS[p.action].supplies
-	# Diversions resolve first: they move the regime's eyes for everything else.
-	var ordered: Array = plan.filter(func(p): return p.action == "diversion")
-	ordered.append_array(plan.filter(func(p): return p.action != "diversion"))
-	for p in ordered:
-		_do_action(s, p)
+	for p in plan:
+		if p.action == "diversion":
+			_do_action(s, p)
+			if s.is_over():
+				return
+
+
+static func finish_resolve(s: RunState, plan: Array, mission := {}) -> void:
+	for p in plan:
+		if p.action == "diversion":
+			continue
+		if p.action == "signal_box" and not mission.is_empty():
+			apply_mission(s, p, mission)
+		else:
+			_do_action(s, p)
 		if s.is_over():
 			return
 	_regime_response(s)
@@ -338,10 +357,70 @@ static func _lose_teodor(s: RunState, line: String) -> void:
 	s.report.append(line)
 
 
-## Auto-resolved until the tactical mission exists (M5). "quiet" or "loud".
+## How many guards hold the depot this week (spec §9): 4, +1 per Attention on
+## the Depot, -2 if the diversion pulled patrols into the Dormitories.
+static func signal_box_guards(s: RunState) -> int:
+	return clampi(4 + int(s.zones.depot.attention) - (2 if s.diversion_zone == "dorms" else 0), 1, 8)
+
+
+## Everything the tactical mission needs. Squad: the operative on the op, plus
+## everyone ready who isn't doing something else this week (max 6, you first).
+static func mission_params(s: RunState, plan: Array) -> Dictionary:
+	var busy := {}
+	var lead := -1
+	for p in plan:
+		busy[p.op] = true
+		if p.action == "signal_box":
+			lead = p.op
+	var squad := []
+	for i in s.ready_operatives():
+		if i == lead or not busy.has(i):
+			var o: Dictionary = s.operatives[i]
+			squad.append({"name": o.name, "op": i, "is_you": o.is_you})
+	squad.sort_custom(func(a, b): return a.is_you and not b.is_you)
+	return {"guards": signal_box_guards(s), "legitimacy": s.legitimacy,
+		"squad": squad.slice(0, 6), "seed": s.rng.randi()}
+
+
+## Feed a played Signal Box mission back into the run (spec §9 outcomes).
+static func apply_mission(s: RunState, p: Dictionary, r: Dictionary) -> void:
+	var kills := int(r.get("kills", 0))
+	var defections := int(r.get("defections", 0))
+	s.kills += kills
+	s.legitimacy += defections - kills
+	if kills > 0:
+		_heat(s, kills)
+	if r.get("aired", false):
+		s.broadcast_aired = true
+		_shift(s, "dorms", 20)
+		_shift(s, "depot", 20)
+		if kills == 0:
+			s.legitimacy += 2
+			_heat(s, 1)
+		s.report.append("The footage of the dormitory raid played on every screen in the district.")
+	else:
+		_heat(s, 1)
+		s.report.append("The signal box op failed. The screens stayed on the regime's channel.")
+	if defections > 0:
+		s.report.append("A depot guard came over to you. He won't be the last.")
+	for o in s.operatives:
+		if o.dead:
+			continue
+		if o.name in r.get("dead", []):
+			o.dead = true
+			if o.is_you:
+				s.ending = "captured"
+				s.report.append("You didn't come back from the depot.")
+			else:
+				s.report.append("%s didn't come back from the depot." % o.name)
+		elif o.name in r.get("hurt", []):
+			o.out_weeks = 2
+			s.report.append("%s was carried out and needs two weeks." % o.name)
+
+
+## Auto-resolved when there's no played mission (the simulator). "quiet" or "loud".
 static func _signal_box(s: RunState, p: Dictionary, choice: String) -> void:
-	var guards := 4 + int(s.zones.depot.attention) - (2 if s.diversion_zone == "dorms" else 0)
-	guards = maxi(1, guards)
+	var guards := signal_box_guards(s)
 	var loud := choice == "loud"
 	var p_ok := clampf((1.05 if loud else 0.95) - (0.07 if loud else 0.08) * guards, 0.1, 0.95)
 	var op: Dictionary = s.operatives[p.op]
