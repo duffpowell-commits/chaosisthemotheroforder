@@ -47,6 +47,11 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   site id gives an `npx @netlify/mcp` command to run in `build/web`. Netlify's free-tier
   badge covers part of End turn (theirs, injected; itch won't have it).
   Duff: open it on the phone. Does it load, and is it 30 fps?
+  **Netlify credits ran out (Nov 7)**: the 4th deploy was "skipped due to account credit
+  usage exceeded" (3 uploads of the 130 MB build used the free allowance). The live site
+  has J1.5 but NOT the survival retune (5th guard still in the NE corner there). Don't
+  redeploy to Netlify until the credits reset or Duff upgrades; shrink the build first
+  (J5 item) and/or move testing to an itch draft page.
 - Web build is 90 MB pck + 38 MB wasm. Shrink it before J5 (1K textures on the rigs and
   Polyhaven props, drop unused assets). Phones on data will hate 128 MB.
 - J1 design review leftovers for Duff / J1.5: move range is blue and so are regime rings
