@@ -85,7 +85,10 @@ All numbers are constants at the top of `battle.gd`, so the simulator can tune t
   - **Smoke** on the run home when a guard can see a squad member.
   - **Flash** when 2+ guards are bunched within reach of the defector.
 
-## 5. Balance target: same difficulty as now
+## 5. Balance target
+
+**Superseded Nov 7 (Duff): the squad gets out 60-70% of runs** (3 v 4 quiet). The table
+below was the original "same difficulty" target; the build is tuned to Duff's number.
 The tools make the mission easier, so the game gets harder somewhere else
 until these numbers are back (300 runs, `-- 300 focus`, quiet bot):
 

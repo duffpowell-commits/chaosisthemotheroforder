@@ -32,5 +32,8 @@ _Patterns learned from corrections. Reviewed at the start of each session._
 - (Nov 6) Scripted edits that cut a file by "from function X to marker Y" swallow whatever
   sits between. J1 lost `_pips`/`_face` that way; `test_scripts_compile` caught it. Replace
   exact old text, never a range.
+- (Nov 7) Say difficulty numbers the way the player feels them ("squad gets out 64%"),
+  not as the sim's failure stat ("nobody out 36%"). Reporting the inverse got a whole
+  rebalance tuned to the wrong end.
 - (Nov 6) Moving the camera can undo an old HUD fix. Check the edge rows in renders after
   any camera change; the fit check in `_frame_camera` exists for this.

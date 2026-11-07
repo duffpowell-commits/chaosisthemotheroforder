@@ -94,7 +94,11 @@
   | 3 v 4 + knob 1 (no freeze) | 81% | 23% | 81% | 2.8 |
   | 3 v 4 + 5th guard on entry row | 17% | 96% | 22% | 5.2 |
   | 3 v 4 + 5th guard by the box, freeze 1 (**shipped**) | 40% | 63% | 40% | 2.8 |
-  | 5 v 4 shipped | 97% | 5% | 100% | 7.2 |
+  | 5 v 4 at that point | 97% | 5% | 100% | 7.2 |
+  | **Duff's correction (Nov 7): target is survival 60-70%, not a 60-70% wipe.** | | | | |
+  | 3 v 4 + 5th guard east yard `[10,5]-[13,5]`, freeze 1 (**shipped**) | 83% | 36% | 83% | 3.1 |
+  | 5 v 4 shipped | 98% | 5% | 79% | 6.9 |
+  | (tried: 2 smoke charges 73% wipe; freeze 2 61%; east route + no freeze 46%) | | | | |
   Knobs moved: `EXTRA_GUARDS := 1`, `GUARD_ROUTES[4]` is now the NE corner by the box.
   `BROADCAST_STUN` and `DARK_TURNS` back at 1 and 3 (neither moved the numbers).
   The bot uses smoke and lights constantly, radio and flash rarely (radio needs You

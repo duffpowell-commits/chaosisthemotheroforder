@@ -26,8 +26,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   **Web build works** in Chrome (Compatibility, no-threads template): `export_presets.cfg`.
 - **J1.5 shipped (Nov 7):** smoke, lights out (junction box, west wall), fake radio
   call (You at the box), defector flashbang. Press a tool = preview (area, white outline
-  on guards hit, noise, chance), then Confirm. Rebalanced with one extra depot guard in
-  the NE corner (`EXTRA_GUARDS`): 3 v 4 quiet airs 40%, nobody out 63%, close 40%.
+  on guards hit, noise, chance), then Confirm. Balanced to **Duff's target: the squad
+  gets out 60-70% of runs** (Nov 7). One extra depot guard in the east yard
+  (`EXTRA_GUARDS`, `GUARD_ROUTES[4]`): 3 v 4 quiet gets out 64%, airs 83%, close 83%.
   `--capture-tools` renders each tool (`docs/renders/tools_*.png`).
 - Next: **J2 = M6** (endings, saves incl. mid-fight, Android pass).
 - J1.5 review leftovers: tool results scroll out of the 2-line log (banner, J3); 5th guard
@@ -53,9 +54,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   faction rests on the ring (darker regime body tint?). Nits: grain still visible on the
   floor, "ALARM: 3 more in 1" and the guard "?" are cryptic, no down/subdued marker on
   bodies, no render of the enemy turn mid-animation.
-- Guard count call still open: J1.5 added a 5th depot guard to pay for the tools (3 v 4
-  quiet now: nobody out 63%). Duff plays it and decides. Going loud got much harder
-  (5 v 4 loud aired 92% -> 53%); ask if that's the intent.
+- **Difficulty target (Duff, Nov 7): survival 60-70%** = share of runs where someone gets
+  out ("nobody out" 30-40% in `mission_sim`). Careful: "nobody out" is the inverse; a
+  63% wipe rate was misread as the target once. Guard count settled by that target.
 - Retarget fix (Nov 6): the silhouette fix is now ON for all four rigs. Without it
   every Mixamo clip bent the forearms inward (arms looked crossed). Side effect:
   portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
