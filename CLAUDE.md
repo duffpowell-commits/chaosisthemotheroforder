@@ -10,7 +10,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - `QUEUE.md`: this is the one active game; parked ideas (Lethemoor, Echo Company) live there. Don't build them here.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
   M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays
-  the mission; the result finishes the week), **J1 readability + web spike** (Nov 6).
+  the mission; the result finishes the week), **J1 readability + web spike** (Nov 6),
+  **J1.5 diversion tools** (Nov 7).
 - **Jam target:** 2026 Jam on itch, submit by Dec 28. Plan, fixes and scope cuts:
   `docs/jam-slice-spec.md` (J1–J5; M6 becomes J2).
 - J1 shipped: team rings + name/HP tags drawn in 2D above the grade (the grade drains
@@ -23,9 +24,12 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   and the camera follows the fight (`_frame_camera`: zooms in up to 0.66x but only if
   every nearby unit fits between the HUD bars, else home framing).
   **Web build works** in Chrome (Compatibility, no-threads template): `export_presets.cfg`.
-- Next: **J1.5 diversion tools**
-  (`docs/diversion-tools-spec.md`: smoke, lights out, fake radio call, defector
-  flashbang; Duff's picks, Nov 6), then J2 = M6 + mid-fight saves.
+- **J1.5 shipped (Nov 7):** smoke, lights out (junction box, west wall), fake radio
+  call (You at the box), defector flashbang. Press a tool = preview (area, white outline
+  on guards hit, noise, chance), then Confirm. Rebalanced with one extra depot guard in
+  the NE corner (`EXTRA_GUARDS`): 3 v 4 quiet airs 40%, nobody out 63%, close 40%.
+  `--capture-tools` renders each tool (`docs/renders/tools_*.png`).
+- Next: **J2 = M6** (endings, saves incl. mid-fight, Android pass).
 - **End of every milestone:** run autoplay, the tension numbers, and an independent
   design review (fresh agent, pillars + style guide + renders). Jam spec §5b.
 - Fallback art: `scripts/sprite_bake.gd` bakes rigs into 8-direction sprites;
@@ -47,7 +51,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   faction rests on the ring (darker regime body tint?). Nits: grain still visible on the
   floor, "ALARM: 3 more in 1" and the guard "?" are cryptic, no down/subdued marker on
   bodies, no render of the enemy turn mid-animation.
-- Guard count call still open (3 v 4 quiet: nobody out 65%). Duff plays it and decides.
+- Guard count call still open: J1.5 added a 5th depot guard to pay for the tools (3 v 4
+  quiet now: nobody out 63%). Duff plays it and decides. Going loud got much harder
+  (5 v 4 loud aired 92% -> 53%); ask if that's the intent.
 - Retarget fix (Nov 6): the silhouette fix is now ON for all four rigs. Without it
   every Mixamo clip bent the forearms inward (arms looked crossed). Side effect:
   portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
@@ -77,7 +83,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (`-- 300 focus` for just the 3 v 4 and 5 v 4 cases; prints tension: close %, coin-flip shots)
 - Run -> mission -> run hook: `godot --headless --path . --script tools/mission_flow_check.gd`
 - Tactical renders: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --capture-tactical`
-  (`--capture-mission` for the Signal Box). Fresh clone: run `godot --headless --path . --import` first.
+  (`--capture-mission` for the Signal Box, `--capture-tools` for the four diversion tools). Fresh clone: run `godot --headless --path . --import` first.
 - UI screenshots: `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shots`
 - Portraits: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/render_test.tscn -- --portraits`
 - Autoplay (watch a whole mission, ~6 min in the sandbox):

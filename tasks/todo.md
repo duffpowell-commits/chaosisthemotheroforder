@@ -69,7 +69,7 @@
 - [x] Fallback sprite pipeline: scripts/sprite_bake.gd + tools/compose_sprites.py
       (review shots in docs/renders/sprites/; Duff picks a look if we fall back)
 - [x] J1 readability fixes + web export spike (runs in Chrome; phone test waits on hosting); guard count call still open
-- [ ] J1.5 (Nov 16–22) diversion tools: smoke, lights out, radio call, defector flashbang
+- [x] J1.5 diversion tools: smoke, lights out, radio call, defector flashbang
       (docs/diversion-tools-spec.md), rebalanced to the same difficulty
 - [ ] J2 (Nov 23–Dec 3) endings, saves incl. mid-fight, Android pass (= M6)
 - [ ] J3 (Dec 4–10) animation pass; Dec 10 gate: 3D units or baked sprites
@@ -77,6 +77,32 @@
 - [ ] J5 (Dec 21–27) itch page + upload; submit Dec 28
 
 ## Review
+- **J1.5 (Nov 7):** all four tools in `battle.gd` (constants at the top), 4 new tests
+  (50 total). Two-step use in the scene: press the tool to preview (area, white outline
+  on every guard it hits, noise, chance), then Confirm; Smoke and Flash take a target
+  tap in between. Smoke draws as grey puffs; lights out tints the north yard and kills
+  the north lamps; guards get "stunned", "on a fake call", "watching" tags; the junction
+  box is labelled on the map until used; a defector with a flashbang shows ✦.
+  Renders: `docs/renders/tools_*.png`, `autoplay_tools.gif`.
+  Smoke rule, clarified: no spotting into/out of/through; shots through it blocked;
+  a unit on the cloud's edge is hit at -30.
+  Balance (300 runs, quiet bot, focus):
+  | | aired | nobody out | close | flips |
+  |---|---|---|---|---|
+  | 3 v 4 before tools | 45% | 65% | 56% | 4.6 |
+  | 3 v 4 tools, no fix | 81% | 22% | 81% | 5.1 |
+  | 3 v 4 + knob 1 (no freeze) | 81% | 23% | 81% | 2.8 |
+  | 3 v 4 + 5th guard on entry row | 17% | 96% | 22% | 5.2 |
+  | 3 v 4 + 5th guard by the box, freeze 1 (**shipped**) | 40% | 63% | 40% | 2.8 |
+  | 5 v 4 shipped | 97% | 5% | 100% | 7.2 |
+  Knobs moved: `EXTRA_GUARDS := 1`, `GUARD_ROUTES[4]` is now the NE corner by the box.
+  `BROADCAST_STUN` and `DARK_TURNS` back at 1 and 3 (neither moved the numbers).
+  The bot uses smoke and lights constantly, radio and flash rarely (radio needs You
+  at the box before any alarm; flash needs a defector plus 2 bunched guards), so
+  `--capture-tools` shows those two. Known bot flaw kept on purpose (it's the yardstick
+  the target was set with): it opens fire whenever an alert guard has a line on it,
+  even in the dark where that guard can't see it. A human won't. Loud play got much
+  harder: 5 v 4 loud aired 92% -> 53%. Fits "diversion, not firefights", but flag it.
 - **J1 (Nov 6):** team rings (red = movement, cold blue = regime, yellow = Wavering) and
   name/HP tags moved into the 2D overlay, because the Frontline grade keeps 7% of 3D
   colour on the tactical map. Tags are fixed-size and de-stack (nearest unit keeps its

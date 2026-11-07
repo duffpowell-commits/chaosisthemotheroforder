@@ -30,6 +30,10 @@ All numbers are constants at the top of `battle.gd`, so the simulator can tune t
 - **Duration:** 2 regime turns.
 - **Effect:** blocks line of sight into, out of and through the area.
   Spotting through it is impossible. Shots at a unit standing in smoke take −30.
+  *Built (J1.5):* "into" and "−30" contradict each other, so: spotting into,
+  out of or through smoke is impossible; a shot whose line crosses a smoke tile
+  is blocked; a shot at a unit on the cloud's edge (line arrives from outside)
+  takes −30. In practice the centre tile is untouchable for 2 turns.
 - **Cost:** +2 noise. Every guard who can see the cloud goes to ALERT.
 - **Charges:** 1 per mission (`SMOKE_CHARGES`).
 
@@ -97,6 +101,12 @@ Knobs to try, in this order:
 3. A fifth guard.
 
 Record which knobs moved and the before/after numbers in `tasks/todo.md`.
+
+*Built (J1.5):* knob 1 alone did nothing (nobody out 22% -> 23%); knob 2 has nothing
+to bite on (alert guards already know where every squad member is); knob 3 did it,
+but only with the fifth guard in the NE corner by the box: on the entry row he
+crushed 3 v 4 to 17% aired. The broadcast freeze stays at 1. Final numbers in
+`tasks/todo.md`.
 
 ## 6. Tests (in `tests/run_tests.gd`)
 - Smoke blocks line of sight through it, −30 to hit into it, lasts 2 regime turns, 1 charge.
