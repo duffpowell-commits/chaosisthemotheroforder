@@ -423,6 +423,132 @@ func test_tactical_tags_never_overlap() -> void:
 			placed.append(r)
 
 
+func tool_yard() -> Battle:
+	var b := yard({})
+	b.mission = true
+	b.sight = Battle.MISSION_SIGHT
+	b.box = Vector2i(7, 1)
+	b.set_tile(b.box, Battle.BOX)
+	b.set_tile(Battle.JUNCTION_POS, Battle.JUNCTION)
+	return b
+
+
+func test_tool_smoke() -> void:
+	var b := tool_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(6, 12))
+	you.is_you = true
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(6, 2))
+	check(b.line_of_sight(g.pos, Vector2i(6, 12)), "clear before smoke")
+	check(not b.can_smoke(you, Vector2i(6, 6)), "out of range (5)")
+	check(b.smoke(you, Vector2i(6, 8)), "smoke within 5")
+	check(b.noise == Battle.NOISE_SMOKE and g.state == Battle.ALERT, "+2 noise, the guard who sees it alerts")
+	check(not b.line_of_sight(g.pos, Vector2i(6, 12)), "smoke blocks sight through it")
+	check(not b.can_spot(g.pos, you), "can't be spotted through smoke")
+	# A unit on the cloud's edge, shot from outside: -30.
+	var m := b.add_unit("Mara", Battle.US, Vector2i(5, 7))
+	var shooter := b.add_unit("S", Battle.REGIME, Vector2i(1, 7))
+	b.smokes.clear()
+	var clear_c: int = b.chance(shooter, m)
+	b.smokes.append([Vector2i(6, 8), 2])
+	check(b.chance(shooter, m) == Battle.clamp_chance(clear_c - Battle.SMOKE_PENALTY), "-30 into smoke")
+	you.ap = 2
+	check(not b.can_smoke(you, Vector2i(6, 9)), "1 charge per mission")
+	b.end_turn()
+	check(b.in_smoke(Vector2i(6, 8)), "still there after 1 regime turn")
+	b.end_turn()
+	check(not b.in_smoke(Vector2i(6, 8)), "gone after 2 regime turns")
+
+
+func test_tool_lights_out() -> void:
+	var b := tool_yard()
+	var you := b.add_unit("You", Battle.US, Battle.JUNCTION_POS + Vector2i(1, 0))
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(4, 3))
+	g.route = [Vector2i(4, 3), Vector2i(9, 3)]
+	var far := b.add_unit("G2", Battle.REGIME, Vector2i(12, 1))
+	far.route = [Vector2i(12, 1), Vector2i(12, 2)]
+	var m := b.add_unit("Mara", Battle.US, Vector2i(4, 8))
+	check(b.can_spot(g.pos, m), "lit: spotted at 5 tiles")
+	check(b.lights_out(you), "lights out next to the box")
+	check(b.dark == Battle.DARK_TURNS and b.noise == Battle.NOISE_LIGHTS, "3 dark turns, +1 noise")
+	check(not b.can_spot(g.pos, m), "dark: only spotted within 2")
+	check(g.check == Battle.JUNCTION_POS and far.check.x < 0, "the nearest patrol goes to check")
+	var d0 := Battle._manhattan(g.pos, Battle.JUNCTION_POS)
+	m.pos = Vector2i(13, 13)
+	you.pos = Vector2i(0, 13)
+	b.end_turn()
+	check(Battle._manhattan(g.pos, Battle.JUNCTION_POS) < d0, "he walks toward the junction box")
+	check(not b.lights_out(you), "once per mission")
+	b.end_turn()
+	b.end_turn()
+	check(b.dark == 0, "lights back after 3 turns")
+
+
+func test_tool_radio() -> void:
+	var b := tool_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(6, 1))
+	you.is_you = true
+	var mara := b.add_unit("Mara", Battle.US, Vector2i(8, 1))
+	check(not b.can_radio(mara), "only You")
+	var gs := []
+	for p in [Vector2i(3, 4), Vector2i(10, 4), Vector2i(12, 12)]:
+		var g := b.add_unit("G", Battle.REGIME, p)
+		g.route = [p]
+		gs.append(g)
+	b.legitimacy = 10  # 85% cap
+	check(b.radio_chance() == Battle.RADIO_CAP, "capped at 85")
+	b.rng.seed = 3
+	var ok := b.radio(you)
+	if ok:
+		check(gs[0].busy == Battle.BUSY_TURNS and gs[1].busy == Battle.BUSY_TURNS and gs[2].busy == 0, "the 2 nearest go busy")
+		check(not b._sees_enemy(gs[0]), "busy guards don't spot")
+		b.end_turn()
+		b.end_turn()
+		check(gs[0].busy == 0 and gs[0].state == Battle.ALERT, "back on alert after 2 turns")
+	else:
+		check(false, "seed 3 at 85% should succeed")
+	you.ap = 2
+	check(not b.can_radio(you), "once per mission")
+	# Failure: 0% once the alarm rings.
+	var f := tool_yard()
+	var y2 := f.add_unit("You", Battle.US, Vector2i(6, 1))
+	y2.is_you = true
+	var g2 := f.add_unit("G", Battle.REGIME, Vector2i(12, 12))
+	g2.route = [g2.pos]
+	f.alarm = true
+	check(f.radio_chance() == 0 and not f.radio(y2), "no one believes it over the alarm")
+	check(f.noise == Battle.NOISE_RADIO_FAIL and g2.state == Battle.ALERT, "failure: +3 noise, all alert")
+	var y3 := tool_yard().add_unit("You", Battle.US, Vector2i(3, 9))
+	y3.is_you = true
+	check(not b.can_radio(y3), "only next to the box")
+
+
+func test_tool_flashbang() -> void:
+	var b := tool_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(6, 6))
+	you.is_you = true
+	check(not b.can_flash(you, Vector2i(6, 3)), "You has no flashbang")
+	var w := b.add_unit("Guard 1", Battle.REGIME, Vector2i(6, 8))
+	w.wavering = true
+	b.legitimacy = 10
+	b.rng.seed = 2  # a seed where the 95% roll lands (seed 1 rolls a 96+)
+	check(b.persuade(you, w) and w.flash == 1, "a defector brings one flashbang")
+	var a := b.add_unit("A", Battle.REGIME, Vector2i(9, 3))
+	var c := b.add_unit("C", Battle.REGIME, Vector2i(10, 4))
+	var far := b.add_unit("F", Battle.REGIME, Vector2i(12, 12))
+	for g in [a, c, far]:
+		g.route = [g.pos]
+	w.ap = 2
+	check(not b.can_flash(w, Vector2i(9, 2)), "range 4")
+	var n0 := b.noise
+	check(b.flashbang(w, Vector2i(9, 4)), "throw within 4")
+	check(a.stun == 1 and c.stun == 1 and far.stun == 0, "stuns guards within 1 tile")
+	check(b.noise == mini(Battle.NOISE_MAX, n0 + Battle.NOISE_FLASH), "+4 noise")
+	var apos := a.pos
+	b.end_turn()
+	check(a.pos == apos and a.stun == 0, "a stunned guard loses his turn")
+	check(not b.can_flash(w, Vector2i(9, 4)), "only one")
+
+
 func test_tactics_los() -> void:
 	var b := yard({Vector2i(5, 5): Battle.FULL, Vector2i(9, 5): Battle.HALF})
 	check(not b.line_of_sight(Vector2i(5, 2), Vector2i(5, 8)), "a container blocks sight")

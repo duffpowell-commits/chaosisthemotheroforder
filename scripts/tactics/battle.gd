@@ -11,6 +11,10 @@ extends RefCounted
 ## Mission mode (M5, the Signal Box): the same rules plus noise, an alarm with
 ## reinforcements, the signal box upload, extraction from the south edge,
 ## Sneak / Subdue / Overwatch / Stabilize / Persuade, and permadeath.
+##
+## Diversion tools (J1.5, docs/diversion-tools-spec.md): Smoke, Lights out,
+## fake Radio call, defector Flashbang. Abstract game actions only: the game
+## shows effect and cost, never how the real thing works.
 
 const W := 14
 const H := 14
@@ -49,6 +53,26 @@ const PERSUADE_RANGE := 3
 const NOISE_SHOUT := 2      # a guard who spots you yells for the others
 const BROADCAST_STUN := 1   # regime turns the guards lose watching the footage air
 
+const JUNCTION := 5         # the floodlight junction box: blocks movement, not sight
+const JUNCTION_POS := Vector2i(0, 8)
+const SMOKE_CHARGES := 1
+const SMOKE_RANGE := 5
+const SMOKE_TURNS := 2      # regime turns the cloud lasts
+const SMOKE_PENALTY := 30   # to hit a unit standing in smoke
+const NOISE_SMOKE := 2
+const DARK_TURNS := 3
+const DARK_ROWS := 6        # rows 0..6: the box's half of the yard, under the floodlight
+const NOISE_LIGHTS := 1
+const RADIO_BASE := 30
+const RADIO_PER_LEGIT := 10
+const RADIO_CAP := 85
+const RADIO_GUARDS := 2
+const BUSY_TURNS := 2
+const NOISE_RADIO_FAIL := 3
+const FLASH_RANGE := 4
+const FLASH_STUN := 1
+const NOISE_FLASH := 4
+
 
 class Unit:
 	var name := ""
@@ -71,6 +95,11 @@ class Unit:
 	var bleed := 0           # your turns left before a downed squadmate dies
 	var stabilized := false
 	var dead := false
+	# Diversion tools (J1.5)
+	var busy := 0            # regime turns chasing a fake radio call
+	var stun := 0            # regime turns lost to a flashbang
+	var flash := 0           # flashbangs carried (a defector brings 1)
+	var check := Vector2i(-1, -1)  # where a guard walks to look (the junction box)
 
 	func alive() -> bool:
 		return hp > 0 and not escaped
@@ -98,6 +127,11 @@ var box := Vector2i(-1, -1)
 var legitimacy := 0
 var kills := 0
 var defections := 0
+var smoke_left := SMOKE_CHARGES
+var smokes: Array = []      # [[centre: Vector2i, regime turns left: int]]
+var dark := 0               # turns the floodlit half stays dark
+var lights_used := false
+var radio_used := false
 
 
 # ---------- setup ----------
@@ -179,6 +213,7 @@ static func create_mission(params: Dictionary) -> RefCounted:
 	b.legitimacy = int(params.get("legitimacy", 0))
 	b.box = BOX_POS
 	b.set_tile(BOX_POS, BOX)
+	b.set_tile(JUNCTION_POS, JUNCTION)
 	var squad: Array = params.get("squad", [{"name": "You", "op": 0, "is_you": true}])
 	for i in range(mini(squad.size(), SQUAD_XS.size())):
 		var m: Dictionary = squad[i]
@@ -318,6 +353,8 @@ func line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 			p.y += sy
 		if p == b:
 			break
+		if in_smoke(p):
+			return false  # smoke: nothing is seen or hit through the cloud
 		if _cheb(p, a) <= 1 or _cheb(p, b) <= 1:
 			continue
 		if _blocks(p):
@@ -348,7 +385,7 @@ func cover_against(target: Vector2i, shooter: Vector2i) -> int:
 func _has_any_cover(p: Vector2i) -> bool:
 	for d in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
 		var n: Vector2i = p + d
-		if in_bounds(n) and tile(n) != FLOOR and tile(n) != HIGH:
+		if in_bounds(n) and tile(n) != FLOOR and tile(n) != HIGH and tile(n) != JUNCTION:
 			return true
 	return false
 
@@ -368,6 +405,8 @@ func chance_from(from: Vector2i, to: Vector2i) -> int:
 				c += 20  # flanked: they're behind cover, but not from this side
 	if tile(from) == HIGH and tile(to) != HIGH:
 		c += 10
+	if in_smoke(to):
+		c -= SMOKE_PENALTY  # firing blind at where you last saw them
 	return clamp_chance(c)
 
 
@@ -598,12 +637,161 @@ func persuade(u: Unit, target: Unit) -> bool:
 		target.state = ALERT
 		target.ap = 0
 		target.route = []
+		target.flash = 1
 		defections += 1
 		log.append("%s lowers his rifle and joins you (%d%%)" % [target.name, c])
 		return true
 	target.state = ALERT
 	log.append("%s won't listen (%d%%)" % [target.name, c])
 	return false
+
+
+# ---------- diversion tools (J1.5) ----------
+
+func in_smoke(p: Vector2i) -> bool:
+	for sm in smokes:
+		if _cheb(p, sm[0]) <= 1:
+			return true
+	return false
+
+
+static func area3(c: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var p := c + Vector2i(dx, dy)
+			if in_bounds(p):
+				out.append(p)
+	return out
+
+
+func can_smoke(u: Unit, at: Vector2i) -> bool:
+	return mission and u.alive() and u.side == US and u.ap >= 1 and smoke_left > 0 \
+		and in_bounds(at) and _cheb(u.pos, at) <= SMOKE_RANGE and (at == u.pos or line_of_sight(u.pos, at))
+
+
+## Smoke flare: a 3x3 cloud for 2 regime turns. Loud enough that every guard
+## who can see the cloud comes to look.
+func smoke(u: Unit, at: Vector2i) -> bool:
+	if not can_smoke(u, at):
+		return false
+	u.ap -= 1
+	smoke_left -= 1
+	u.hidden = false
+	var seen := []
+	for g in alive_units(REGIME):
+		if _cheb(g.pos, at) <= sight and line_of_sight(g.pos, at):
+			seen.append(g)
+	smokes.append([at, SMOKE_TURNS])
+	log.append("%s %s a smoke flare" % [u.name, _verb(u, "pops")])
+	for g in seen:
+		if g.state == PATROL:
+			g.state = ALERT
+			log.append("%s sees the smoke" % g.name)
+	add_noise(NOISE_SMOKE, at)
+	return true
+
+
+func can_lights_out(u: Unit) -> bool:
+	return mission and u.alive() and u.side == US and u.ap >= 1 and not lights_used \
+		and _cheb(u.pos, JUNCTION_POS) == 1 and tile(JUNCTION_POS) == JUNCTION
+
+
+## Kill the floodlight: the box's half of the yard goes dark for 3 turns.
+## The nearest patrol walks over to see what happened to the junction box.
+func lights_out(u: Unit) -> bool:
+	if not can_lights_out(u):
+		return false
+	u.ap -= 1
+	lights_used = true
+	dark = DARK_TURNS
+	log.append("The floodlight dies. The north yard goes black")
+	var near: Unit = null
+	for g in alive_units(REGIME):
+		if g.state == PATROL and (near == null or _manhattan(g.pos, JUNCTION_POS) < _manhattan(near.pos, JUNCTION_POS)):
+			near = g
+	if near != null:
+		near.check = JUNCTION_POS
+		log.append("%s goes to check the junction box" % near.name)
+	add_noise(NOISE_LIGHTS, u.pos)
+	return true
+
+
+func radio_chance() -> int:
+	return 0 if alarm else mini(RADIO_CAP, RADIO_BASE + RADIO_PER_LEGIT * legitimacy)
+
+
+func can_radio(u: Unit) -> bool:
+	return mission and u.alive() and u.is_you and u.ap >= 1 and not radio_used and _cheb(u.pos, box) == 1
+
+
+## Who a successful call would send away: the guards nearest You who aren't
+## already busy or stunned.
+func radio_targets(u: Unit) -> Array:
+	var gs: Array = alive_units(REGIME).filter(func(g): return g.busy == 0 and g.stun == 0)
+	gs.sort_custom(func(a, b): return _manhattan(a.pos, u.pos) < _manhattan(b.pos, u.pos))
+	return gs.slice(0, RADIO_GUARDS)
+
+
+## Fake radio call from the box: "trouble at the far gate". Works or backfires.
+## Nobody believes a call once the alarm is ringing (0%).
+func radio(u: Unit) -> bool:
+	if not can_radio(u):
+		return false
+	u.ap -= 1
+	radio_used = true
+	var c := radio_chance()
+	if rng.randi_range(1, 100) <= c:
+		for g in radio_targets(u):
+			g.busy = BUSY_TURNS
+			g.check = Vector2i(-1, -1)
+			log.append("%s answers the call and heads out" % g.name)
+		return true
+	log.append("They hear a stranger on their channel (%d%%)" % c)
+	alert_all("the radio")
+	add_noise(NOISE_RADIO_FAIL, u.pos)
+	return false
+
+
+## A guard on a wild goose chase walks for the nearer side edge; when the
+## chase is over he comes back on alert.
+func _chase_radio(u: Unit) -> void:
+	var edge_x := 0 if u.pos.x < W / 2 else W - 1
+	var best := u.pos
+	for p in reachable(u, AP_PER_TURN):
+		if absi(p.x - edge_x) < absi(best.x - edge_x):
+			best = p
+	if best != u.pos:
+		move(u, best)
+	u.busy -= 1
+	if u.busy == 0 and u.alive():
+		u.state = ALERT
+		log.append("%s realises it was a fake and comes back" % u.name)
+
+
+func can_flash(u: Unit, at: Vector2i) -> bool:
+	return mission and u.alive() and u.side == US and u.flash > 0 and u.ap >= 1 \
+		and in_bounds(at) and _cheb(u.pos, at) <= FLASH_RANGE and line_of_sight(u.pos, at)
+
+
+func flash_targets(at: Vector2i) -> Array:
+	return alive_units(REGIME).filter(func(g): return _cheb(g.pos, at) <= 1)
+
+
+## The defector's flashbang: guards within 1 tile of the blast lose their next turn.
+func flashbang(u: Unit, at: Vector2i) -> bool:
+	if not can_flash(u, at):
+		return false
+	u.ap -= 1
+	u.flash -= 1
+	u.hidden = false
+	log.append("%s throws a flashbang" % u.name)
+	for g in flash_targets(at):
+		g.stun = FLASH_STUN
+		g.state = ALERT
+		log.append("%s is stunned" % g.name)
+	add_noise(NOISE_FLASH, at)
+	return true
 
 
 ## Mission noise. Wakes patrols within NOISE_RADIUS tiles per point; at 10 the
@@ -708,7 +896,18 @@ func end_turn() -> void:
 		log.append("Every guard stares at the screens")
 	else:
 		for g in alive_units(REGIME):
+			if g.stun > 0:
+				g.stun -= 1
+				log.append("%s is still reeling" % g.name)
+				continue
 			act_unit(g)
+	for sm in smokes:
+		sm[1] -= 1
+	smokes = smokes.filter(func(sm): return sm[1] > 0)
+	if dark > 0:
+		dark -= 1
+		if dark == 0:
+			log.append("The floodlight comes back on")
 	if mission and reinforce_in > 0:
 		reinforce_in -= 1
 		if reinforce_in == 0:
@@ -725,6 +924,9 @@ func end_turn() -> void:
 func act_unit(u: Unit) -> void:
 	if not u.alive():
 		return
+	if u.side == REGIME and u.busy > 0:
+		_chase_radio(u)
+		return
 	if u.side == REGIME:
 		if u.state == PATROL:
 			_patrol(u)
@@ -739,11 +941,22 @@ func act_unit(u: Unit) -> void:
 
 
 func _sees_enemy(u: Unit) -> bool:
+	if u.busy > 0:
+		return false
 	for e in enemies_of(u):
-		var r := HIDDEN_SIGHT if e.hidden else sight
-		if _cheb(u.pos, e.pos) <= r and line_of_sight(u.pos, e.pos):
+		if can_spot(u.pos, e):
 			return true
 	return false
+
+
+## Could a guard at `from` spot `e`? Sneaking or dark: only up close. Smoke: never.
+func can_spot(from: Vector2i, e: Unit) -> bool:
+	if in_smoke(from) or in_smoke(e.pos):
+		return false
+	var r := HIDDEN_SIGHT if e.hidden else sight
+	if dark > 0 and (from.y <= DARK_ROWS or e.pos.y <= DARK_ROWS):
+		r = mini(r, HIDDEN_SIGHT)
+	return _cheb(from, e.pos) <= r and line_of_sight(from, e.pos)
 
 
 ## Skirmish: one sighting alerts everyone. Mission: the guard shouts, which
@@ -763,7 +976,13 @@ func _patrol(u: Unit) -> void:
 		_fight(u)
 		return
 	var goal: Vector2i = u.route[u.route_i]
-	if u.pos == goal:
+	if u.check.x >= 0:
+		if _cheb(u.pos, u.check) <= 1:
+			log.append("%s checks the junction box" % u.name)
+			u.check = Vector2i(-1, -1)
+		else:
+			goal = u.check
+	if u.check.x < 0 and u.pos == goal:
 		u.route_i = (u.route_i + 1) % u.route.size()
 		goal = u.route[u.route_i]
 	var best := u.pos
