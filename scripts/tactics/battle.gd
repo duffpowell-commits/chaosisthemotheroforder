@@ -375,6 +375,45 @@ func chance(shooter: Unit, target: Unit) -> int:
 	return chance_from(shooter.pos, target.pos)
 
 
+## What a guard can do on his next turn, for "threat on tap". Mirrors _fight:
+## he moves up to 2 AP, or moves 1 AP and shoots (only at 15%+).
+## {"move": {tile: true}, "shoot": {tile: best hit %}}. Shoot covers every
+## floor/high tile he could fire on, empty or not, so you can plan around it.
+const AI_MIN_SHOT := 15
+
+func threat(g: Unit) -> Dictionary:
+	var keep := g.ap
+	g.ap = AP_PER_TURN
+	var move_to := reachable(g, AP_PER_TURN)
+	var from: Array = reachable(g, 1).keys()
+	g.ap = keep
+	from.append(g.pos)
+	var shoot := {}
+	for y in range(H):
+		for x in range(W):
+			var p := Vector2i(x, y)
+			if p == g.pos or not (tile(p) == FLOOR or tile(p) == HIGH):
+				continue
+			var best := 0
+			for q in from:
+				best = maxi(best, chance_from(q, p))
+			if best >= AI_MIN_SHOT:
+				shoot[p] = best
+	var mv := {}
+	for p in move_to:
+		mv[p] = true
+	return {"move": mv, "shoot": shoot}
+
+
+## Shot preview for the Shoot button: {"chance", "result" ("down"/"wounded"), "noise"}.
+func shot_preview(u: Unit, target: Unit) -> Dictionary:
+	return {
+		"chance": chance(u, target),
+		"result": "down" if target.hp <= 1 else "wounded",
+		"noise": NOISE_SHOT if mission and u.side == US else 0,
+	}
+
+
 func winner() -> String:
 	if mission:
 		return ""

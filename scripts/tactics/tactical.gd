@@ -21,6 +21,16 @@ const C_GOOD := Color("7fbf7a")
 const C_MOVE := Color(0.3, 0.62, 1.0, 0.32)
 const C_SNEAK := Color(0.62, 0.42, 1.0, 0.36)
 const C_EXIT := Color(0.45, 0.85, 0.45, 0.30)
+# J1 readability. Team colours live in the 2D overlay (above the grade, which
+# drains 3D colour to 7%): red rings for the movement, cold blue for the regime.
+const C_RING_US := Color(0.93, 0.33, 0.24)
+const C_RING_REGIME := Color(0.42, 0.68, 1.0)
+const C_RING_WAVER := Color(1.0, 0.85, 0.4)
+const C_THREAT_MOVE := Color(1.0, 0.55, 0.1, 0.30)
+const C_THREAT_SHOOT := Color(1.0, 0.4, 0.1, 0.08)
+const TAG_SIZE := 19
+const GRADE_GRAIN := 0.35  # the tactical map keeps the Frontline grade, lighter
+const GRADE_CRUSH := 0.45
 
 const TOP_H := 56
 const BOTTOM_H := 148
@@ -30,7 +40,8 @@ var battle
 var seed_value := 1
 var mission_meta := {}  # set when the run launched the Signal Box
 var unit_nodes := {}    # Battle.Unit -> Node3D
-var unit_tags := {}     # Battle.Unit -> Label3D
+var unit_tags := {}     # Battle.Unit -> [text, colour], drawn in 2D (or absent = hidden)
+var threat := {}        # {"move", "shoot"} for the tapped guard, or empty
 ## Grid highlights are drawn in 2D above the colour grade, so the grade
 ## can't wash out the move range and the target.
 var overlay: Node2D
@@ -64,6 +75,8 @@ func _ready() -> void:
 	_build_hud()
 	_apply(0.0)
 	env.fog_density = 0.012  # keep the far end of the grid readable
+	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
+	grade_mat.set_shader_parameter("crush_mul", GRADE_CRUSH)
 	var args := OS.get_cmdline_user_args()
 	if ("--capture-mission" in args or "--autoplay" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
@@ -100,10 +113,10 @@ func _ground(p: Vector2i) -> float:
 ## and the action column (M4's camera put the squad's start row under the HUD).
 func _build_tactical_camera() -> void:
 	cam = Camera3D.new()
-	cam.fov = 52
+	cam.fov = 55  # J1: a touch wider so the squad's start row clears the bottom panel
 	add_child(cam)
-	cam.position = Vector3(3.6, 13.6, 9.4)
-	cam.look_at(Vector3(0.6, 0.0, -0.4))
+	cam.position = Vector3(3.6, 13.6, 9.9)
+	cam.look_at(Vector3(0.6, 0.0, 0.2))
 	cam.current = true
 
 
@@ -208,15 +221,28 @@ func _spawn_unit(u) -> void:
 			else:
 				n = _person("riot_police", p, 0, world_root, true, {}, "weight_shift")
 	unit_nodes[u] = n
-	var tag := Label3D.new()
-	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.no_depth_test = true
-	tag.font_size = 56
-	tag.pixel_size = 0.006
-	tag.outline_size = 12
-	tag.position = Vector3(0, 2.15, 0)
-	n.add_child(tag)
-	unit_tags[u] = tag
+	_add_rim(n)
+
+
+## A cool fresnel rim on every surface of a unit (units only, not the street),
+## so a body separates from crates and barrels in the dark. Added as a
+## next_pass on a per-unit copy of each material, so shared assets stay clean.
+var _rim_mat: ShaderMaterial
+
+func _add_rim(n: Node3D) -> void:
+	if _rim_mat == null:
+		_rim_mat = ShaderMaterial.new()
+		_rim_mat.shader = load("res://shaders/unit_rim.gdshader")
+	for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null:
+			continue
+		for i in range(mi.mesh.get_surface_count()):
+			var m: Material = mi.get_active_material(i)
+			if m == null or m.next_pass != null:
+				continue
+			var c: Material = m.duplicate()
+			c.next_pass = _rim_mat
+			mi.set_surface_override_material(i, c)
 
 
 func _build_hud() -> void:
@@ -386,31 +412,32 @@ func _refresh_units() -> void:
 		if not unit_nodes.has(u):
 			_spawn_unit(u)  # reinforcements
 		var n: Node3D = unit_nodes[u]
-		var tag: Label3D = unit_tags[u]
+		unit_tags.erase(u)
 		if u.escaped:
 			n.visible = false
 			continue
 		if not u.alive():
 			n.rotation.x = deg_to_rad(-88)  # downed
-			tag.visible = u.side == Battle.US and u.downed()
-			tag.text = "%s %s" % [u.name, "stable" if u.stabilized else "bleeding"]
-			tag.modulate = C_FG if u.stabilized else C_RED
+			if u.side == Battle.US and u.downed():
+				unit_tags[u] = ["%s %s" % [u.name, "stable" if u.stabilized else "bleeding"], C_FG if u.stabilized else C_RED]
 			continue
-		tag.visible = true
+		var text := ""
+		var col := C_FG
 		if u.side == Battle.US:
-			tag.text = "%s %s" % [u.name, _pips(u.hp, "♥")]
-			tag.modulate = C_ACCENT if u == selected else C_FG
+			text = "%s %s" % [u.name, _pips(u.hp, "♥")]
+			col = C_ACCENT if u == selected else C_FG
 			if u.hidden:
-				tag.text += " (hidden)"
+				text += " (hidden)"
 			if u.overwatch:
-				tag.text += " ◎"
+				text += " ◎"
 		else:
-			tag.text = _pips(u.hp, "♥")
+			text = _pips(u.hp, "♥")
 			if u.wavering:
-				tag.text = "Wavering " + tag.text
+				text = "Wavering " + text
 			if u.state == Battle.PATROL:
-				tag.text += " ?"
-			tag.modulate = Color(1.0, 0.85, 0.45) if u.wavering else Color(1.0, 0.55, 0.45)
+				text += " ?"
+			col = C_RING_WAVER if u.wavering else C_RING_REGIME.lightened(0.35)
+		unit_tags[u] = [text, col]
 		_face(u)
 
 
@@ -420,14 +447,21 @@ func _refresh_tiles() -> void:
 	if battle.mission and battle.upload >= Battle.UPLOAD_TURNS:
 		for x in range(Battle.W):
 			tile_fill[Vector2i(x, Battle.H - 1)] = C_EXIT
-	if selected != null and ours:
+	threat = {}
+	if aimed != null and ours:
+		threat = battle.threat(aimed)
+		for p in threat.shoot:
+			tile_fill[p] = C_THREAT_SHOOT
+		for p in threat.move:
+			tile_fill[p] = C_THREAT_MOVE
+	elif selected != null and ours:
 		if sneaking:
 			for p in battle.reachable(selected, 1):
 				tile_fill[p] = C_SNEAK
 		else:
 			for p in battle.reachable(selected, selected.ap):
 				tile_fill[p] = C_MOVE
-	if selected != null:
+	if selected != null and threat.is_empty():
 		tile_fill[selected.pos] = Color(1.0, 0.75, 0.25, 0.5)
 	if aimed != null:
 		tile_fill[aimed.pos] = Color(1.0, 0.25, 0.15, 0.55)
@@ -461,13 +495,24 @@ func _refresh_column() -> void:
 		if u.ap >= 1:
 			column.add_child(_hud_button("Overwatch", _on_overwatch))
 	var c := 0
+	var label := "Shoot"
 	if aimed != null:
-		c = battle.chance(u, aimed)
-	var shoot := _hud_button("Shoot %d%%" % c if c > 0 else "Shoot", _on_shoot)
+		var pv: Dictionary = battle.shot_preview(u, aimed)
+		c = pv.chance
+		if c > 0:
+			label = "Shoot %d%%\n%s" % [c, "downs him" if pv.result == "down" else "wounds him"]
+			if pv.noise > 0:
+				label += " · +%d noise" % pv.noise
+		else:
+			label = "No shot"
+	var shoot := _hud_button(label, _on_shoot)
 	shoot.disabled = c <= 0 or u.ap < 1
 	column.add_child(shoot)
 	for b in column.get_children():
 		b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+	if c > 0:
+		shoot.add_theme_font_size_override("font_size", 18)
+		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
 
 
 func _tile_poly(p: Vector2i, inset: float) -> PackedVector2Array:
@@ -494,6 +539,91 @@ func _draw_overlay() -> void:
 			var line := poly.duplicate()
 			line.append(poly[0])
 			overlay.draw_polyline(line, Color(0.9, 0.9, 0.85, 0.13), 1.0, true)
+	_draw_rings()
+	_draw_threat_odds()
+	_draw_tags()
+
+
+func _process(delta: float) -> void:
+	super(delta)
+	if overlay:
+		overlay.queue_redraw()  # rings and tags follow units while they tween
+
+
+func _feet(u) -> Vector3:
+	return unit_nodes[u].global_position + Vector3(0, 0.03, 0)
+
+
+## Team ring under every standing unit. The near half is drawn solid and the
+## far half faint, so the ring reads as lying on the ground behind the legs.
+func _draw_rings() -> void:
+	for u in battle.units:
+		if not unit_nodes.has(u) or not u.alive():
+			continue
+		var col: Color = C_RING_US if u.side == Battle.US else (C_RING_WAVER if u.wavering else C_RING_REGIME)
+		var c := _feet(u)
+		var pts := PackedVector2Array()
+		for i in range(25):
+			var a := TAU * i / 24.0
+			pts.append(cam.unproject_position(c + Vector3(cos(a), 0, sin(a)) * 0.4))
+		overlay.draw_colored_polygon(pts.slice(0, 24), Color(col, 0.22))
+		var near := pts.slice(0, 13)   # +z half faces the camera
+		var far := pts.slice(12, 25)
+		overlay.draw_polyline(far, Color(col, 0.45), 2.0, true)
+		overlay.draw_polyline(near, col, 3.5 if u == selected else 2.5, true)
+
+
+## With a guard tapped: his best hit chance on each of ours standing in his reach.
+func _draw_threat_odds() -> void:
+	if threat.is_empty():
+		return
+	var font := ThemeDB.fallback_font
+	for u in battle.alive_units(Battle.US):
+		if threat.shoot.has(u.pos):
+			var at := cam.unproject_position(_feet(u)) + Vector2(0, 26)
+			var t := "%d%%" % threat.shoot[u.pos]
+			var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, TAG_SIZE).x
+			overlay.draw_string_outline(font, at - Vector2(w / 2, 0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 6, Color.BLACK)
+			overlay.draw_string(font, at - Vector2(w / 2, 0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(1.0, 0.62, 0.25))
+
+
+## Name/HP tags at a fixed screen size. Bunched units used to stack their tags
+## into one unreadable blob: now nearer units keep their spot and the rest get
+## pushed up, with a thin leader line back to the unit.
+func _draw_tags() -> void:
+	var font := ThemeDB.fallback_font
+	var entries := []
+	for u in unit_tags:
+		if not unit_nodes.has(u) or not unit_nodes[u].visible:
+			continue
+		var anchor := cam.unproject_position(unit_nodes[u].global_position + Vector3(0, 1.95, 0))
+		entries.append([u, anchor])
+	entries.sort_custom(func(a, b): return a[1].y > b[1].y)
+	var placed: Array[Rect2] = []
+	var h := TAG_SIZE + 4.0
+	for e in entries:
+		var u = e[0]
+		var anchor: Vector2 = e[1]
+		var text: String = unit_tags[u][0]
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x + 8.0
+		var r := Rect2(anchor.x - w / 2, anchor.y - h, w, h)
+		var moved := true
+		var guard := 0
+		while moved and guard < 12:
+			moved = false
+			guard += 1
+			for q in placed:
+				if r.intersects(q):
+					r.position.y = q.position.y - h - 1.0
+					moved = true
+		r.position.y = maxf(r.position.y, TOP_H + 2.0)
+		placed.append(r)
+		if r.end.y < anchor.y - 4.0:
+			overlay.draw_line(Vector2(anchor.x, anchor.y), Vector2(clampf(anchor.x, r.position.x + 4, r.end.x - 4), r.end.y), Color(1, 1, 1, 0.35), 1.0, true)
+		overlay.draw_rect(r, Color(0.05, 0.06, 0.07, 0.55))
+		var base := Vector2(r.position.x + 4, r.end.y - 5)
+		overlay.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 5, Color.BLACK)
+		overlay.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, unit_tags[u][1])
 
 
 static func _pips(n: int, ch: String) -> String:
@@ -586,6 +716,10 @@ func tap_tile(p: Vector2i) -> void:
 		return
 	if u != null and u.side == Battle.REGIME:
 		aimed = u
+		_refresh()
+		return
+	if aimed != null:
+		aimed = null  # first tap away dismisses the threat view (Advance Wars style)
 		_refresh()
 		return
 	if selected == null:
