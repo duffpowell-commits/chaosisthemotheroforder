@@ -69,9 +69,11 @@
 - [x] Fallback sprite pipeline: scripts/sprite_bake.gd + tools/compose_sprites.py
       (review shots in docs/renders/sprites/; Duff picks a look if we fall back)
 - [ ] J1 (Nov 9–15) readability fixes + web export spike in the phone browser; guard count call
-- [ ] J2 (Nov 16–29) endings, saves, Android pass (= M6)
-- [ ] J3 (Nov 30–Dec 6) animation pass; Dec 6 gate: 3D units or baked sprites
-- [ ] J4 (Dec 7–20) outside playtests + polish
+- [ ] J1.5 (Nov 16–22) diversion tools: smoke, lights out, radio call, defector flashbang
+      (docs/diversion-tools-spec.md), rebalanced to the same difficulty
+- [ ] J2 (Nov 23–Dec 3) endings, saves incl. mid-fight, Android pass (= M6)
+- [ ] J3 (Dec 4–10) animation pass; Dec 10 gate: 3D units or baked sprites
+- [ ] J4 (Dec 11–20) outside playtests + polish
 - [ ] J5 (Dec 21–27) itch page + upload; submit Dec 28
 
 ## Review

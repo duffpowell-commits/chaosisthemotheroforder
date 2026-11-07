@@ -14,12 +14,14 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   `docs/jam-slice-spec.md` (J1–J5; M6 becomes J2).
 - Next: **J1** readability (unit rings, label stacking, rim light, lighter grain on
   the tactical map), Advance Wars clarity (threat on tap, full shot preview), and a
-  web export spike (web needs the Compatibility renderer). Then J2 = M6 + mid-fight saves.
+  web export spike (web needs the Compatibility renderer). Then **J1.5 diversion tools**
+  (`docs/diversion-tools-spec.md`: smoke, lights out, fake radio call, defector
+  flashbang; Duff's picks, Nov 6), then J2 = M6 + mid-fight saves.
 - **End of every milestone:** run autoplay, the tension numbers, and an independent
   design review (fresh agent, pillars + style guide + renders). Jam spec §5b.
 - Fallback art: `scripts/sprite_bake.gd` bakes rigs into 8-direction sprites;
   `tools/compose_sprites.py` makes review sheets (`docs/renders/sprites/`).
-  Decision gate Dec 6.
+  Decision gate Dec 10.
 
 ## First thing next session
 - Retarget fix (Nov 6): the silhouette fix is now ON for all four rigs. Without it

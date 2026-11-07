@@ -76,7 +76,7 @@
   It hides modeling flaws better than the smooth pre-rendered version.
 - **The street stays 3D.** Only the units become flat sprites that face the
   camera.
-- **Decision gate: Dec 6.** Switch the units to sprites if either is true:
+- **Decision gate: Dec 10.** Switch the units to sprites if either is true:
   - animated 3D units still look wrong after the animation pass, or
   - the tactical map runs under 30 fps on Duff's phone.
 
@@ -105,10 +105,11 @@ renders in `docs/renders/`.
 | Dates | Milestone | Done when |
 |---|---|---|
 | Done | M5 Signal Box mission | Mission outcomes feed back into the run |
-| Nov 9–15 | **J1: readability + web spike** | §3.2 fixes in; a web build runs in Duff's phone browser; guard count decided |
-| Nov 16–29 | **J2: endings, saves (incl. mid-fight), Android pass** (M6) | Five endings reachable; quitting mid-mission resumes the fight; 5 clean runs on the phone |
-| Nov 30–Dec 6 | **J3: animation pass + fallback gate** | Units walk, aim and fall; the Dec 6 call is made |
-| Dec 7–20 | **J4: playtests + polish** | 2 outside playtesters finish a run; their worst problems fixed |
+| Nov 9–15 | **J1: readability + web spike** | §3.2 fixes in; a web build runs in Duff's phone browser |
+| Nov 16–22 | **J1.5: diversion tools** (`docs/diversion-tools-spec.md`) | Smoke, lights out, radio call, defector flashbang; difficulty back on target |
+| Nov 23–Dec 3 | **J2: endings, saves (incl. mid-fight), Android pass** (M6) | Five endings reachable; quitting mid-mission resumes the fight; 5 clean runs on the phone |
+| Dec 4–10 | **J3: animation pass + fallback gate** | Units walk, aim and fall; the 3D-or-sprites call is made Dec 10 |
+| Dec 11–20 | **J4: playtests + polish** | 2 outside playtesters finish a run; their worst problems fixed |
 | Dec 21–27 | **J5: itch page + upload** | Page live as a draft; build tested from itch on the phone |
 | Dec 28 | **Submit** | Entry shows on the jam page |
 
