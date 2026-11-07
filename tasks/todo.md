@@ -103,6 +103,14 @@
   the target was set with): it opens fire whenever an alert guard has a line on it,
   even in the dark where that guard can't see it. A human won't. Loud play got much
   harder: 5 v 4 loud aired 92% -> 53%. Fits "diversion, not firefights", but flag it.
+  Independent review: 2 blockers, fixed. Previews didn't warn that a tool trips the
+  alarm (now: "+4 noise: ALARM, 3 riot police in 2" in red, Shoot too), and lights out
+  hid its cost (now the checking guard gets a white ring and his walk is drawn in red;
+  dark tint is near-black, not blue). Also fixed: the radio can't send away the
+  Wavering guard; smoke text says "blocks sight, edge -30" instead of "hides you";
+  radio success captured. Logged, not done: tool results scroll out of the 2-line log
+  (needs a banner, J3); whether the 5th guard should only appear once a tool is used
+  (Duff's call after playing); the defector keeps his "Guard N" name and ✦ is unexplained.
 - **J1 (Nov 6):** team rings (red = movement, cold blue = regime, yellow = Wavering) and
   name/HP tags moved into the 2D overlay, because the Frontline grade keeps 7% of 3D
   colour on the tactical map. Tags are fixed-size and de-stack (nearest unit keeps its

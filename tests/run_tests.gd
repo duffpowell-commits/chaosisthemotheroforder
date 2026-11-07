@@ -522,6 +522,28 @@ func test_tool_radio() -> void:
 	check(not b.can_radio(y3), "only next to the box")
 
 
+func test_tool_previews_are_honest() -> void:
+	var b := tool_yard()
+	var you := b.add_unit("You", Battle.US, Vector2i(6, 1))
+	you.is_you = true
+	b.noise = 6
+	check(b.trips_alarm(Battle.NOISE_FLASH) and not b.trips_alarm(Battle.NOISE_SMOKE), "6 + 4 trips the alarm, 6 + 2 doesn't")
+	b.alarm = true
+	check(not b.trips_alarm(Battle.NOISE_FLASH), "no warning once it's already ringing")
+	var w := b.add_unit("W", Battle.REGIME, Vector2i(5, 2))
+	w.wavering = true
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(9, 3))
+	var g2 := b.add_unit("G2", Battle.REGIME, Vector2i(10, 5))
+	var t: Array = b.radio_targets(you)
+	check(not t.has(w) and t.has(g) and t.has(g2), "the radio never sends away the Wavering guard")
+	var p := b.add_unit("P", Battle.REGIME, Vector2i(3, 9))
+	p.route = [p.pos]
+	g.state = Battle.ALERT
+	g2.state = Battle.ALERT
+	w.state = Battle.ALERT
+	check(b.lights_checker() == p, "the preview names the guard who'll check the box")
+
+
 func test_tool_flashbang() -> void:
 	var b := tool_yard()
 	var you := b.add_unit("You", Battle.US, Vector2i(6, 6))

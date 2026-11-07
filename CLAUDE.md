@@ -30,6 +30,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   the NE corner (`EXTRA_GUARDS`): 3 v 4 quiet airs 40%, nobody out 63%, close 40%.
   `--capture-tools` renders each tool (`docs/renders/tools_*.png`).
 - Next: **J2 = M6** (endings, saves incl. mid-fight, Android pass).
+- J1.5 review leftovers: tool results scroll out of the 2-line log (banner, J3); 5th guard
+  always on vs only once a tool is used (Duff); defector still named "Guard N", ✦ unexplained.
 - **End of every milestone:** run autoplay, the tension numbers, and an independent
   design review (fresh agent, pillars + style guide + renders). Jam spec §5b.
 - Fallback art: `scripts/sprite_bake.gd` bakes rigs into 8-direction sprites;

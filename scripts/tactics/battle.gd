@@ -707,10 +707,7 @@ func lights_out(u: Unit) -> bool:
 	lights_used = true
 	dark = DARK_TURNS
 	log.append("The floodlight dies. The north yard goes black")
-	var near: Unit = null
-	for g in alive_units(REGIME):
-		if g.state == PATROL and (near == null or _manhattan(g.pos, JUNCTION_POS) < _manhattan(near.pos, JUNCTION_POS)):
-			near = g
+	var near := lights_checker()
 	if near != null:
 		near.check = JUNCTION_POS
 		log.append("%s goes to check the junction box" % near.name)
@@ -727,9 +724,10 @@ func can_radio(u: Unit) -> bool:
 
 
 ## Who a successful call would send away: the guards nearest You who aren't
-## already busy or stunned.
+## already busy, stunned or Wavering.
 func radio_targets(u: Unit) -> Array:
-	var gs: Array = alive_units(REGIME).filter(func(g): return g.busy == 0 and g.stun == 0)
+	# Not the Wavering one: he's the guard you're trying to talk over (J1.5 review).
+	var gs: Array = alive_units(REGIME).filter(func(g): return g.busy == 0 and g.stun == 0 and not g.wavering)
 	gs.sort_custom(func(a, b): return _manhattan(a.pos, u.pos) < _manhattan(b.pos, u.pos))
 	return gs.slice(0, RADIO_GUARDS)
 
@@ -793,6 +791,20 @@ func flashbang(u: Unit, at: Vector2i) -> bool:
 		log.append("%s is stunned" % g.name)
 	add_noise(NOISE_FLASH, at)
 	return true
+
+
+## Would `n` more noise sound the alarm? For previews: no hidden math.
+func trips_alarm(n: int) -> bool:
+	return mission and not alarm and n > 0 and noise + n >= NOISE_MAX
+
+
+## The guard who'd walk over to check the junction box after lights out.
+func lights_checker() -> Unit:
+	var near: Unit = null
+	for g in alive_units(REGIME):
+		if g.state == PATROL and (near == null or _manhattan(g.pos, JUNCTION_POS) < _manhattan(near.pos, JUNCTION_POS)):
+			near = g
+	return near
 
 
 ## Mission noise. Wakes patrols within NOISE_RADIUS tiles per point; at 10 the

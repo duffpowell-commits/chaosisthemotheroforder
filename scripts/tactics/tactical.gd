@@ -29,7 +29,7 @@ const C_RING_WAVER := Color(1.0, 0.85, 0.4)
 const C_THREAT_MOVE := Color(0.88, 0.35, 0.27, 0.30)  # map red: danger, not accent orange
 const C_THREAT_SHOOT := Color(0.88, 0.35, 0.27, 0.08)
 const C_SMOKE := Color(0.82, 0.83, 0.85)
-const C_DARK := Color(0.02, 0.03, 0.06, 0.42)
+const C_DARK := Color(0.0, 0.0, 0.0, 0.45)  # near-black: blue is taken by move range and the regime
 const C_TOOL := Color(0.92, 0.92, 0.88)  # tool targeting: neutral, not team or danger
 const TAG_SIZE := 19
 const GRADE_GRAIN := 0.35  # the tactical map keeps the Frontline grade, lighter
@@ -563,7 +563,7 @@ func _refresh_column() -> void:
 		if c > 0:
 			label = "Shoot %d%%\n%s" % [c, "downs him" if pv.result == "down" else "wounds him"]
 			if pv.noise > 0:
-				label += " · +%d noise" % pv.noise
+				label += " · ALARM" if battle.trips_alarm(pv.noise) else " · +%d noise" % pv.noise
 		else:
 			label = "No line of sight"
 	if u.ap < 1:
@@ -597,7 +597,7 @@ func _tool_tiles() -> void:
 		"lights":
 			for y in range(Battle.DARK_ROWS + 1):
 				for x in range(Battle.W):
-					tile_fill[Vector2i(x, y)] = Color(0.05, 0.08, 0.2, 0.45)
+					tile_fill[Vector2i(x, y)] = C_DARK
 
 
 ## Guards the pending tool would hit, for the white preview outline.
@@ -610,10 +610,7 @@ func _tool_affected() -> Array:
 		"radio":
 			return battle.radio_targets(selected)
 		"lights":
-			var near = null
-			for g in battle.alive_units(Battle.REGIME):
-				if g.state == Battle.PATROL and (near == null or Battle._manhattan(g.pos, Battle.JUNCTION_POS) < Battle._manhattan(near.pos, Battle.JUNCTION_POS)):
-					near = g
+			var near = battle.lights_checker()
 			return [near] if near != null else []
 		"smoke":
 			if tool_at.x < 0:
@@ -704,19 +701,24 @@ func _fits(at: Vector3, target: Vector3, pts: Array[Vector2i]) -> bool:
 func _tool_column(u) -> void:
 	var info := ""
 	var ready := true
+	var cost := 0
 	match tool_mode:
 		"smoke":
 			ready = tool_at.x >= 0
-			info = "3x3 cloud, 2 turns\nhides you · +%d noise" % Battle.NOISE_SMOKE if ready else "Tap a tile\nwithin %d" % Battle.SMOKE_RANGE
+			cost = Battle.NOISE_SMOKE
+			info = "3x3, 2 turns: blocks sight\nedge -30 to hit\n" + _noise_note(cost) if ready else "Tap a tile\nwithin %d" % Battle.SMOKE_RANGE
 		"flash":
 			ready = tool_at.x >= 0
+			cost = Battle.NOISE_FLASH
 			var n: int = battle.flash_targets(tool_at).size() if ready else 0
-			info = "Stuns %d · 1 turn\n+%d noise" % [n, Battle.NOISE_FLASH] if ready else "Tap a tile\nwithin %d" % Battle.FLASH_RANGE
+			info = "Stuns %d for 1 turn\n" % n + _noise_note(cost) if ready else "Tap a tile\nwithin %d" % Battle.FLASH_RANGE
 		"lights":
-			info = "North yard dark\n%d turns · +%d noise" % [Battle.DARK_TURNS, Battle.NOISE_LIGHTS]
+			cost = Battle.NOISE_LIGHTS
+			info = "North yard dark %d turns\nwhite ring comes to look\n" % Battle.DARK_TURNS + _noise_note(cost)
 		"radio":
-			info = "%d%%: 2 guards leave\nfail: +%d noise, all alert" % [battle.radio_chance(), Battle.NOISE_RADIO_FAIL]
-	var l := _hud_label(info, 18, C_FG)
+			cost = Battle.NOISE_RADIO_FAIL
+			info = "%d%%: 2 ringed guards leave\nfail: all alert, " % battle.radio_chance() + _noise_note(cost)
+	var l := _hud_label(info, 17, C_RED if ready and battle.trips_alarm(cost) else C_FG)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(l)
 	var ok := _hud_button("Confirm", _confirm_tool)
@@ -726,6 +728,13 @@ func _tool_column(u) -> void:
 	for b in column.get_children():
 		if b is Button:
 			b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+
+
+## "+4 noise", or "+4 noise: ALARM, 3 riot police in 2" when it would trip it.
+func _noise_note(n: int) -> String:
+	if battle.trips_alarm(n):
+		return "+%d noise: ALARM\n%d riot police in %d" % [n, Battle.REINFORCEMENTS, Battle.REINFORCE_DELAY]
+	return "+%d noise (%d/%d)" % [n, mini(Battle.NOISE_MAX, battle.noise + n), Battle.NOISE_MAX]
 
 
 func _start_tool(mode: String) -> void:
@@ -792,6 +801,7 @@ func _draw_overlay() -> void:
 			overlay.draw_polyline(line, Color(0.9, 0.9, 0.85, 0.13), 1.0, true)
 	_draw_smoke()
 	_draw_map_labels()
+	_draw_checker_path()
 	_draw_rings()
 	_draw_threat_odds()
 	_draw_tags()
@@ -819,6 +829,28 @@ func _process(delta: float) -> void:
 
 func _feet(u) -> Vector3:
 	return unit_nodes[u].global_position + Vector3(0, 0.03, 0)
+
+
+## Lights out preview: the guard who'll come to check the box, and his walk, in
+## danger red. He's the cost you have to plan around (spec §2.2).
+func _draw_checker_path() -> void:
+	if tool_mode != "lights":
+		return
+	var g = battle.lights_checker()
+	if g == null:
+		return
+	var dest := Vector2i(-1, -1)
+	for p in Battle.area3(Battle.JUNCTION_POS):
+		if battle.standable(p) and (dest.x < 0 or Battle._manhattan(p, g.pos) < Battle._manhattan(dest, g.pos)):
+			dest = p
+	if dest.x < 0:
+		return
+	var pts := PackedVector2Array([cam.unproject_position(to_world(g.pos) + Vector3(0, 0.05, 0))])
+	for p in battle.path_to(g, dest):
+		pts.append(cam.unproject_position(to_world(p) + Vector3(0, _ground(p) + 0.05, 0)))
+	if pts.size() > 1:
+		overlay.draw_polyline(pts, Color(C_RING_US, 0.9), 3.0, true)
+		overlay.draw_circle(pts[pts.size() - 1], 6.0, C_RING_US)
 
 
 ## Points of interest the player should know exist (no hidden map features):
@@ -1305,9 +1337,11 @@ func _capture_tools() -> void:
 	await _shot("tools_smoke_preview")
 	_confirm_tool()
 	await _shot("tools_smoke")
-	# Radio: You at the box.
+	# Radio: You at the box. Seeded so the call works and "on a fake call" shows.
 	_place(you, battle.box + Vector2i(-1, 0))
 	you.ap = 2
+	battle.legitimacy = 3
+	battle.rng.seed = 3
 	_select(you)
 	_start_tool("radio")
 	await _shot("tools_radio_preview")
@@ -1327,6 +1361,7 @@ func _capture_tools() -> void:
 	var others := guards.filter(func(g): return g != w and g.busy == 0)
 	_place(others[0], Vector2i(10, 4))
 	_place(others[1], Vector2i(11, 4))
+	battle.noise = 6  # so the preview has to warn that this one trips the alarm
 	_select(w)
 	_start_tool("flash")
 	tap_tile(Vector2i(10, 4))
