@@ -99,7 +99,7 @@ quality.**
 
 ## 5. Schedule
 
-One milestone per session (house rule). Each ends merged to `main` with
+Up to three milestones per session (house rule, trial). Each ends merged to `main` with
 renders in `docs/renders/`.
 
 | Dates | Milestone | Done when |
