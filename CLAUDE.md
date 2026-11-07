@@ -1,5 +1,8 @@
 # Chaos Is the Mother of Order
 
+> **PAUSED (Nov 7, Duff's call):** Lethemoor is the active game now (own repo). Don't start J2 here
+> unless Duff says Chaos is back on. See `QUEUE.md`.
+
 Grim Godot 4.5 strategy-RPG about organizing a revolution against a modern
 police state. Owner: Duff. Read this first; it is the handoff between sessions.
 

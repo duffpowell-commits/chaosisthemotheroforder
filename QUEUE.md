@@ -1,14 +1,12 @@
 # Queue
 
-One active game at a time. This is it until the jam ships (submit by Dec 28).
-Dates and details: `docs/jam-slice-spec.md`.
+**PAUSED (Nov 7, Duff's call).** Lethemoor: The Last Lantern is now the active game,
+in its own repo. Chaos matters too much to Duff to be the experiment; it comes back once
+the art-first workflow is proven on Lethemoor. Done so far: M1–M5, J1, J1.5.
+The jam plan below is on hold, not cut.
 
-## NOW
-- J1: readability + web spike (Nov 9–15)
-
-## NEXT
-- J1.5: diversion tools (Nov 16–22)
-- J2: endings, saves incl. mid-fight, Android pass (Nov 23–Dec 3)
+## ON HOLD (was the jam plan, `docs/jam-slice-spec.md`)
+- J2: endings, saves incl. mid-fight, Android pass
 - J3: animation pass + 3D-or-sprites gate (Dec 4–10)
 - J4: playtests + polish (Dec 11–20)
 - J5: itch page + upload (Dec 21–27)
