@@ -676,7 +676,8 @@ func test_mission_setup() -> void:
 	var b = Battle.create_mission({"guards": 6, "legitimacy": 2, "seed": 3,
 		"squad": [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}]})
 	check(b.alive_units(Battle.US).size() == 2, "two of ours")
-	check(b.alive_units(Battle.REGIME).size() == 6, "six guards")
+	check(b.alive_units(Battle.REGIME).size() == 6 + Battle.EXTRA_GUARDS, "six guards plus the depot's extra (J1.5)")
+	check(b.tile(Battle.JUNCTION_POS) == Battle.JUNCTION and b.smoke_left == Battle.SMOKE_CHARGES, "junction box and one smoke flare")
 	check(b.units.filter(func(u): return u.wavering).size() == 1, "exactly one Wavering guard")
 	check(b.tile(Battle.BOX_POS) == Battle.BOX, "the box is on the map")
 	for u in b.alive_units(Battle.US):

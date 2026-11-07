@@ -53,6 +53,7 @@ const PERSUADE_RANGE := 3
 const NOISE_SHOUT := 2      # a guard who spots you yells for the others
 const BROADCAST_STUN := 1   # regime turns the guards lose watching the footage air
 
+const EXTRA_GUARDS := 1    # J1.5 rebalance: the depot posts one more guard than the run's count
 const JUNCTION := 5         # the floodlight junction box: blocks movement, not sight
 const JUNCTION_POS := Vector2i(0, 8)
 const SMOKE_CHARGES := 1
@@ -197,9 +198,9 @@ const GUARD_ROUTES := [
 	[Vector2i(12, 3), Vector2i(12, 7)],
 	[Vector2i(5, 6), Vector2i(8, 6)],
 	[Vector2i(9, 0), Vector2i(4, 0)],
-	[Vector2i(10, 9), Vector2i(13, 9)],
+	[Vector2i(12, 0), Vector2i(13, 2)],  # J1.5: 5th guard, NE corner by the box (not the entry row)
 	[Vector2i(1, 6), Vector2i(1, 10)],
-	[Vector2i(5, 3), Vector2i(10, 3)],
+	[Vector2i(10, 9), Vector2i(13, 9)],
 	[Vector2i(8, 8), Vector2i(12, 8)],
 ]
 const SQUAD_XS := [3, 7, 11, 1, 5, 9]
@@ -220,7 +221,7 @@ static func create_mission(params: Dictionary) -> RefCounted:
 		var u = b.add_unit(str(m.name), US, Vector2i(SQUAD_XS[i], H - 1))
 		u.op = int(m.get("op", -1))
 		u.is_you = bool(m.get("is_you", false))
-	var n := clampi(int(params.get("guards", 4)), 1, GUARD_ROUTES.size())
+	var n := clampi(int(params.get("guards", 4)) + EXTRA_GUARDS, 1, GUARD_ROUTES.size())
 	var waver: int = b.rng.randi_range(0, n - 1)
 	for i in range(n):
 		var g = b.add_unit("Guard %d" % (i + 1), REGIME, GUARD_ROUTES[i][0])
