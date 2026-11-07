@@ -33,8 +33,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Decision gate Dec 10.
 
 ## First thing next session
-- **Web build not hosted yet** (needs Duff's OK for a new Netlify site, or upload to itch
-  as a draft). Then Duff opens it on his phone: does it load, and is it 30 fps?
+- **Web test build: https://chaos-mother-of-order.netlify.app** (Netlify site
+  `chaos-mother-of-order`, id 3c710a52-dcc9-4f1a-9f24-003c3ad2c09c, live URL public,
+  previews behind team login). Redeploy: export, add `build/web/netlify.toml`
+  (`publish = "."`, empty command), then the Netlify connector's deploy-site with that
+  site id gives an `npx @netlify/mcp` command to run in `build/web`. Netlify's free-tier
+  badge covers part of End turn (theirs, injected; itch won't have it).
+  Duff: open it on the phone. Does it load, and is it 30 fps?
 - Web build is 90 MB pck + 38 MB wasm. Shrink it before J5 (1K textures on the rigs and
   Polyhaven props, drop unused assets). Phones on data will hate 128 MB.
 - J1 design review leftovers for Duff / J1.5: move range is blue and so are regime rings
