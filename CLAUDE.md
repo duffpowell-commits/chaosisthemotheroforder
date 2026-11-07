@@ -10,12 +10,20 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - `QUEUE.md`: this is the one active game; parked ideas (Lethemoor, Echo Company) live there. Don't build them here.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
   M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays
-  the mission; the result finishes the week).
+  the mission; the result finishes the week), **J1 readability + web spike** (Nov 6).
 - **Jam target:** 2026 Jam on itch, submit by Dec 28. Plan, fixes and scope cuts:
   `docs/jam-slice-spec.md` (J1–J5; M6 becomes J2).
-- Next: **J1** readability (unit rings, label stacking, rim light, lighter grain on
-  the tactical map), Advance Wars clarity (threat on tap, full shot preview), and a
-  web export spike (web needs the Compatibility renderer). Then **J1.5 diversion tools**
+- J1 shipped: team rings + name/HP tags drawn in 2D above the grade (the grade drains
+  3D colour to 7%, so team colour can't live in 3D), tags de-stack when units bunch,
+  cool fresnel rim on units only (`shaders/unit_rim.gdshader`), grain/crush turned down
+  on the tactical map (`grain_mul`/`crush_mul`), threat on tap (`Battle.threat`: move
+  zone + his hit % on each of ours; tap away to dismiss), Shoot preview ("downs him /
+  wounds him · +3 noise"; greyed Shoot says why), threat drawn in map red (not accent
+  orange), bunched tags collapse to initial + hearts with a team-coloured leader line,
+  and the camera follows the fight (`_frame_camera`: zooms in up to 0.66x but only if
+  every nearby unit fits between the HUD bars, else home framing).
+  **Web build works** in Chrome (Compatibility, no-threads template): `export_presets.cfg`.
+- Next: **J1.5 diversion tools**
   (`docs/diversion-tools-spec.md`: smoke, lights out, fake radio call, defector
   flashbang; Duff's picks, Nov 6), then J2 = M6 + mid-fight saves.
 - **End of every milestone:** run autoplay, the tension numbers, and an independent
@@ -25,12 +33,20 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Decision gate Dec 10.
 
 ## First thing next session
+- **Web build not hosted yet** (needs Duff's OK for a new Netlify site, or upload to itch
+  as a draft). Then Duff opens it on his phone: does it load, and is it 30 fps?
+- Web build is 90 MB pck + 38 MB wasm. Shrink it before J5 (1K textures on the rigs and
+  Polyhaven props, drop unused assets). Phones on data will hate 128 MB.
+- J1 design review leftovers for Duff / J1.5: move range is blue and so are regime rings
+  (style guide sets both; change move to teal/white?). Both sides are pale mannequins, so
+  faction rests on the ring (darker regime body tint?). Nits: grain still visible on the
+  floor, "ALARM: 3 more in 1" and the guard "?" are cryptic, no down/subdued marker on
+  bodies, no render of the enemy turn mid-animation.
+- Guard count call still open (3 v 4 quiet: nobody out 65%). Duff plays it and decides.
 - Retarget fix (Nov 6): the silhouette fix is now ON for all four rigs. Without it
   every Mixamo clip bent the forearms inward (arms looked crossed). Side effect:
   portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
 - If the jam falls back to sprites, the look is **pixel** (Duff's pick).
-- Autoplay found (Nov 6, `docs/renders/autoplay_quiet.gif`): when units bunch up, their
-  name/HP labels pile on top of each other and can't be read (fix in J1).
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
@@ -63,6 +79,12 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --autoplay [--loud] --out /tmp/autoplay`
   then `python3 tools/make_gif.py /tmp/autoplay docs/renders/autoplay_quiet.gif`. Exits 1 if it stalls.
   Run it after any change to the tactical scene and look at the frames before pushing.
+- Web export: `godot --headless --path . --export-release "Web" build/web/index.html`
+  (templates: 4.5-stable `web_nothreads_release.zip` into
+  `~/.local/share/godot/export_templates/4.5.stable/`). Local check: serve `build/web`
+  and drive Chrome with playwright (`--use-angle=swiftshader`); see J1 notes in todo.md.
+  Web gives Godot no system fonts: symbols come from `assets/fonts/symbols_dejavu.ttf`
+  (autoload `scripts/fonts.gd`). Game files must not live in `docs/` (excluded from export).
 - CI: `.github/workflows/tests.yml` parses every script and runs the tests + flow check on
   every push. Check the result with `gh run list -L 3` before calling a milestone done.
 - Sprite bake: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake`

@@ -29,3 +29,8 @@ _Patterns learned from corrections. Reviewed at the start of each session._
 - (Nov 6) MPFB rigs need the retarget silhouette fix ON, or every Mixamo clip bends the
   forearms inward. Check arms in a render after touching `tools/setup_retarget.py`.
 - (Nov 6) Two sessions on one repo collided on `main`. One session per repo; fetch first.
+- (Nov 6) Scripted edits that cut a file by "from function X to marker Y" swallow whatever
+  sits between. J1 lost `_pips`/`_face` that way; `test_scripts_compile` caught it. Replace
+  exact old text, never a range.
+- (Nov 6) Moving the camera can undo an old HUD fix. Check the edge rows in renders after
+  any camera change; the fit check in `_frame_camera` exists for this.

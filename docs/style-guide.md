@@ -41,6 +41,9 @@ street.** Color is a reward: it comes back as districts are liberated.
 
 **Map overlays:** move range blue `rgba(77,158,255,0.32)`, sneak violet
 `rgba(158,107,255,0.36)`, exit green `rgba(115,217,115,0.30)`.
+Threat (tapped guard): map red, move zone `rgba(224,90,70,0.30)`, shoot zone
+`rgba(224,90,70,0.08)`, his hit % beside each of ours. Never accent orange.
+Team rings and tags are drawn in 2D above the grade (the grade drains 3D colour).
 
 **Rules:**
 - Accent orange means "your attention here." Use it once per screen.

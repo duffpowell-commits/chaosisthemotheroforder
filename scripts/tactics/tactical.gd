@@ -26,8 +26,8 @@ const C_EXIT := Color(0.45, 0.85, 0.45, 0.30)
 const C_RING_US := Color(0.93, 0.33, 0.24)
 const C_RING_REGIME := Color(0.42, 0.68, 1.0)
 const C_RING_WAVER := Color(1.0, 0.85, 0.4)
-const C_THREAT_MOVE := Color(1.0, 0.55, 0.1, 0.30)
-const C_THREAT_SHOOT := Color(1.0, 0.4, 0.1, 0.08)
+const C_THREAT_MOVE := Color(0.88, 0.35, 0.27, 0.30)  # map red: danger, not accent orange
+const C_THREAT_SHOOT := Color(0.88, 0.35, 0.27, 0.08)
 const TAG_SIZE := 19
 const GRADE_GRAIN := 0.35  # the tactical map keeps the Frontline grade, lighter
 const GRADE_CRUSH := 0.45
@@ -51,6 +51,13 @@ var aimed = null
 var sneaking := false
 var busy := false
 var world_root: Node3D
+## Camera follow (J1 review): the fight drifts north and ended up tiny at the
+## top of the screen. The camera keeps its angle but slides to the squad and
+## the guards near them, and moves in when they're bunched.
+const CAM_HOME := Vector3(0.6, 0.0, 0.2)
+var cam_offset := Vector3.ZERO
+var cam_goal := Vector3.INF
+var cam_tween: Tween
 
 var top_label: Label
 var meter_label: Label
@@ -116,7 +123,8 @@ func _build_tactical_camera() -> void:
 	cam.fov = 55  # J1: a touch wider so the squad's start row clears the bottom panel
 	add_child(cam)
 	cam.position = Vector3(3.6, 13.6, 9.9)
-	cam.look_at(Vector3(0.6, 0.0, 0.2))
+	cam.look_at(CAM_HOME)
+	cam_offset = cam.position - CAM_HOME
 	cam.current = true
 
 
@@ -145,6 +153,7 @@ func _new_battle(s: int) -> void:
 		battle = Battle.create_mission(mission_meta.params)
 	unit_nodes.clear()
 	unit_tags.clear()
+	cam_goal = Vector3.INF
 	selected = battle.alive_units(Battle.US)[0]
 	aimed = null
 	sneaking = false
@@ -375,6 +384,7 @@ func _refresh() -> void:
 	if aimed != null and (not aimed.alive() or aimed.side == Battle.US):
 		aimed = null
 	_refresh_squad()
+	_frame_camera()
 	_refresh_units()
 	_refresh_tiles()
 	_refresh_column()
@@ -419,7 +429,7 @@ func _refresh_units() -> void:
 		if not u.alive():
 			n.rotation.x = deg_to_rad(-88)  # downed
 			if u.side == Battle.US and u.downed():
-				unit_tags[u] = ["%s %s" % [u.name, "stable" if u.stabilized else "bleeding"], C_FG if u.stabilized else C_RED]
+				unit_tags[u] = ["%s %s" % [u.name, "stable" if u.stabilized else "bleeding"], C_FG if u.stabilized else C_RED, "%s +" % u.name.left(1)]
 			continue
 		var text := ""
 		var col := C_FG
@@ -437,7 +447,7 @@ func _refresh_units() -> void:
 			if u.state == Battle.PATROL:
 				text += " ?"
 			col = C_RING_WAVER if u.wavering else C_RING_REGIME.lightened(0.35)
-		unit_tags[u] = [text, col]
+		unit_tags[u] = [text, col, _short_tag(u)]
 		_face(u)
 
 
@@ -504,7 +514,11 @@ func _refresh_column() -> void:
 			if pv.noise > 0:
 				label += " · +%d noise" % pv.noise
 		else:
-			label = "No shot"
+			label = "No line of sight"
+	if u.ap < 1:
+		label = "Shoot (no AP left)"
+	elif aimed == null:
+		label = "Shoot: tap a guard"
 	var shoot := _hud_button(label, _on_shoot)
 	shoot.disabled = c <= 0 or u.ap < 1
 	column.add_child(shoot)
@@ -513,6 +527,72 @@ func _refresh_column() -> void:
 	if c > 0:
 		shoot.add_theme_font_size_override("font_size", 18)
 		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
+
+
+func _frame_camera() -> void:
+	var ours: Array = battle.alive_units(Battle.US)
+	if ours.is_empty() or cam_offset == Vector3.ZERO:
+		return
+	var pts: Array[Vector2i] = []
+	for u in ours:
+		pts.append(u.pos)
+	for g in battle.alive_units(Battle.REGIME):
+		for u in ours:
+			if Battle._cheb(g.pos, u.pos) <= 6:
+				pts.append(g.pos)
+				break
+	var lo := Vector2(pts[0])
+	var hi := Vector2(pts[0])
+	for p in pts:
+		lo = lo.min(Vector2(p))
+		hi = hi.max(Vector2(p))
+	var mid := (lo + hi) / 2.0
+	var c := to_world(Vector2i(roundi(mid.x), roundi(mid.y)))
+	# Lean toward the board centre so the camera never chases one straggler off the map.
+	var target := CAM_HOME.lerp(Vector3(c.x, 0, c.z) + Vector3(0.3, 0, 0.6), 0.75)
+	target.x = clampf(target.x, -2.0, 3.0)
+	target.z = clampf(target.z, -5.0, 1.0)
+	# Closest zoom that keeps every relevant unit inside the play area (between the
+	# HUD bars, left of the action column). If none fits, the home framing.
+	var goal := CAM_HOME + cam_offset
+	var keep := cam.global_transform
+	for zoom in [0.66, 0.74, 0.82, 0.9, 1.0]:
+		var g: Vector3 = target + cam_offset * zoom
+		if _fits(g, target, pts):
+			goal = g
+			break
+	cam.global_transform = keep
+	if goal == CAM_HOME + cam_offset:
+		target = CAM_HOME
+	if cam_goal != Vector3.INF and goal.distance_to(cam_goal) < 0.3:
+		return
+	var first := cam_goal == Vector3.INF
+	cam_goal = goal
+	if cam_tween:
+		cam_tween.kill()
+	var look := Transform3D(Basis(), goal).looking_at(target).basis
+	if first:
+		cam.position = goal
+		cam.basis = look
+		return
+	cam_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE)
+	cam_tween.tween_property(cam, "position", goal, 0.45)
+	cam_tween.tween_property(cam, "quaternion", look.get_rotation_quaternion(), 0.45)
+
+
+## Would a camera at `at` looking at `target` show all `pts` (feet and heads)
+## inside the safe area? Moves the camera; the caller restores it.
+func _fits(at: Vector3, target: Vector3, pts: Array[Vector2i]) -> bool:
+	cam.global_transform = Transform3D(Basis(), at).looking_at(target)
+	var vp := get_viewport().get_visible_rect().size
+	var safe := Rect2(24, TOP_H + 34, vp.x - COLUMN_W - 40, vp.y - BOTTOM_H - TOP_H - 70)
+	for p in pts:
+		var w := to_world(p) + Vector3(0, _ground(p), 0)
+		for y in [0.0, 1.9]:
+			var q := w + Vector3(0, y, 0)
+			if cam.is_position_behind(q) or not safe.has_point(cam.unproject_position(q)):
+				return false
+	return true
 
 
 func _tile_poly(p: Vector2i, inset: float) -> PackedVector2Array:
@@ -580,11 +660,11 @@ func _draw_rings() -> void:
 		for i in range(25):
 			var a := TAU * i / 24.0
 			pts.append(cam.unproject_position(c + Vector3(cos(a), 0, sin(a)) * 0.4))
-		overlay.draw_colored_polygon(pts.slice(0, 24), Color(col, 0.22))
+		overlay.draw_colored_polygon(pts.slice(0, 24), Color(col, 0.32))
 		var near := pts.slice(0, 13)   # +z half faces the camera
 		var far := pts.slice(12, 25)
-		overlay.draw_polyline(far, Color(col, 0.45), 2.0, true)
-		overlay.draw_polyline(near, col, 3.5 if u == selected else 2.5, true)
+		overlay.draw_polyline(far, Color(col, 0.55), 2.5, true)
+		overlay.draw_polyline(near, col, 4.5 if u == selected else 3.5, true)
 
 
 ## With a guard tapped: his best hit chance on each of ours standing in his reach.
@@ -594,11 +674,11 @@ func _draw_threat_odds() -> void:
 	var font := ThemeDB.fallback_font
 	for u in battle.alive_units(Battle.US):
 		if threat.shoot.has(u.pos):
-			var at := cam.unproject_position(_feet(u)) + Vector2(0, 26)
+			# Beside the ring, not under it, so the bottom row never pushes it under the HUD.
+			var at := cam.unproject_position(_feet(u)) + Vector2(24, 7)
 			var t := "%d%%" % threat.shoot[u.pos]
-			var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, TAG_SIZE).x
-			overlay.draw_string_outline(font, at - Vector2(w / 2, 0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 6, Color.BLACK)
-			overlay.draw_string(font, at - Vector2(w / 2, 0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(1.0, 0.62, 0.25))
+			overlay.draw_string_outline(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 6, Color.BLACK)
+			overlay.draw_string(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(1.0, 0.5, 0.42))
 
 
 ## Name/HP tags at a fixed screen size. Bunched units used to stack their tags
@@ -612,7 +692,11 @@ func _draw_tags() -> void:
 			continue
 		var anchor := cam.unproject_position(unit_nodes[u].global_position + Vector3(0, 1.95, 0))
 		entries.append([u, anchor])
-	entries.sort_custom(func(a, b): return a[1].y > b[1].y)
+	# The selected unit gets first pick, then nearer units (lower on screen).
+	entries.sort_custom(func(a, b):
+		if (a[0] == selected) != (b[0] == selected):
+			return a[0] == selected
+		return a[1].y > b[1].y)
 	var placed: Array[Rect2] = []
 	var h := TAG_SIZE + 4.0
 	for e in entries:
@@ -620,18 +704,42 @@ func _draw_tags() -> void:
 		var anchor: Vector2 = e[1]
 		var text: String = unit_tags[u][0]
 		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x + 8.0
-		var r := _place_tag(Rect2(anchor.x - w / 2, anchor.y - h, w, h), placed, -1)
-		if r.position.y < TOP_H + 2.0:
-			# No room above (units near the top bar): stack downward instead.
-			r = _place_tag(Rect2(anchor.x - w / 2, maxf(anchor.y - h, TOP_H + 2.0), w, h), placed, 1)
+		var r := Rect2(anchor.x - w / 2, maxf(anchor.y - h, TOP_H + 2.0), w, h)
+		if _hits(r, placed):
+			# Bunched: collapse to initial + hearts, then slide up (or down near the top bar).
+			text = unit_tags[u][2]
+			w = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x + 8.0
+			r = Rect2(anchor.x - w / 2, maxf(anchor.y - h, TOP_H + 2.0), w, h)
+			if _hits(r, placed):
+				r = _place_tag(r, placed, -1)
+				if r.position.y < TOP_H + 2.0:
+					r = _place_tag(Rect2(anchor.x - w / 2, maxf(anchor.y - h, TOP_H + 2.0), w, h), placed, 1)
 		placed.append(r)
+		var ring: Color = C_RING_US if u.side == Battle.US else (C_RING_WAVER if u.wavering else C_RING_REGIME)
 		if r.end.y < anchor.y - 4.0 or r.position.y > anchor.y:
+			var feet := cam.unproject_position(_feet(u))
 			var edge := r.end.y if r.end.y < anchor.y else r.position.y
-			overlay.draw_line(anchor, Vector2(clampf(anchor.x, r.position.x + 4, r.end.x - 4), edge), Color(1, 1, 1, 0.35), 1.0, true)
-		overlay.draw_rect(r, Color(0.05, 0.06, 0.07, 0.55))
-		var base := Vector2(r.position.x + 4, r.end.y - 5)
+			overlay.draw_line(Vector2(clampf(feet.x, r.position.x + 4, r.end.x - 4), edge), feet, Color(ring, 0.85), 2.0, true)
+		overlay.draw_rect(r, Color(0.05, 0.06, 0.07, 0.62))
+		overlay.draw_rect(Rect2(r.position, Vector2(3, r.size.y)), ring)  # team chip
+		var base := Vector2(r.position.x + 5, r.end.y - 5)
 		overlay.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 5, Color.BLACK)
 		overlay.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, unit_tags[u][1])
+
+
+static func _hits(r: Rect2, placed: Array[Rect2]) -> bool:
+	for q in placed:
+		if r.intersects(q):
+			return true
+	return false
+
+
+## Collapsed tag for bunched units: initial + hearts ("K ♥"), guards just hearts.
+func _short_tag(u) -> String:
+	if u.side != Battle.US:
+		return ("W " if u.wavering else "") + _pips(u.hp, "♥")
+	var t: String = ("You" if u.is_you or u.name == "You" else u.name.left(1)) + " " + _pips(u.hp, "♥")
+	return t + (" ◎" if u.overwatch else "")
 
 
 static func _pips(n: int, ch: String) -> String:
