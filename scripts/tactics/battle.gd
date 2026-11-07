@@ -198,7 +198,7 @@ const GUARD_ROUTES := [
 	[Vector2i(12, 3), Vector2i(12, 7)],
 	[Vector2i(5, 6), Vector2i(8, 6)],
 	[Vector2i(9, 0), Vector2i(4, 0)],
-	[Vector2i(12, 0), Vector2i(13, 2)],  # J1.5: 5th guard, NE corner by the box (not the entry row)
+	[Vector2i(10, 5), Vector2i(13, 5)],  # J1.5: 5th guard, east yard. Tuned so the squad gets out ~64% (Duff: 60-70% survival)
 	[Vector2i(1, 6), Vector2i(1, 10)],
 	[Vector2i(10, 9), Vector2i(13, 9)],
 	[Vector2i(8, 8), Vector2i(12, 8)],
