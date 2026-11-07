@@ -28,6 +28,9 @@ const C_RING_REGIME := Color(0.42, 0.68, 1.0)
 const C_RING_WAVER := Color(1.0, 0.85, 0.4)
 const C_THREAT_MOVE := Color(0.88, 0.35, 0.27, 0.30)  # map red: danger, not accent orange
 const C_THREAT_SHOOT := Color(0.88, 0.35, 0.27, 0.08)
+const C_SMOKE := Color(0.82, 0.83, 0.85)
+const C_DARK := Color(0.0, 0.0, 0.0, 0.45)  # near-black: blue is taken by move range and the regime
+const C_TOOL := Color(0.92, 0.92, 0.88)  # tool targeting: neutral, not team or danger
 const TAG_SIZE := 19
 const GRADE_GRAIN := 0.35  # the tactical map keeps the Frontline grade, lighter
 const GRADE_CRUSH := 0.45
@@ -42,6 +45,12 @@ var mission_meta := {}  # set when the run launched the Signal Box
 var unit_nodes := {}    # Battle.Unit -> Node3D
 var unit_tags := {}     # Battle.Unit -> [text, colour], drawn in 2D (or absent = hidden)
 var threat := {}        # {"move", "shoot"} for the tapped guard, or empty
+## Diversion tools (J1.5): two steps, like every action that costs noise.
+## Press a tool to preview it (area, affected guards, noise, chance), then
+## Confirm. Smoke and Flash also need a target tile tapped in between.
+var tool_mode := ""     # "", "smoke", "flash", "lights", "radio"
+var tool_at := Vector2i(-1, -1)
+var lamp_energy := {}   # OmniLight3D -> lit energy, for lights out
 ## Grid highlights are drawn in 2D above the colour grade, so the grade
 ## can't wash out the move range and the target.
 var overlay: Node2D
@@ -85,7 +94,7 @@ func _ready() -> void:
 	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
 	grade_mat.set_shader_parameter("crush_mul", GRADE_CRUSH)
 	var args := OS.get_cmdline_user_args()
-	if ("--capture-mission" in args or "--autoplay" in args) and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -96,6 +105,8 @@ func _ready() -> void:
 		_capture_tactical()
 	elif "--capture-mission" in args:
 		_capture_mission()
+	elif "--capture-tools" in args:
+		_capture_tools()
 	elif "--autoplay" in args:
 		_autoplay("--loud" in args, _arg_after(args, "--out", "/tmp/autoplay"))
 
@@ -157,6 +168,7 @@ func _new_battle(s: int) -> void:
 	selected = battle.alive_units(Battle.US)[0]
 	aimed = null
 	sneaking = false
+	tool_mode = ""
 	busy = false
 	_build_cover()
 	result_panel.visible = false
@@ -193,6 +205,8 @@ func _build_cover() -> void:
 					_box(Vector3(1.0, 0.05, 0.05), w + Vector3(0, 1.85, -0.48), rail, world_root)
 				Battle.BOX:
 					_build_signal_box(w)
+				Battle.JUNCTION:
+					_build_junction(w)
 
 
 ## The signal box: a grey relay cabinet with a lit screen facing the yard and
@@ -208,6 +222,17 @@ func _build_signal_box(w: Vector3) -> void:
 	glow.omni_range = 3.2
 	glow.position = w + Vector3(0, 1.3, 0.9)
 	world_root.add_child(glow)
+
+
+## The floodlight's junction box: a grey cabinet on the yard's west wall with
+## a small status lamp that goes out with the lights.
+var junction_lamp: StandardMaterial3D
+
+func _build_junction(w: Vector3) -> void:
+	_box(Vector3(0.45, 1.3, 0.7), w + Vector3(-0.25, 0.9, 0), _flat(Color(0.27, 0.28, 0.27), 0.6), world_root)
+	_box(Vector3(0.06, 1.8, 0.06), w + Vector3(-0.42, 1.9, 0.25), _flat(Color(0.08, 0.08, 0.09), 0.6), world_root)
+	junction_lamp = _flat(Color(0.2, 0.2, 0.2), 0.4, Color(0.4, 1.0, 0.45), 2.5)
+	_box(Vector3(0.04, 0.1, 0.1), w + Vector3(-0.01, 1.35, 0.2), junction_lamp, world_root)
 
 
 func _spawn_unit(u) -> void:
@@ -440,11 +465,19 @@ func _refresh_units() -> void:
 				text += " (hidden)"
 			if u.overwatch:
 				text += " ◎"
+			if u.flash > 0:
+				text += " ✦"
 		else:
 			text = _pips(u.hp, "♥")
 			if u.wavering:
 				text = "Wavering " + text
-			if u.state == Battle.PATROL:
+			if u.stun > 0:
+				text += " stunned"
+			elif u.busy > 0:
+				text += " on a fake call"
+			elif battle.stunned > 0:
+				text += " watching"
+			elif u.state == Battle.PATROL:
 				text += " ?"
 			col = C_RING_WAVER if u.wavering else C_RING_REGIME.lightened(0.35)
 		unit_tags[u] = [text, col, _short_tag(u)]
@@ -458,7 +491,14 @@ func _refresh_tiles() -> void:
 		for x in range(Battle.W):
 			tile_fill[Vector2i(x, Battle.H - 1)] = C_EXIT
 	threat = {}
-	if aimed != null and ours:
+	_apply_dark()
+	if battle.mission and battle.dark > 0:
+		for y in range(Battle.DARK_ROWS + 1):
+			for x in range(Battle.W):
+				tile_fill[Vector2i(x, y)] = C_DARK
+	if tool_mode != "" and ours:
+		_tool_tiles()
+	elif aimed != null and ours:
 		threat = battle.threat(aimed)
 		for p in threat.shoot:
 			tile_fill[p] = C_THREAT_SHOOT
@@ -485,7 +525,18 @@ func _refresh_column() -> void:
 	if busy or battle.is_over() or battle.side != Battle.US or selected == null:
 		return
 	var u = selected
+	if battle.mission and tool_mode != "":
+		_tool_column(u)
+		return
 	if battle.mission:
+		if battle.smoke_left > 0 and u.ap >= 1:
+			column.add_child(_hud_button("Smoke (%d)" % battle.smoke_left, func(): _start_tool("smoke")))
+		if battle.can_lights_out(u):
+			column.add_child(_hud_button("Lights out", func(): _start_tool("lights")))
+		if battle.can_radio(u):
+			column.add_child(_hud_button("Radio %d%%" % battle.radio_chance(), func(): _start_tool("radio")))
+		if u.flash > 0 and u.ap >= 1:
+			column.add_child(_hud_button("Flashbang (%d)" % u.flash, func(): _start_tool("flash")))
 		if u.ap >= Battle.AP_PER_TURN:
 			var sb := _hud_button("Sneak: on" if sneaking else "Sneak", _on_sneak_toggle)
 			if sneaking:
@@ -512,7 +563,7 @@ func _refresh_column() -> void:
 		if c > 0:
 			label = "Shoot %d%%\n%s" % [c, "downs him" if pv.result == "down" else "wounds him"]
 			if pv.noise > 0:
-				label += " · +%d noise" % pv.noise
+				label += " · ALARM" if battle.trips_alarm(pv.noise) else " · +%d noise" % pv.noise
 		else:
 			label = "No line of sight"
 	if u.ap < 1:
@@ -527,6 +578,57 @@ func _refresh_column() -> void:
 	if c > 0:
 		shoot.add_theme_font_size_override("font_size", 18)
 		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
+
+
+## Tool targeting overlay: valid targets faint, the chosen 3x3 strong; lights
+## out previews the zone that will go dark.
+func _tool_tiles() -> void:
+	match tool_mode:
+		"smoke", "flash":
+			for y in range(Battle.H):
+				for x in range(Battle.W):
+					var p := Vector2i(x, y)
+					var ok: bool = battle.can_smoke(selected, p) if tool_mode == "smoke" else battle.can_flash(selected, p)
+					if ok:
+						tile_fill[p] = Color(C_TOOL, 0.10)
+			if tool_at.x >= 0:
+				for p in Battle.area3(tool_at):
+					tile_fill[p] = Color(C_TOOL, 0.42)
+		"lights":
+			for y in range(Battle.DARK_ROWS + 1):
+				for x in range(Battle.W):
+					tile_fill[Vector2i(x, y)] = C_DARK
+
+
+## Guards the pending tool would hit, for the white preview outline.
+func _tool_affected() -> Array:
+	if selected == null:
+		return []
+	match tool_mode:
+		"flash":
+			return battle.flash_targets(tool_at) if tool_at.x >= 0 else []
+		"radio":
+			return battle.radio_targets(selected)
+		"lights":
+			var near = battle.lights_checker()
+			return [near] if near != null else []
+		"smoke":
+			if tool_at.x < 0:
+				return []
+			return battle.alive_units(Battle.REGIME).filter(func(g): return g.state == Battle.PATROL \
+				and Battle._cheb(g.pos, tool_at) <= battle.sight and battle.line_of_sight(g.pos, tool_at))
+	return []
+
+
+func _apply_dark() -> void:
+	if lamp_energy.is_empty():
+		for l in lamps:
+			lamp_energy[l] = l.light_energy
+	var off: bool = battle.mission and battle.dark > 0
+	for l in lamps:
+		l.light_energy = lamp_energy[l] * (0.08 if off and l.position.z < -2.0 else 1.0)
+	if junction_lamp:
+		junction_lamp.emission_energy_multiplier = 0.0 if off or battle.lights_used else 2.5
 
 
 func _frame_camera() -> void:
@@ -595,6 +697,84 @@ func _fits(at: Vector3, target: Vector3, pts: Array[Vector2i]) -> bool:
 	return true
 
 
+## While a tool is pending the column is just its preview + Confirm / Cancel.
+func _tool_column(u) -> void:
+	var info := ""
+	var ready := true
+	var cost := 0
+	match tool_mode:
+		"smoke":
+			ready = tool_at.x >= 0
+			cost = Battle.NOISE_SMOKE
+			info = "3x3, 2 turns: blocks sight\nedge -30 to hit\n" + _noise_note(cost) if ready else "Tap a tile\nwithin %d" % Battle.SMOKE_RANGE
+		"flash":
+			ready = tool_at.x >= 0
+			cost = Battle.NOISE_FLASH
+			var n: int = battle.flash_targets(tool_at).size() if ready else 0
+			info = "Stuns %d for 1 turn\n" % n + _noise_note(cost) if ready else "Tap a tile\nwithin %d" % Battle.FLASH_RANGE
+		"lights":
+			cost = Battle.NOISE_LIGHTS
+			info = "North yard dark %d turns\nwhite ring comes to look\n" % Battle.DARK_TURNS + _noise_note(cost)
+		"radio":
+			cost = Battle.NOISE_RADIO_FAIL
+			info = "%d%%: 2 ringed guards leave\nfail: all alert, " % battle.radio_chance() + _noise_note(cost)
+	var l := _hud_label(info, 17, C_RED if ready and battle.trips_alarm(cost) else C_FG)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(l)
+	var ok := _hud_button("Confirm", _confirm_tool)
+	ok.disabled = not ready
+	column.add_child(ok)
+	column.add_child(_hud_button("Cancel", func(): _start_tool("")))
+	for b in column.get_children():
+		if b is Button:
+			b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+
+
+## "+4 noise", or "+4 noise: ALARM, 3 riot police in 2" when it would trip it.
+func _noise_note(n: int) -> String:
+	if battle.trips_alarm(n):
+		return "+%d noise: ALARM\n%d riot police in %d" % [n, Battle.REINFORCEMENTS, Battle.REINFORCE_DELAY]
+	return "+%d noise (%d/%d)" % [n, mini(Battle.NOISE_MAX, battle.noise + n), Battle.NOISE_MAX]
+
+
+func _start_tool(mode: String) -> void:
+	tool_mode = mode
+	tool_at = Vector2i(-1, -1)
+	aimed = null
+	sneaking = false
+	_refresh()
+
+
+func _confirm_tool() -> void:
+	var u = selected
+	var at := tool_at
+	var mode := tool_mode
+	tool_mode = ""
+	match mode:
+		"smoke":
+			if battle.smoke(u, at):
+				_pop_at(at, "SMOKE", C_SMOKE)
+		"flash":
+			var hit: Array = battle.flash_targets(at)
+			if battle.flashbang(u, at):
+				_pop_at(at, "FLASH", Color(1, 1, 0.85))
+				for g in hit:
+					_pop(g, "STUNNED", C_FG)
+		"lights":
+			if battle.lights_out(u):
+				_pop(u, "LIGHTS OUT", C_FG)
+		"radio":
+			var ok: bool = battle.radio(u)
+			_pop(u, "THEY BUY IT" if ok else "BLOWN", C_GOOD if ok else C_RED)
+	_refresh()
+
+
+func _pop_at(p: Vector2i, text: String, col: Color) -> void:
+	var dummy := Battle.Unit.new()
+	dummy.pos = p
+	_pop(dummy, text, col)
+
+
 func _tile_poly(p: Vector2i, inset: float) -> PackedVector2Array:
 	var c := to_world(p) + Vector3(0, _ground(p) + 0.02, 0)
 	var h := 0.5 - inset
@@ -619,6 +799,9 @@ func _draw_overlay() -> void:
 			var line := poly.duplicate()
 			line.append(poly[0])
 			overlay.draw_polyline(line, Color(0.9, 0.9, 0.85, 0.13), 1.0, true)
+	_draw_smoke()
+	_draw_map_labels()
+	_draw_checker_path()
 	_draw_rings()
 	_draw_threat_odds()
 	_draw_tags()
@@ -648,9 +831,60 @@ func _feet(u) -> Vector3:
 	return unit_nodes[u].global_position + Vector3(0, 0.03, 0)
 
 
+## Lights out preview: the guard who'll come to check the box, and his walk, in
+## danger red. He's the cost you have to plan around (spec §2.2).
+func _draw_checker_path() -> void:
+	if tool_mode != "lights":
+		return
+	var g = battle.lights_checker()
+	if g == null:
+		return
+	var dest := Vector2i(-1, -1)
+	for p in Battle.area3(Battle.JUNCTION_POS):
+		if battle.standable(p) and (dest.x < 0 or Battle._manhattan(p, g.pos) < Battle._manhattan(dest, g.pos)):
+			dest = p
+	if dest.x < 0:
+		return
+	var pts := PackedVector2Array([cam.unproject_position(to_world(g.pos) + Vector3(0, 0.05, 0))])
+	for p in battle.path_to(g, dest):
+		pts.append(cam.unproject_position(to_world(p) + Vector3(0, _ground(p) + 0.05, 0)))
+	if pts.size() > 1:
+		overlay.draw_polyline(pts, Color(C_RING_US, 0.9), 3.0, true)
+		overlay.draw_circle(pts[pts.size() - 1], 6.0, C_RING_US)
+
+
+## Points of interest the player should know exist (no hidden map features):
+## the floodlight junction box until it's been used.
+func _draw_map_labels() -> void:
+	if not battle.mission or battle.lights_used or battle.tile(Battle.JUNCTION_POS) != Battle.JUNCTION:
+		return
+	var font := ThemeDB.fallback_font
+	var at := cam.unproject_position(to_world(Battle.JUNCTION_POS) + Vector3(0, 1.7, 0))
+	var t := "⚡ Floodlight"
+	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	overlay.draw_rect(Rect2(at.x - 4, at.y - 17, w + 8, 21), Color(0.05, 0.06, 0.07, 0.6))
+	overlay.draw_string(font, at + Vector2(0, -1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, C_MUTED)
+
+
+## Smoke: soft grey puffs over each cloud's 3x3, drawn above the grid.
+func _draw_smoke() -> void:
+	if not battle.mission:
+		return
+	var t := Time.get_ticks_msec() / 1000.0
+	for sm in battle.smokes:
+		for p in Battle.area3(sm[0]):
+			var c := to_world(p) + Vector3(0, _ground(p) + 0.5, 0)
+			for k in range(3):
+				var o := Vector3(sin(t * 0.7 + k * 2.1 + p.x) * 0.25, 0.2 * k, cos(t * 0.5 + k * 1.7 + p.y) * 0.25)
+				var a := cam.unproject_position(c + o)
+				var b := cam.unproject_position(c + o + Vector3(0.55, 0, 0))
+				overlay.draw_circle(a, a.distance_to(b), Color(C_SMOKE, 0.16))
+
+
 ## Team ring under every standing unit. The near half is drawn solid and the
 ## far half faint, so the ring reads as lying on the ground behind the legs.
 func _draw_rings() -> void:
+	var hit := _tool_affected() if tool_mode != "" else []
 	for u in battle.units:
 		if not unit_nodes.has(u) or not u.alive():
 			continue
@@ -665,6 +899,13 @@ func _draw_rings() -> void:
 		var far := pts.slice(12, 25)
 		overlay.draw_polyline(far, Color(col, 0.55), 2.5, true)
 		overlay.draw_polyline(near, col, 4.5 if u == selected else 3.5, true)
+		if hit.has(u):
+			# Tool preview: a white outer ring on every guard the tool would affect.
+			var outer := PackedVector2Array()
+			for i in range(25):
+				var a := TAU * i / 24.0
+				outer.append(cam.unproject_position(c + Vector3(cos(a), 0, sin(a)) * 0.58))
+			overlay.draw_polyline(outer, C_TOOL, 2.5, true)
 
 
 ## With a guard tapped: his best hit chance on each of ours standing in his reach.
@@ -826,6 +1067,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func tap_tile(p: Vector2i) -> void:
 	if not Battle.in_bounds(p):
 		return
+	if tool_mode == "smoke" or tool_mode == "flash":
+		var ok: bool = battle.can_smoke(selected, p) if tool_mode == "smoke" else battle.can_flash(selected, p)
+		if ok:
+			tool_at = p
+			_refresh()
+		return
+	if tool_mode != "":
+		return
 	var u = battle.unit_at(p)
 	if u != null and u.side == Battle.US:
 		_select(u)
@@ -851,6 +1100,7 @@ func _select(u) -> void:
 		return
 	if u != selected:
 		sneaking = false
+		tool_mode = ""
 	selected = u
 	_refresh()
 
@@ -958,6 +1208,7 @@ func _on_end_turn() -> void:
 	busy = true
 	aimed = null
 	sneaking = false
+	tool_mode = ""
 	var before := {}
 	for u in battle.units:
 		before[u] = u.pos
@@ -1062,6 +1313,67 @@ func _capture_mission() -> void:
 	_refresh()
 	await _shot("mission_result")
 	get_tree().quit()
+
+
+## Each diversion tool, previewed and then fired: tools_*.png (J1.5).
+func _capture_tools() -> void:
+	var you = battle.units[0]
+	var mara = battle.units[1]
+	var kesh = battle.units[2]
+	var guards: Array = battle.alive_units(Battle.REGIME)
+	# Lights out: Kesh at the junction box.
+	_place(kesh, Battle.JUNCTION_POS + Vector2i(1, 0))
+	_place(mara, Vector2i(4, 10))
+	_place(you, Vector2i(6, 10))
+	_select(kesh)
+	_start_tool("lights")
+	await _shot("tools_lights_preview")
+	_confirm_tool()
+	await _shot("tools_lights_dark")
+	# Smoke: Mara clouds the gap in front of her.
+	_select(mara)
+	_start_tool("smoke")
+	tap_tile(Vector2i(4, 7))
+	await _shot("tools_smoke_preview")
+	_confirm_tool()
+	await _shot("tools_smoke")
+	# Radio: You at the box. Seeded so the call works and "on a fake call" shows.
+	_place(you, battle.box + Vector2i(-1, 0))
+	you.ap = 2
+	battle.legitimacy = 3
+	battle.rng.seed = 3
+	_select(you)
+	_start_tool("radio")
+	await _shot("tools_radio_preview")
+	_confirm_tool()
+	await _shot("tools_radio")
+	# Flashbang: the Wavering guard has come over; two guards bunched near him.
+	var w = null
+	for g in guards:
+		if g.wavering:
+			w = g
+	w.wavering = false
+	w.side = Battle.US
+	w.defected = true
+	w.flash = 1
+	w.ap = 2
+	_place(w, Vector2i(9, 7))
+	var others := guards.filter(func(g): return g != w and g.busy == 0)
+	_place(others[0], Vector2i(10, 4))
+	_place(others[1], Vector2i(11, 4))
+	battle.noise = 6  # so the preview has to warn that this one trips the alarm
+	_select(w)
+	_start_tool("flash")
+	tap_tile(Vector2i(10, 4))
+	await _shot("tools_flash_preview")
+	_confirm_tool()
+	await _shot("tools_flash")
+	get_tree().quit()
+
+
+func _place(u, p: Vector2i) -> void:
+	u.pos = p
+	unit_nodes[u].position = to_world(p) + Vector3(0, _ground(p), 0)
 
 
 # ---------- autoplay (-- --autoplay [--loud] [--out DIR]) ----------

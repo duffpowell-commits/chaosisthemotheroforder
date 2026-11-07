@@ -11,6 +11,13 @@ extends SceneTree
 ##   flips   coin-flip shots per mission (35-65% hit chance), the rolls that
 ##           make you hold your breath
 ## Target for the jam: close 40-70%, flips 2+ per mission.
+##
+## Diversion tools (J1.5, spec §4): both bots use them. Lights out early (the
+## squad member nearest the junction box), Radio from the box before the
+## upload, Smoke on the run home once spotted, Flash when 2+ guards bunch.
+## `-- 300 focus notools` runs the bots without them, for before/after.
+
+static var use_tools := true
 
 const Battle = preload("res://scripts/tactics/battle.gd")
 
@@ -27,6 +34,7 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var n := int(args[0]) if args.size() > 0 else 500
 	var focus := "focus" in args
+	use_tools = not "notools" in args
 	for size in [3, 5]:
 		for guards in ([4] if focus else [2, 4, 6]):
 			for loud in [false, true]:
@@ -45,6 +53,7 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 	var turns := 0
 	var close := 0
 	var flips := 0
+	var tools_used := {"smoke": 0, "lights": 0, "radio": 0, "flash": 0}
 	for i in range(n):
 		var b = play({"guards": guards, "legitimacy": 1, "squad": SQUAD.slice(0, size), "seed": i + 1}, loud)
 		var r: Dictionary = b.mission_result()
@@ -57,6 +66,11 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 		if b.alarm:
 			alarms += 1
 		kills += r.kills
+		for line in b.log:
+			if "smoke flare" in line: tools_used.smoke += 1
+			elif "floodlight dies" in line: tools_used.lights += 1
+			elif "answers the call" in line or "stranger on their channel" in line: tools_used.radio += 1
+			elif "throws a flashbang" in line: tools_used.flash += 1
 		dead += r.dead.size()
 		defections += r.defections
 		turns += b.turn
@@ -76,6 +90,9 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 		size, guards, "loud " if loud else "quiet", 100 * aired / n, 100 * clean / n, 100 * wiped / n,
 		100 * alarms / n, float(kills) / n, float(dead) / n, float(defections) / n, float(turns) / n,
 		100 * close / n, float(flips) / n])
+	if use_tools:
+		print("    tools used per 100 missions: smoke %d, lights %d, radio %d (calls), flash %d" % [
+			100 * tools_used.smoke / n, 100 * tools_used.lights / n, 100 * tools_used.radio / n / 2, 100 * tools_used.flash / n])
 
 
 static var _re: RegEx
@@ -101,6 +118,8 @@ static func act(b, u, loud: bool) -> void:
 		if not u.alive() or u.ap <= 0:
 			return
 		if b.stabilize(u):
+			continue
+		if use_tools and _use_tool(b, u):
 			continue
 		if b.upload >= Battle.UPLOAD_TURNS or u.defected:
 			if b.leave(u):
@@ -136,6 +155,53 @@ static func act(b, u, loud: bool) -> void:
 			if loud:
 				b.overwatch(u)
 			return
+
+
+## Diversion tools, spec §4. Returns true if a tool was used (or the unit
+## walked toward the junction box), so act() loops.
+static func _use_tool(b, u) -> bool:
+	# Flash: 2+ guards bunched within the defector's reach.
+	if u.flash > 0:
+		var best := Vector2i(-1, -1)
+		var most := 1
+		for g in b.alive_units(Battle.REGIME):
+			for p in Battle.area3(g.pos):
+				var n: int = b.flash_targets(p).filter(func(x): return x.stun == 0).size()
+				if n > most and b.can_flash(u, p):
+					best = p
+					most = n
+		if best.x >= 0:
+			return b.flashbang(u, best)
+	# Smoke: on the run home, once a guard can see us, cloud ourselves.
+	if (b.upload >= Battle.UPLOAD_TURNS or u.defected) and _spotted(b, u) and b.can_smoke(u, u.pos):
+		return b.smoke(u, u.pos)
+	# Radio: You at the box before the upload, guards within 6.
+	if b.can_radio(u) and b.upload == 0 and b.radio_chance() > 0:
+		var near: bool = b.alive_units(Battle.REGIME).any(func(g): return Battle._cheb(g.pos, u.pos) <= 6)
+		if near:
+			b.radio(u)
+			return true
+	# Lights out: early, by the squad member nearest the junction box (not You).
+	if not b.lights_used and b.turn <= 4 and not u.is_you and b.upload == 0 and _lights_runner(b) == u:
+		if b.lights_out(u):
+			return true
+		var ring := []
+		for p in Battle.area3(Battle.JUNCTION_POS):
+			if p != Battle.JUNCTION_POS and b.standable(p):
+				ring.append(p)
+		if u.ap >= 1 and _step_toward(b, u, ring, false):
+			return true
+	return false
+
+
+static func _lights_runner(b):
+	var best = null
+	for m in b.alive_units(Battle.US):
+		if m.is_you or m.defected:
+			continue
+		if best == null or Battle._manhattan(m.pos, Battle.JUNCTION_POS) < Battle._manhattan(best.pos, Battle.JUNCTION_POS):
+			best = m
+	return best
 
 
 ## Close in and take a guard down by hand in the same turn: one move to a tile
