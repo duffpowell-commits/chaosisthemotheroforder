@@ -1,0 +1,7 @@
+symbols_dejavu.ttf is a glyph subset (arrows, shapes, misc symbols: ♥ ● ◎ ✕ − —)
+of DejaVu Sans, used as a fallback so these symbols render in the web build
+(browsers give Godot no system fonts).
+
+DejaVu fonts: https://dejavu-fonts.github.io/License.html
+Bitstream Vera license (free to use, modify and redistribute; modified copies
+may not be named "Bitstream" or "Vera"). DejaVu changes are public domain.

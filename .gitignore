@@ -3,3 +3,4 @@ reference/private/
 
 # Godot editor cache
 .godot/
+build/

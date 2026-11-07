@@ -382,6 +382,47 @@ func test_tactics_hit_table() -> void:
 	check(Battle.clamp_chance(140) == 95 and Battle.clamp_chance(-30) == 5, "clamped to 5-95")
 
 
+func test_tactics_threat_and_shot_preview() -> void:
+	var b := yard({Vector2i(5, 5): Battle.FULL})
+	var g := b.add_unit("G", Battle.REGIME, Vector2i(5, 2))
+	g.ap = 0  # spent: threat still uses a full next turn
+	var t: Dictionary = b.threat(g)
+	check(t.move.has(Vector2i(13, 2)) and not t.move.has(Vector2i(13, 3)), "threat move = 8 tiles")
+	check(not t.move.has(Vector2i(5, 5)), "can't move onto a container")
+	check(t.shoot.has(Vector2i(0, 13)), "open ground in sight is threatened")
+	check(not t.shoot.has(Vector2i(5, 5)), "containers aren't shoot tiles")
+	check(g.ap == 0, "threat leaves AP alone")
+	# A container wall two tiles past his 1-AP reach (he can't lean out from it).
+	var w := yard({})
+	for x in range(Battle.W):
+		w.set_tile(Vector2i(x, 7), Battle.FULL)
+	var g2 := w.add_unit("G", Battle.REGIME, Vector2i(6, 1))
+	var t2: Dictionary = w.threat(g2)
+	check(not t2.shoot.has(Vector2i(6, 10)) and not t2.move.has(Vector2i(6, 10)), "a wall blocks the threat")
+	var you := b.add_unit("You", Battle.US, Vector2i(2, 12))
+	var p: Dictionary = b.shot_preview(you, g)
+	check(p.result == "wounded" and p.noise == 0 and p.chance == b.chance(you, g), "skirmish preview")
+	g.hp = 1
+	b.mission = true
+	p = b.shot_preview(you, g)
+	check(p.result == "down" and p.noise == Battle.NOISE_SHOT, "mission preview: down, +3 noise")
+
+
+func test_tactical_tags_never_overlap() -> void:
+	var T = load("res://scripts/tactics/tactical.gd")
+	var placed: Array[Rect2] = []
+	# Four units bunched on one spot, once mid-screen and once against the top bar.
+	for y0 in [300.0, 60.0]:
+		placed.clear()
+		for i in range(4):
+			var r: Rect2 = T._place_tag(Rect2(100 + i * 5, y0, 90, 23), placed, -1)
+			if r.position.y < 58.0:
+				r = T._place_tag(Rect2(100 + i * 5, 58.0, 90, 23), placed, 1)
+			for q in placed:
+				check(not r.intersects(q), "tags overlap at y0=%d" % y0)
+			placed.append(r)
+
+
 func test_tactics_los() -> void:
 	var b := yard({Vector2i(5, 5): Battle.FULL, Vector2i(9, 5): Battle.HALF})
 	check(not b.line_of_sight(Vector2i(5, 2), Vector2i(5, 8)), "a container blocks sight")

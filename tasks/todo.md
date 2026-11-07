@@ -68,7 +68,7 @@
 - [x] Jam spec written, scope cuts set, fixes listed
 - [x] Fallback sprite pipeline: scripts/sprite_bake.gd + tools/compose_sprites.py
       (review shots in docs/renders/sprites/; Duff picks a look if we fall back)
-- [ ] J1 (Nov 9–15) readability fixes + web export spike in the phone browser; guard count call
+- [x] J1 readability fixes + web export spike (runs in Chrome; phone test waits on hosting); guard count call still open
 - [ ] J1.5 (Nov 16–22) diversion tools: smoke, lights out, radio call, defector flashbang
       (docs/diversion-tools-spec.md), rebalanced to the same difficulty
 - [ ] J2 (Nov 23–Dec 3) endings, saves incl. mid-fight, Android pass (= M6)
@@ -77,6 +77,27 @@
 - [ ] J5 (Dec 21–27) itch page + upload; submit Dec 28
 
 ## Review
+- **J1 (Nov 6):** team rings (red = movement, cold blue = regime, yellow = Wavering) and
+  name/HP tags moved into the 2D overlay, because the Frontline grade keeps 7% of 3D
+  colour on the tactical map. Tags are fixed-size and de-stack (nearest unit keeps its
+  spot, others slide up, or down against the top bar, with a leader line); test
+  `test_tactical_tags_never_overlap`. Fresnel rim on units only. Grain x0.35, contrast
+  and vignette x0.45 on the tactical map. Threat on tap: `Battle.threat(g)` mirrors the
+  guard AI (move 2 AP, or move 1 AP + shoot at 15%+); the overlay shows his move zone,
+  a faint shoot zone, and his hit % on each of ours. Guards have no range limit, so the
+  shoot zone covers most of the yard; the per-unit % carries the info. Shot preview:
+  "Shoot 85% / wounds him · +3 noise". Camera fov 52 -> 55 so the start row clears the HUD.
+  Independent review (fresh agent) found 3 blockers, all fixed: tag ladders didn't
+  point at their units (now collapse + team-coloured leader line), threat was accent
+  orange (now map red), and the fight drifted into the top 15% of the screen (camera
+  follow with a fit check). Also: greyed Shoot says why. Logged for later: blue move
+  range vs blue regime rings, same mannequin bodies both sides, text nits.
+  Web spike: exports and runs in Chrome (WebGL 2, Compatibility, single-threaded). Found
+  and fixed 3 web-only bugs: backdrops loaded from `docs/` (now `assets/ui/`),
+  `tools/mission_sim.gd` excluded but preloaded by tactical.gd, and ♥ ● ◎ rendering as
+  boxes (no system fonts in a browser; DejaVu subset fallback). Size: 90 MB pck + 38 MB
+  wasm, too big for phones on data; shrink before J5. Rules unchanged, tension the same:
+  3 v 4 quiet close 56%, 4.6 flips; 5 v 4 quiet close 98% (too easy, J1.5 rebalance).
 - **Signal Box tuning (Nov 6, Duff: "slightly less brutal"):** the deaths came on
   the run home, after the broadcast alerts every guard, not from being spotted
   (sight range, bleed time and reinforcement size changed nothing). New rule:
