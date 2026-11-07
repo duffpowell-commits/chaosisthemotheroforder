@@ -544,6 +544,20 @@ func _draw_overlay() -> void:
 	_draw_tags()
 
 
+## Slide a tag rect up (dir -1) or down (dir 1) until it clears every placed tag.
+static func _place_tag(r: Rect2, placed: Array[Rect2], dir: int) -> Rect2:
+	var moved := true
+	var tries := 0
+	while moved and tries < 16:
+		moved = false
+		tries += 1
+		for q in placed:
+			if r.intersects(q):
+				r.position.y = q.position.y - r.size.y - 1.0 if dir < 0 else q.end.y + 1.0
+				moved = true
+	return r
+
+
 func _process(delta: float) -> void:
 	super(delta)
 	if overlay:
@@ -606,20 +620,14 @@ func _draw_tags() -> void:
 		var anchor: Vector2 = e[1]
 		var text: String = unit_tags[u][0]
 		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x + 8.0
-		var r := Rect2(anchor.x - w / 2, anchor.y - h, w, h)
-		var moved := true
-		var guard := 0
-		while moved and guard < 12:
-			moved = false
-			guard += 1
-			for q in placed:
-				if r.intersects(q):
-					r.position.y = q.position.y - h - 1.0
-					moved = true
-		r.position.y = maxf(r.position.y, TOP_H + 2.0)
+		var r := _place_tag(Rect2(anchor.x - w / 2, anchor.y - h, w, h), placed, -1)
+		if r.position.y < TOP_H + 2.0:
+			# No room above (units near the top bar): stack downward instead.
+			r = _place_tag(Rect2(anchor.x - w / 2, maxf(anchor.y - h, TOP_H + 2.0), w, h), placed, 1)
 		placed.append(r)
-		if r.end.y < anchor.y - 4.0:
-			overlay.draw_line(Vector2(anchor.x, anchor.y), Vector2(clampf(anchor.x, r.position.x + 4, r.end.x - 4), r.end.y), Color(1, 1, 1, 0.35), 1.0, true)
+		if r.end.y < anchor.y - 4.0 or r.position.y > anchor.y:
+			var edge := r.end.y if r.end.y < anchor.y else r.position.y
+			overlay.draw_line(anchor, Vector2(clampf(anchor.x, r.position.x + 4, r.end.x - 4), edge), Color(1, 1, 1, 0.35), 1.0, true)
 		overlay.draw_rect(r, Color(0.05, 0.06, 0.07, 0.55))
 		var base := Vector2(r.position.x + 4, r.end.y - 5)
 		overlay.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 5, Color.BLACK)

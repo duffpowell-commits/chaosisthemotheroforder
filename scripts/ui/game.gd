@@ -46,8 +46,8 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	# The Rail Yards street behind everything: regime render fading into the liberated one.
-	backdrop_regime = _backdrop("res://docs/renders/frontline_regime.png")
-	backdrop_free = _backdrop("res://docs/renders/frontline_liberated.png")
+	backdrop_regime = _backdrop("res://assets/ui/backdrop_regime.png")
+	backdrop_free = _backdrop("res://assets/ui/backdrop_liberated.png")
 	var shade := ColorRect.new()
 	shade.color = Color(0.03, 0.035, 0.045, 0.72)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)

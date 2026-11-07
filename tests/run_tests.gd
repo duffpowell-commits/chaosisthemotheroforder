@@ -408,6 +408,21 @@ func test_tactics_threat_and_shot_preview() -> void:
 	check(p.result == "down" and p.noise == Battle.NOISE_SHOT, "mission preview: down, +3 noise")
 
 
+func test_tactical_tags_never_overlap() -> void:
+	var T = load("res://scripts/tactics/tactical.gd")
+	var placed: Array[Rect2] = []
+	# Four units bunched on one spot, once mid-screen and once against the top bar.
+	for y0 in [300.0, 60.0]:
+		placed.clear()
+		for i in range(4):
+			var r: Rect2 = T._place_tag(Rect2(100 + i * 5, y0, 90, 23), placed, -1)
+			if r.position.y < 58.0:
+				r = T._place_tag(Rect2(100 + i * 5, 58.0, 90, 23), placed, 1)
+			for q in placed:
+				check(not r.intersects(q), "tags overlap at y0=%d" % y0)
+			placed.append(r)
+
+
 func test_tactics_los() -> void:
 	var b := yard({Vector2i(5, 5): Battle.FULL, Vector2i(9, 5): Battle.HALF})
 	check(not b.line_of_sight(Vector2i(5, 2), Vector2i(5, 8)), "a container blocks sight")
