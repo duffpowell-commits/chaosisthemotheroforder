@@ -76,7 +76,10 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Duff works phone-only (Godot Android editor). No desktop-only tools. GDScript only.
 - **Push after every chunk of work and merge to `main` at the end of every
   milestone.** Unmerged side branches got lost once; never again.
-- One milestone per session. Long sessions with many inline images crash the app.
+- **Up to three milestones per session** (Duff's trial from Nov 6; it was one). Long
+  sessions with many inline images crashed the app before, so: merge to `main` and
+  update this handoff after EACH milestone (a crash then loses nothing), keep images
+  in `docs/renders/` not chat, and stop early if the session gets sluggish.
 - Save renders to `docs/renders/`, don't paste them all into chat.
 - Visual decisions need real engine renders shown to Duff, not sketches.
 - Tactical numbers Duff set: 2 HP (hit = 1), 4 tiles per AP (spec said 5).
