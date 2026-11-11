@@ -68,7 +68,10 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Retarget fix (Nov 6): the silhouette fix is now ON for all four rigs. Without it
   every Mixamo clip bent the forearms inward (arms looked crossed). Side effect:
   portraits re-rendered with the head tipped slightly up. Ask Duff if they're OK.
-- If the jam falls back to sprites, the look is **pixel** (Duff's pick).
+- **Art direction (Duff, Nov 11): HD-2D.** Hand-made sprites in the 3D streets replace the
+  mannequin rigs (they read as pale blobs under the grade; the baked pixel fallback was muddy,
+  no faces). Keep the 3D world and street grade. Share the sprite pipeline with Lethemoor.
+  Supersedes the old "fall back to pixel" call and the Dec 10 gate. Design only while paused.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
