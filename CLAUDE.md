@@ -72,6 +72,15 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   mannequin rigs (they read as pale blobs under the grade; the baked pixel fallback was muddy,
   no faces). Keep the 3D world and street grade. Share the sprite pipeline with Lethemoor.
   Supersedes the old "fall back to pixel" call and the Dec 10 gate. Design only while paused.
+- **Sprite size test (Nov 11):** Canva art of Duff at 64/96/128 px on the Signal Box map,
+  1080p (`-- --capture-sprite-sizes`, run with `--resolution 1920x1080`; sources in
+  `docs/renders/sprites/size_test/`). Renders: `sprite_size_overlay.png`, `sprite_size_world.png`,
+  `sprite_size_closeup.png`. Findings: a body is ~110 px on screen at home zoom, ~165 zoomed;
+  64 px = face is a smear; 96 reads; 128 is ~1:1 and pays off when the camera zooms. Under the
+  street grade sprites go grey and get hidden by walls: draw them in 2D above the grade (like the
+  rings) and handle wall occlusion. Known test bug: the in-world sprites sit ~0.4 m north of
+  their ring. Canva's connector only returns a 200 px preview; get the full 1024x1536 file
+  from Canva for real art. Duff's size call pending.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets

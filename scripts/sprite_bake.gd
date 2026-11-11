@@ -6,7 +6,7 @@ extends "res://scripts/render_test.gd"
 ## Run: xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake
 ## Then compose sheets: python3 tools/compose_sprites.py /tmp/bake docs/renders/sprites
 
-const CELL := 256          # render size per frame; downscaled when composing
+var CELL := 256            # render size per frame; downscaled when composing (--cell N)
 const DIRS := 8
 const ELEVATION := 35.0    # camera pitch in degrees (isometric-ish)
 const WALK_FRAMES := 8
@@ -14,6 +14,8 @@ const WALK_FRAMES := 8
 var vp: SubViewport
 var stage: Node3D
 var out_dir := "/tmp/bake"
+var only := ""           # --only duff: bake one character
+var only_idle := false    # --idle: skip walk cycles
 
 
 func _ready() -> void:
@@ -22,6 +24,13 @@ func _ready() -> void:
 	var i := args.find("--out")
 	if i >= 0 and i + 1 < args.size():
 		out_dir = args[i + 1]
+	var c := args.find("--cell")
+	if c >= 0 and c + 1 < args.size():
+		CELL = int(args[c + 1])
+	var o := args.find("--only")
+	if o >= 0 and o + 1 < args.size():
+		only = args[o + 1]
+	only_idle = "--idle" in args
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	_build_stage()
 	await _bake_all()
@@ -93,8 +102,10 @@ func _cast() -> Dictionary:
 func _bake_all() -> void:
 	var cast := _cast()
 	for who: String in cast:
+		if only != "" and who != only:
+			continue
 		var spec: Array = cast[who]
-		for anim: String in ["idle", "walk"]:
+		for anim: String in (["idle"] if only_idle else ["idle", "walk"]):
 			var clip := "walk_f" if who == "rebel_f" and anim == "walk" else anim
 			var n := _person(spec[0], Vector3.ZERO, 0.0, stage, spec[1], spec[2], clip)
 			_add_gear(n, spec[3])

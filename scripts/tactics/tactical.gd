@@ -107,6 +107,8 @@ func _ready() -> void:
 		_capture_mission()
 	elif "--capture-tools" in args:
 		_capture_tools()
+	elif "--capture-sprite-sizes" in args:
+		_capture_sprite_sizes()
 	elif "--autoplay" in args:
 		_autoplay("--loud" in args, _arg_after(args, "--out", "/tmp/autoplay"))
 
@@ -1436,3 +1438,75 @@ func _auto_frame(out: String, n: int) -> int:
 	await _wait(6)
 	get_viewport().get_texture().get_image().save_png(out.path_join("f%03d.png" % n))
 	return n + 1
+
+
+# ---------- HD-2D sprite size test (Nov 11, art direction) ----------
+
+const SIZE_TEST_DIR := "res://docs/renders/sprites/size_test"
+const SIZE_TEST_HEIGHTS := [64, 96, 128]
+const PERSON_HEIGHT := 1.8  # metres, same as the rigs
+
+## Duff's Canva sprite at 64/96/128 px source height, standing on the map at
+## the same world height. Two shots: drawn in the 3D world (under the street
+## grade) and drawn in 2D above the grade. Saves sprite_size_*.png.
+func _capture_sprite_sizes() -> void:
+	var us: Array = battle.alive_units(Battle.US)
+	var tiles: Array[Vector2i] = []
+	for x in range(3, 13):
+		var p := Vector2i(x, 10)
+		if battle.tile(p) != Battle.HIGH and tiles.size() < 3 and (tiles.is_empty() or x - tiles[-1].x >= 2):
+			tiles.append(p)
+	var texs: Array[ImageTexture] = []
+	for h in SIZE_TEST_HEIGHTS:
+		var img := Image.load_from_file(ProjectSettings.globalize_path("%s/duff_%d.png" % [SIZE_TEST_DIR, h]))
+		texs.append(ImageTexture.create_from_image(img))
+	for i in range(us.size()):
+		var u = us[i]
+		unit_nodes[u].visible = false
+		if i < 3:
+			u.pos = tiles[i]
+			u.name = "%d px" % SIZE_TEST_HEIGHTS[i]
+		else:
+			u.pos = Vector2i(1 + i, 13)
+		unit_nodes[u].position = to_world(u.pos) + Vector3(0, _ground(u.pos), 0)
+	selected = null
+	_refresh()
+	# 1) In the world, under the grade.
+	var world_sprites: Array[Sprite3D] = []
+	for i in range(3):
+		var sp := Sprite3D.new()
+		sp.texture = texs[i]
+		sp.pixel_size = PERSON_HEIGHT / float(SIZE_TEST_HEIGHTS[i])
+		# Full billboard: the tactical camera looks down steeply, so an upright
+		# (Y-only) sprite gets squashed. HD-2D tilts sprites to face the camera.
+		sp.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+
+		sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		sp.shaded = false
+		# Centre the camera-facing quad half a body up the camera's own up axis,
+		# so its bottom edge lands on the feet on screen.
+		sp.position = to_world(tiles[i]) + cam.global_transform.basis.y * PERSON_HEIGHT * 0.5
+		world_root.add_child(sp)
+		world_sprites.append(sp)
+	await _shot("sprite_size_world")
+	# 2) Above the grade (full colour), drawn in 2D at the same screen size.
+	for sp in world_sprites:
+		sp.visible = false
+	var layer := CanvasLayer.new()
+	layer.layer = 2
+	add_child(layer)
+	for i in range(3):
+		var feet := cam.unproject_position(to_world(tiles[i]))
+		var head := cam.unproject_position(to_world(tiles[i]) + Vector3(0, PERSON_HEIGHT, 0))
+		var s := (feet.y - head.y) / float(SIZE_TEST_HEIGHTS[i])
+		var sp := Sprite2D.new()
+		sp.texture = texs[i]
+		sp.centered = false
+		sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sp.scale = Vector2(s, s)
+		sp.position = feet - Vector2(texs[i].get_width() * s * 0.5, SIZE_TEST_HEIGHTS[i] * s)
+		layer.add_child(sp)
+	await _shot("sprite_size_overlay")
+	print("tiles ", tiles)
+	get_tree().quit()
