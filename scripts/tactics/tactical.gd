@@ -1560,6 +1560,7 @@ func _update_rigs() -> void:
 	if battle == null or rig_root == null:
 		return
 	var cam_up := cam.global_transform.basis.y
+	_hulls_frame = -1  # wall outlines are rebuilt once, on first use this frame
 	for u in battle.units:
 		if not unit_nodes.has(u) or _rig_spec(u).is_empty():
 			continue
@@ -1587,8 +1588,9 @@ func _update_rigs() -> void:
 			rig.play("hit")
 		elif moving and rig.state != "shoot":
 			rig.play("walk")
-			if absf(feet.x - seen[0].x) > 0.001:
-				rig.face(feet.x > seen[0].x)
+			var dx := a.x - cam.unproject_position(seen[0]).x
+			if absf(dx) > 0.5:
+				rig.face(dx > 0.0)
 		elif rig.state == "walk":
 			rig.play("idle")
 		if not moving and rig.state == "idle":
@@ -1664,7 +1666,8 @@ func _draw_rig_clip(clip: Node2D) -> void:
 		rig.position + Vector2(hw, hw * 0.35), rig.position + Vector2(-hw, hw * 0.35)])
 	var visible_parts: Array = [box]
 	var uz: float = unit_nodes[u].global_position.z
-	for hull in _occluder_hulls(uz):
+	var box_rect := Rect2(box[0], box[2] - box[0])
+	for hull in _occluder_hulls(uz, box_rect):
 		var next: Array = []
 		for part in visible_parts:
 			next.append_array(_clip_no_holes(part, hull))
@@ -1681,33 +1684,51 @@ func _draw_ghost_clip(gclip: Node2D) -> void:
 	var u = gclip.get_meta("unit")
 	# A parent that draws nothing doesn't clip at all, so always draw a speck off-screen.
 	gclip.draw_rect(Rect2(-10, -10, 1, 1), Color.WHITE)
-	for hull in _occluder_hulls(unit_nodes[u].global_position.z):
+	var rig: CutoutRig = rigs.get(u)
+	if rig == null:
+		return
+	var hw := rig.height_px() * absf(rig.scale.y) * 0.9
+	var near := Rect2(rig.position - Vector2(hw, hw * 1.2), Vector2(hw * 2.0, hw * 1.55))
+	for hull in _occluder_hulls(unit_nodes[u].global_position.z, near):
 		if hull.size() >= 3:
 			gclip.draw_colored_polygon(hull, Color.WHITE)
 
 
-## Screen outlines of the blocking geometry in front of depth z (closer to the camera).
-func _occluder_hulls(z: float) -> Array:
+## Screen outlines of the blocking geometry nearer the camera than depth z that
+## overlap `near` (a screen rect). All outlines are built once per frame and
+## shared by every rig and silhouette, then filtered here.
+var _hulls: Array = []   # [world z of the tile's near face, hull, screen rect]
+var _hulls_frame := -1
+
+func _occluder_hulls(z: float, near := Rect2()) -> Array:
+	var frame := Engine.get_process_frames()
+	if _hulls_frame != frame:
+		_hulls_frame = frame
+		_hulls.clear()
+		for y in range(Battle.H):
+			for x in range(Battle.W):
+				var p := Vector2i(x, y)
+				var top := 0.0
+				match battle.tile(p):
+					Battle.FULL: top = 2.5
+					Battle.BOX: top = 2.2
+					Battle.HALF: top = 0.95
+					_: continue
+				var w := to_world(p)
+				var pts := PackedVector2Array()
+				for cx in [-0.5, 0.5]:
+					for cz in [-0.5, 0.5]:
+						for cy in [0.0, top]:
+							pts.append(cam.unproject_position(w + Vector3(cx, cy, cz)))
+				var hull := Geometry2D.convex_hull(pts)
+				var r := Rect2(hull[0], Vector2.ZERO)
+				for v in hull:
+					r = r.expand(v)
+				_hulls.append([w.z + 0.45, hull, r])
 	var out := []
-	for y in range(Battle.H):
-		for x in range(Battle.W):
-			var p := Vector2i(x, y)
-			var t: int = battle.tile(p)
-			var top := 0.0
-			match t:
-				Battle.FULL: top = 2.5
-				Battle.BOX: top = 2.2
-				Battle.HALF: top = 0.95
-				_: continue
-			var w := to_world(p)
-			if w.z + 0.45 <= z:
-				continue  # behind or level with the unit
-			var pts := PackedVector2Array()
-			for cx in [-0.5, 0.5]:
-				for cz in [-0.5, 0.5]:
-					for cy in [0.0, top]:
-						pts.append(cam.unproject_position(w + Vector3(cx, cy, cz)))
-			out.append(Geometry2D.convex_hull(pts))
+	for h in _hulls:
+		if h[0] > z and (near.size == Vector2.ZERO or near.intersects(h[2])):
+			out.append(h[1])
 	return out
 
 

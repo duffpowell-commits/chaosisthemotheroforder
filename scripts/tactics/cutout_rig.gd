@@ -43,6 +43,10 @@ const PART_SEGMENTS := {
 }
 const GRID := 2.0  # mesh cell size in texture pixels
 
+## Built meshes per texture, shared by every rig and silhouette of that character
+## (the per-pixel labelling is the slow part, so it runs once per texture).
+static var _mesh_cache := {}
+
 var spec: Dictionary
 var tex: Texture2D
 var s := 1.0               # texture px per source px
@@ -139,6 +143,17 @@ func _bone(bone_name: String, parent: Node, pos: Vector2) -> Bone2D:
 ## Label every opaque pixel with the nearest segment (capsule distance), then
 ## build one quad mesh per part from the cells that part owns.
 func _build_meshes(origin: Vector2) -> void:
+	if not _mesh_cache.has(spec.texture):
+		_mesh_cache[spec.texture] = _label_cells()
+	var cells: Dictionary = _mesh_cache[spec.texture]
+	for entry in PARTS:
+		_make_part(entry[0], cells[entry[0]], entry[1], origin)
+
+
+## Label every opaque cell with the nearest segment's part (capsule distance),
+## then grow each part one cell into its neighbours so parts overlap at the
+## joints and bending never opens a gap.
+func _label_cells() -> Dictionary:
 	var img := tex.get_image()
 	var w := img.get_width()
 	var h := img.get_height()
@@ -146,35 +161,38 @@ func _build_meshes(origin: Vector2) -> void:
 	for p in PART_SEGMENTS:
 		for sg in PART_SEGMENTS[p]:
 			part_of_seg[sg] = p
-	var cells := {}  # part -> Array[Vector2i] of cell coords
-	for p in PART_SEGMENTS:
-		cells[p] = []
+	var cell_part := {}  # Vector2i cell -> part
 	var cw := int(ceil(w / GRID))
 	var ch := int(ceil(h / GRID))
 	for cy in range(ch):
 		for cx in range(cw):
 			var votes := {}
-			var any := false
 			for dy in range(int(GRID)):
 				for dx in range(int(GRID)):
 					var px := cx * int(GRID) + dx
 					var py := cy * int(GRID) + dy
 					if px >= w or py >= h or img.get_pixel(px, py).a < 0.05:
 						continue
-					any = true
 					var sg := _nearest_seg(Vector2(px + 0.5, py + 0.5))
 					votes[part_of_seg[sg]] = votes.get(part_of_seg[sg], 0) + 1
-			if not any:
-				continue
 			var best := ""
 			for p in votes:
 				if best == "" or votes[p] > votes[best]:
 					best = p
-			cells[best].append(Vector2i(cx, cy))
-	for entry in PARTS:
-		var part: String = entry[0]
-		var part_bones: Array = entry[1]
-		_make_part(part, cells[part], part_bones, origin)
+			if best != "":
+				cell_part[Vector2i(cx, cy)] = best
+	var cells := {}
+	for p in PART_SEGMENTS:
+		cells[p] = {}
+	for c in cell_part:
+		cells[cell_part[c]][c] = true
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if cell_part.has(n) and cell_part[n] != cell_part[c]:
+				cells[cell_part[n]][c] = true  # neighbour part overlaps this cell
+	for p in cells:
+		cells[p] = cells[p].keys()
+	return cells
 
 
 func _nearest_seg(p: Vector2) -> String:
@@ -256,8 +274,8 @@ func _build_gun() -> void:
 	var dir := (b - a).normalized()
 	var perp := Vector2(-dir.y, dir.x)
 	var hand := b - a  # in forearm-bone space (bone sits at the elbow)
-	var grip := 2.2 * s * 2.0
-	var length := 4.0 * s * 2.0
+	var grip := 2.2 * s * 3.0
+	var length := 4.0 * s * 3.2
 	var gun := Polygon2D.new()
 	gun.color = Color(0.06, 0.06, 0.07)
 	gun.polygon = PackedVector2Array([
@@ -268,8 +286,8 @@ func _build_gun() -> void:
 	flash_node = Polygon2D.new()
 	flash_node.color = Color(1.0, 0.8, 0.35)
 	var tip := hand + dir * (length + 1.0)
-	flash_node.polygon = PackedVector2Array([tip - perp * 2.0 * s, tip + dir * 7.0 * s, tip + perp * 2.0 * s,
-		tip + dir * 3.0 * s + perp * 4.0 * s, tip + dir * 3.0 * s - perp * 4.0 * s])
+	flash_node.polygon = PackedVector2Array([tip - perp * 3.0 * s, tip + dir * 3.0 * s - perp * 7.0 * s,
+		tip + dir * 14.0 * s, tip + dir * 3.0 * s + perp * 7.0 * s, tip + perp * 3.0 * s])
 	flash_node.visible = false
 	fore.add_child(flash_node)
 
@@ -311,6 +329,7 @@ func _pose(anim: String, at: float) -> void:
 		b.rotation = 0.0
 	bones.hip.position = bones.hip.rest.origin
 	body_root.rotation = 0.0
+	body_root.scale = Vector2.ONE
 	body_root.position = Vector2.ZERO
 	flash_node.visible = false
 	var gun: String = spec.gun_arm
@@ -345,7 +364,7 @@ func _pose(anim: String, at: float) -> void:
 			bones["fore_" + gun].rotation = lerpf(0.0, -0.08, up) + kick * 0.5
 			bones.spine.rotation = -0.05 * up + kick * 0.2
 			bones["upper_" + off].rotation = 0.08 * up
-			flash_node.visible = at > 0.22 and at < 0.29
+			flash_node.visible = at > 0.22 and at < 0.38
 			if at > 0.75:
 				play("idle")
 		"hit":
@@ -368,5 +387,8 @@ func _pose(anim: String, at: float) -> void:
 			bones.upper_L.rotation = 0.5 * e
 			bones.upper_R.rotation = -0.6 * e
 			bones.head.rotation = 0.25 * e
+			# Lying down, shrunk to about one tile long and centred on the feet so
+			# the body stays on its own tile instead of spilling onto the next.
 			body_root.rotation = -1.48 * e
-			body_root.position = Vector2(0.45 * height_px() * e, 0.0)
+			body_root.scale = Vector2.ONE * lerpf(1.0, 0.55, e)
+			body_root.position = Vector2(0.28 * height_px() * e, 0.0)
