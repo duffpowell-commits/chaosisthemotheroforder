@@ -17,7 +17,7 @@ street.** Color is a reward: it comes back as districts are liberated.
 |---|---|---|
 | **World** (streets, tactical map) | Low-poly 3D under the **Frontline** grade: near-monochrome, grain, crushed blacks, harsh sodium and flash light. Color returns with liberation. | Nachtwey, McCullin, Capa; XCOM's night maps |
 | **Propaganda** (posters, state TV, pirate radio, menus) | **Woodcut**: paper, ink, two or three flat colors, hand-cut type. | Soviet and Spanish Civil War posters; Papers, Please |
-| **Units** (tactical) | **HD-2D sprites** (Duff, Nov 11): hand-made 2D character sprites standing in the existing 3D streets, replacing the 3D mannequin rigs. Readable first (Advance Wars): faction color, ring under each unit, chunky silhouette, faces and Duff's tattoos visible at tactical zoom. Sprites sit above the grade (or get a lighter grade) so they don't wash out. Same pipeline as Lethemoor. | Octopath Traveler, Triangle Strategy, Advance Wars |
+| **Units** (tactical) | **HD-2D sprites** (Duff, Nov 11): hand-made 2D character sprites standing in the existing 3D streets, replacing the 3D mannequin rigs. Readable first (Advance Wars): faction color, ring under each unit, chunky silhouette, faces and Duff's tattoos visible at tactical zoom. Sprites sit above the grade (or get a lighter grade) so they don't wash out. Same pipeline as Lethemoor. **128 px tall, cutout animation** (Duff, Nov 11): one drawing per facing, cut into parts, animated in engine. | Octopath Traveler, Triangle Strategy, Advance Wars |
 
 ## 3. Palette
 

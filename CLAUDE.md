@@ -80,7 +80,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   street grade sprites go grey and get hidden by walls: draw them in 2D above the grade (like the
   rings) and handle wall occlusion. Known test bug: the in-world sprites sit ~0.4 m north of
   their ring. Canva's connector only returns a 200 px preview; get the full 1024x1536 file
-  from Canva for real art. Duff's size call pending.
+  from Canva for real art.
+- **Duff's call (Nov 11): 128 px sprites, cutout animation.** One Canva drawing per character
+  per facing (front 3/4, back 3/4; mirror for the other two), cut into parts (head, torso,
+  upper/lower arms, legs) and animated in Godot (Skeleton2D / Polygon2D or plain node
+  transforms). No hand-drawn frame cycles. Draw above the grade; solve wall occlusion.
+  **First task when Chaos is back on:** Duff cutout rig (idle, walk, shoot, hit, down) on
+  the Signal Box map from the full-res Canva file, with occlusion behind walls.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
