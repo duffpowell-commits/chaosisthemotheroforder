@@ -85,8 +85,27 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   per facing (front 3/4, back 3/4; mirror for the other two), cut into parts (head, torso,
   upper/lower arms, legs) and animated in Godot (Skeleton2D / Polygon2D or plain node
   transforms). No hand-drawn frame cycles. Draw above the grade; solve wall occlusion.
-  **First task when Chaos is back on:** Duff cutout rig (idle, walk, shoot, hit, down) on
-  the Signal Box map from the full-res Canva file, with occlusion behind walls.
+- **R1 cutout rig shipped (Nov 11):** You is a cutout now (`scripts/tactics/cutout_rig.gd`,
+  art `assets/characters/duff_front.png`, 47x128 from the Canva preview). Body/arm/leg Polygon2D
+  meshes skinned to a Skeleton2D; poses in code: idle, walk (while the 3D node moves), shoot
+  (from `_flash`, faces the target; pistol is a code-drawn polygon because Canva's safety filter
+  won't draw guns), hit (hp drops), down (stays). The 3D node stays for tweens/tags/rings; its
+  meshes are hidden. Drawn in `rig_root` (grid layer, between rings and `top_overlay` tags).
+  Occlusion: `_occluder_hulls` (FULL 2.5 m, BOX 2.2, HALF 0.95, tiles nearer the camera) clip
+  the rig via `clip_children`; a team-colour silhouette rig shows only on those hulls (its clip
+  parent must always draw something or Godot won't clip at all). `-- --capture-rig` renders
+  poses + occlusion (`rig_poses.png`, `rig_behind_container.png`); autoplay passes
+  (`autoplay_cutout.gif`). Other squad members and guards are still 3D mannequins.
+  Design review fixes (same day): parts overlap one cell at the joints (no seams), downed body
+  lies shrunk on its own tile, bigger pistol + 0.16 s flash, walk facing uses screen x, wall
+  outlines built once per frame and filtered by screen rect, meshes cached per texture.
+  Review leftovers: 3D mannequins nearer the camera don't hide the cutout (depth sort once all
+  units are cutouts); "down" can't be undone (fine until revives exist); no shot tracer; bake
+  meshes offline before using 1024 px art. Only the front 3/4 drawing exists (facing = flip);
+  viewport is a 1280x720 canvas, so screen coords x1.5 at 1080p.
+  **Next for the art (when Chaos is active):** back-3/4 drawing, cutouts for Mara/Kesh/Teodor
+  and the guards (needs Canva art per character; full-res via a Canva design + export, which
+  needs Duff's OK to save), seam fix.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets

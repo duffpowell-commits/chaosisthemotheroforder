@@ -54,6 +54,13 @@ var lamp_energy := {}   # OmniLight3D -> lit energy, for lights out
 ## Grid highlights are drawn in 2D above the colour grade, so the grade
 ## can't wash out the move range and the target.
 var overlay: Node2D
+var top_overlay: Node2D  # tags and odds, drawn above the cutout characters
+var rig_root: Node2D     # cutout characters: above rings and grid, below tags
+var rigs := {}           # unit -> CutoutRig (HD-2D cutouts; Duff's call Nov 11)
+var rig_clips := {}      # unit -> Node2D that clips its rig behind walls
+var rig_seen := {}       # unit -> [last 3D position, last hp]
+var rig_ghosts := {}     # unit -> silhouette rig shown where walls hide the real one
+var ghost_clips := {}    # unit -> Node2D that limits the silhouette to the walls in front
 var tile_fill := {}     # Vector2i -> Color for this frame
 var selected = null
 var aimed = null
@@ -94,7 +101,7 @@ func _ready() -> void:
 	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
 	grade_mat.set_shader_parameter("crush_mul", GRADE_CRUSH)
 	var args := OS.get_cmdline_user_args()
-	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args) and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -107,6 +114,8 @@ func _ready() -> void:
 		_capture_mission()
 	elif "--capture-tools" in args:
 		_capture_tools()
+	elif "--capture-rig" in args:
+		_capture_rig(_arg_after(args, "--out", "/tmp/rig"))
 	elif "--capture-sprite-sizes" in args:
 		_capture_sprite_sizes()
 	elif "--autoplay" in args:
@@ -166,6 +175,15 @@ func _new_battle(s: int) -> void:
 		battle = Battle.create_mission(mission_meta.params)
 	unit_nodes.clear()
 	unit_tags.clear()
+	for c in rig_clips.values():
+		c.queue_free()
+	for g in ghost_clips.values():
+		g.queue_free()
+	ghost_clips.clear()
+	rigs.clear()
+	rig_ghosts.clear()
+	rig_clips.clear()
+	rig_seen.clear()
 	cam_goal = Vector3.INF
 	selected = battle.alive_units(Battle.US)[0]
 	aimed = null
@@ -288,6 +306,11 @@ func _build_hud() -> void:
 	overlay = Node2D.new()
 	overlay.draw.connect(_draw_overlay)
 	grid_layer.add_child(overlay)
+	rig_root = Node2D.new()
+	grid_layer.add_child(rig_root)
+	top_overlay = Node2D.new()
+	top_overlay.draw.connect(_draw_top)
+	grid_layer.add_child(top_overlay)
 	var ui := CanvasLayer.new()
 	ui.layer = 3
 	add_child(ui)
@@ -805,6 +828,11 @@ func _draw_overlay() -> void:
 	_draw_map_labels()
 	_draw_checker_path()
 	_draw_rings()
+
+
+func _draw_top() -> void:
+	if battle == null:
+		return
 	_draw_threat_odds()
 	_draw_tags()
 
@@ -827,6 +855,8 @@ func _process(delta: float) -> void:
 	super(delta)
 	if overlay:
 		overlay.queue_redraw()  # rings and tags follow units while they tween
+		top_overlay.queue_redraw()
+	_update_rigs()
 
 
 func _feet(u) -> Vector3:
@@ -920,8 +950,8 @@ func _draw_threat_odds() -> void:
 			# Beside the ring, not under it, so the bottom row never pushes it under the HUD.
 			var at := cam.unproject_position(_feet(u)) + Vector2(24, 7)
 			var t := "%d%%" % threat.shoot[u.pos]
-			overlay.draw_string_outline(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 6, Color.BLACK)
-			overlay.draw_string(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(1.0, 0.5, 0.42))
+			top_overlay.draw_string_outline(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 6, Color.BLACK)
+			top_overlay.draw_string(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(1.0, 0.5, 0.42))
 
 
 ## Name/HP tags at a fixed screen size. Bunched units used to stack their tags
@@ -933,7 +963,10 @@ func _draw_tags() -> void:
 	for u in unit_tags:
 		if not unit_nodes.has(u) or not unit_nodes[u].visible:
 			continue
-		var anchor := cam.unproject_position(unit_nodes[u].global_position + Vector3(0, 1.95, 0))
+		var head_up := Vector3(0, 1.95, 0)
+		if rigs.has(u):  # cutouts stand up the camera's axis; a downed one lies low
+			head_up = cam.global_transform.basis.y * (0.7 if not u.alive() else 2.0)
+		var anchor := cam.unproject_position(unit_nodes[u].global_position + head_up)
 		entries.append([u, anchor])
 	# The selected unit gets first pick, then nearer units (lower on screen).
 	entries.sort_custom(func(a, b):
@@ -962,12 +995,12 @@ func _draw_tags() -> void:
 		if r.end.y < anchor.y - 4.0 or r.position.y > anchor.y:
 			var feet := cam.unproject_position(_feet(u))
 			var edge := r.end.y if r.end.y < anchor.y else r.position.y
-			overlay.draw_line(Vector2(clampf(feet.x, r.position.x + 4, r.end.x - 4), edge), feet, Color(ring, 0.85), 2.0, true)
-		overlay.draw_rect(r, Color(0.05, 0.06, 0.07, 0.62))
-		overlay.draw_rect(Rect2(r.position, Vector2(3, r.size.y)), ring)  # team chip
+			top_overlay.draw_line(Vector2(clampf(feet.x, r.position.x + 4, r.end.x - 4), edge), feet, Color(ring, 0.85), 2.0, true)
+		top_overlay.draw_rect(r, Color(0.05, 0.06, 0.07, 0.62))
+		top_overlay.draw_rect(Rect2(r.position, Vector2(3, r.size.y)), ring)  # team chip
 		var base := Vector2(r.position.x + 5, r.end.y - 5)
-		overlay.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 5, Color.BLACK)
-		overlay.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, unit_tags[u][1])
+		top_overlay.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, 5, Color.BLACK)
+		top_overlay.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, unit_tags[u][1])
 
 
 static func _hits(r: Rect2, placed: Array[Rect2]) -> bool:
@@ -1176,6 +1209,7 @@ func _on_leave() -> void:
 
 
 func _flash(from, to, hit: bool) -> void:
+	_rig_play(from, "shoot", to)
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
 	var light := OmniLight3D.new()
 	light.position = a
@@ -1509,4 +1543,258 @@ func _capture_sprite_sizes() -> void:
 		layer.add_child(sp)
 	await _shot("sprite_size_overlay")
 	print("tiles ", tiles)
+	get_tree().quit()
+
+
+# ---------- HD-2D cutout characters ----------
+
+## Which units have a cutout yet (the rest keep their 3D rigs for now).
+func _rig_spec(u) -> Dictionary:
+	return CutoutRig.DUFF if u.side == Battle.US and (u.is_you or u.name == "You") else {}
+
+
+## Keep every cutout on its unit: placed at the feet, sized to a 1.8 m body at
+## the camera, facing the nearest foe, walking while its 3D node moves, hit
+## when it loses hp, down when it falls, and clipped behind walls.
+func _update_rigs() -> void:
+	if battle == null or rig_root == null:
+		return
+	var cam_up := cam.global_transform.basis.y
+	_hulls_frame = -1  # wall outlines are rebuilt once, on first use this frame
+	for u in battle.units:
+		if not unit_nodes.has(u) or _rig_spec(u).is_empty():
+			continue
+		var n: Node3D = unit_nodes[u]
+		if not rigs.has(u):
+			_attach_rig(u, n)
+		var rig: CutoutRig = rigs[u]
+		var clip: Node2D = rig_clips[u]
+		var ghost: CutoutRig = rig_ghosts[u]
+		clip.visible = n.visible
+		ghost.visible = n.visible  # downed bodies behind cover still show as a silhouette
+		if not n.visible:
+			continue
+		var feet := n.global_position
+		var a := cam.unproject_position(feet)
+		var b := cam.unproject_position(feet + cam_up * 1.8)
+		var k := a.distance_to(b) / rig.height_px()
+		rig.position = a
+		rig.scale = Vector2(-k if rig.scale.x < 0 else k, k)
+		var seen: Array = rig_seen.get(u, [feet, u.hp])
+		var moving := feet.distance_to(seen[0]) > 0.0005
+		if not u.alive():
+			rig.play("down")
+		elif u.hp < seen[1]:
+			rig.play("hit")
+		elif moving and rig.state != "shoot":
+			rig.play("walk")
+			var dx := a.x - cam.unproject_position(seen[0]).x
+			if absf(dx) > 0.5:
+				rig.face(dx > 0.0)
+		elif rig.state == "walk":
+			rig.play("idle")
+		if not moving and rig.state == "idle":
+			_rig_face_foe(u, rig)
+		rig_seen[u] = [feet, u.hp]
+		ghost.position = rig.position
+		ghost.scale = rig.scale
+		ghost_clips[u].set_meta("unit", u)
+		ghost_clips[u].queue_redraw()
+		clip.set_meta("unit", u)
+		clip.queue_redraw()
+
+
+func _attach_rig(u, n: Node3D) -> void:
+	# The 3D node stays (tweens, tags and rings follow it); only its meshes hide.
+	for vi: VisualInstance3D in n.find_children("*", "VisualInstance3D", true, false):
+		vi.visible = false
+	var rig := CutoutRig.create(_rig_spec(u))
+	var ghost := CutoutRig.silhouette(rig, Color(C_RING_US, 0.5))
+	var gclip := Node2D.new()
+	gclip.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	gclip.draw.connect(_draw_ghost_clip.bind(gclip))
+	rig_root.add_child(gclip)
+	gclip.add_child(ghost)
+	rig_ghosts[u] = ghost
+	ghost_clips[u] = gclip
+	var clip := Node2D.new()
+	clip.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	clip.draw.connect(_draw_rig_clip.bind(clip))
+	rig_root.add_child(clip)
+	clip.add_child(rig)
+	rigs[u] = rig
+	rig_clips[u] = clip
+
+
+func _rig_face_foe(u, rig: CutoutRig) -> void:
+	var foes: Array = battle.enemies_of(u)
+	if foes.is_empty():
+		return
+	var best = foes[0]
+	for f in foes:
+		if (f.pos - u.pos).length_squared() < (best.pos - u.pos).length_squared():
+			best = f
+	_rig_face_point(u, rig, to_world(best.pos))
+
+
+func _rig_face_point(u, rig: CutoutRig, p: Vector3) -> void:
+	var dx := cam.unproject_position(p).x - cam.unproject_position(unit_nodes[u].global_position).x
+	if absf(dx) > 2.0:
+		rig.face(dx > 0.0)
+
+
+func _rig_play(u, anim: String, target = null) -> void:
+	if not rigs.has(u):
+		return
+	if target != null:
+		_rig_face_point(u, rigs[u], to_world(target.pos))
+	rigs[u].play(anim)
+
+
+## The clip mask: the rig's screen box minus every wall, container or barrier
+## standing between it and the camera. clip_children shows the rig only where
+## this draws, so a body behind a container is cut off at the container's edge.
+func _draw_rig_clip(clip: Node2D) -> void:
+	if not clip.has_meta("unit"):
+		return
+	var u = clip.get_meta("unit")
+	var rig: CutoutRig = rigs.get(u)
+	if rig == null:
+		return
+	var hw := rig.height_px() * absf(rig.scale.y) * 0.9
+	var box := PackedVector2Array([rig.position + Vector2(-hw, -hw * 1.2), rig.position + Vector2(hw, -hw * 1.2),
+		rig.position + Vector2(hw, hw * 0.35), rig.position + Vector2(-hw, hw * 0.35)])
+	var visible_parts: Array = [box]
+	var uz: float = unit_nodes[u].global_position.z
+	var box_rect := Rect2(box[0], box[2] - box[0])
+	for hull in _occluder_hulls(uz, box_rect):
+		var next: Array = []
+		for part in visible_parts:
+			next.append_array(_clip_no_holes(part, hull))
+		visible_parts = next
+	for part in visible_parts:
+		if part.size() >= 3:
+			clip.draw_colored_polygon(part, Color.WHITE)
+
+
+## The silhouette shows only on the walls in front of the unit.
+func _draw_ghost_clip(gclip: Node2D) -> void:
+	if not gclip.has_meta("unit"):
+		return
+	var u = gclip.get_meta("unit")
+	# A parent that draws nothing doesn't clip at all, so always draw a speck off-screen.
+	gclip.draw_rect(Rect2(-10, -10, 1, 1), Color.WHITE)
+	var rig: CutoutRig = rigs.get(u)
+	if rig == null:
+		return
+	var hw := rig.height_px() * absf(rig.scale.y) * 0.9
+	var near := Rect2(rig.position - Vector2(hw, hw * 1.2), Vector2(hw * 2.0, hw * 1.55))
+	for hull in _occluder_hulls(unit_nodes[u].global_position.z, near):
+		if hull.size() >= 3:
+			gclip.draw_colored_polygon(hull, Color.WHITE)
+
+
+## Screen outlines of the blocking geometry nearer the camera than depth z that
+## overlap `near` (a screen rect). All outlines are built once per frame and
+## shared by every rig and silhouette, then filtered here.
+var _hulls: Array = []   # [world z of the tile's near face, hull, screen rect]
+var _hulls_frame := -1
+
+func _occluder_hulls(z: float, near := Rect2()) -> Array:
+	var frame := Engine.get_process_frames()
+	if _hulls_frame != frame:
+		_hulls_frame = frame
+		_hulls.clear()
+		for y in range(Battle.H):
+			for x in range(Battle.W):
+				var p := Vector2i(x, y)
+				var top := 0.0
+				match battle.tile(p):
+					Battle.FULL: top = 2.5
+					Battle.BOX: top = 2.2
+					Battle.HALF: top = 0.95
+					_: continue
+				var w := to_world(p)
+				var pts := PackedVector2Array()
+				for cx in [-0.5, 0.5]:
+					for cz in [-0.5, 0.5]:
+						for cy in [0.0, top]:
+							pts.append(cam.unproject_position(w + Vector3(cx, cy, cz)))
+				var hull := Geometry2D.convex_hull(pts)
+				var r := Rect2(hull[0], Vector2.ZERO)
+				for v in hull:
+					r = r.expand(v)
+				_hulls.append([w.z + 0.45, hull, r])
+	var out := []
+	for h in _hulls:
+		if h[0] > z and (near.size == Vector2.ZERO or near.intersects(h[2])):
+			out.append(h[1])
+	return out
+
+
+## a minus b, with no holes: if b sits inside a, split a down b's middle first.
+static func _clip_no_holes(a: PackedVector2Array, b: PackedVector2Array) -> Array:
+	var res := Geometry2D.clip_polygons(a, b)
+	var has_hole := false
+	for r in res:
+		if Geometry2D.is_polygon_clockwise(r) != Geometry2D.is_polygon_clockwise(a):
+			has_hole = true
+	if not has_hole:
+		return res
+	var cx := 0.0
+	for v in b:
+		cx += v.x
+	cx /= b.size()
+	var out := []
+	for half in [PackedVector2Array([Vector2(-1e5, -1e5), Vector2(cx, -1e5), Vector2(cx, 1e5), Vector2(-1e5, 1e5)]),
+			PackedVector2Array([Vector2(cx, -1e5), Vector2(1e5, -1e5), Vector2(1e5, 1e5), Vector2(cx, 1e5)])]:
+		for piece in Geometry2D.intersect_polygons(a, half):
+			out.append_array(Geometry2D.clip_polygons(piece, b))
+	return out
+
+
+## Cutout check (-- --capture-rig [--out DIR]): the Signal Box start, You tucked
+## behind a container (occlusion), and frozen poses for a sheet. Map shots go
+## to docs/renders/rig_*.png, pose frames + You's screen spot to DIR.
+func _capture_rig(out_dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	var you = battle.units[0]
+	await _shot("rig_start")
+	# Frozen poses where You starts (in the open, in frame).
+	var rig: CutoutRig = rigs[you]
+	rig.set_process(false)
+	var poses := [["idle", 0.0, 0.0], ["walk", 0.0, 0.13], ["walk", 0.0, 0.26], ["walk", 0.0, 0.39],
+		["shoot", 0.24, 0.0], ["hit", 0.17, 0.0], ["down", 0.6, 0.0]]
+	var i := 0
+	var at := Vector2.ZERO
+	for ps in poses:
+		rig.state = ps[0]
+		rig.state_t = ps[1]
+		rig.t = ps[2]
+		rig._hit_flash = 0.0
+		rig._pose(ps[0], ps[1])
+		rig.body_root.modulate = Color(0.7, 0.62, 0.62) if ps[0] == "down" else Color.WHITE
+		await _wait(6)
+		at = rig.position
+		get_viewport().get_texture().get_image().save_png("%s/pose_%d_%s.png" % [out_dir, i, ps[0]])
+		i += 1
+	var f := FileAccess.open(out_dir + "/you.txt", FileAccess.WRITE)
+	f.store_string("%d %d %f" % [int(at.x), int(at.y), absf(rig.scale.y)])
+	f.close()
+	rig.state = "idle"
+	rig.set_process(true)
+	# Occlusion: behind a container, where the hidden part shows as a silhouette.
+	for kind in [[Battle.FULL, "rig_behind_container"]]:
+		var spot := Vector2i(-1, -1)
+		for y in range(Battle.H - 1, 0, -1):
+			for x in range(Battle.W):
+				var q := Vector2i(x, y)
+				var behind := q + Vector2i(0, -1)
+				if spot.x < 0 and battle.tile(q) == kind[0] and battle.tile(behind) == Battle.FLOOR and battle.unit_at(behind) == null:
+					spot = behind
+		you.pos = spot
+		unit_nodes[you].position = to_world(you.pos) + Vector3(0, _ground(you.pos), 0)
+		_refresh()
+		await _shot(kind[1])
+	print("rig poses saved")
 	get_tree().quit()
