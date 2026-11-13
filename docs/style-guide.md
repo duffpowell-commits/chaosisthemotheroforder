@@ -67,10 +67,12 @@ Team rings and tags are drawn in 2D above the grade (the grade drains 3D colour)
 5. **The grade serves the board.** On the tactical map the grain and black
    crush are lighter than on the street renders.
 
-## 6. Faces
-- No modeled faces carry emotion. The regime wears helmets and visors; the
-  movement wears bandanas, caps and respirators.
-- Emotion lives in the **dialogue portraits** and the writing.
+## 6. Faces (helmet rule, Duff Nov 13)
+- **The movement shows faces; the regime never does.** Regime: full helmet,
+  visor down, always. Movement: faces visible (bandanas, caps, scarves fine).
+- A defecting guard takes his helmet off on screen. In dark endings your own
+  people wear the visors. See `design.md`, "Helmets".
+- Most emotion still lives in the **dialogue portraits** and the writing.
 
 ## 7. Motion
 - Moves 0.12 s per tile (0.2 sneaking). Enemy turn about 1.5 s in total,
@@ -82,3 +84,44 @@ Team rings and tags are drawn in 2D above the grade (the grade drains 3D colour)
 Before a visual change merges: real engine renders in `docs/renders/`, the
 autoplay GIF for tactical changes, and the independent design review checks
 them against sections 3–5 of this page.
+
+## 9. AI art: locked prompt templates (Duff, Nov 13)
+Use the same text every time and swap only the bracket, so every character looks
+like one artist drew it. Spend detail where the camera is close: portraits and
+woodcut first, unit sprites last (at 128 px detail is wasted; silhouette and
+faction colour matter).
+
+**Unit sprites** (two views per character, front 3/4 and back 3/4, same
+reference image or seed):
+> Full-body character, three-quarter front view, standing, arms held slightly
+> away from the body, legs slightly apart, feet visible. [CHARACTER: age, build,
+> clothes, one signature detail]. Painterly HD-2D game sprite style, clean dark
+> outline, soft cel shading, light from upper left, muted grounded colours with
+> one strong accent colour. Plain flat light-grey background, no shadow on the
+> ground, no text, nothing held in the hands.
+
+Why: arms away and empty hands make the cutout split clean (and dodge the
+weapon filter; guns stay code-drawn). One light direction and outline weight keep
+the cast one family. A flat background makes the cut trivial.
+
+Faction rules inside [CHARACTER]:
+- Movement: street clothes, one red item (bandana, armband, scarf). Face visible.
+- Regime: dark blue-grey riot gear, full helmet, visor down. No face, ever.
+- Civilians: olive and brown, no red, no blue.
+
+**Dialogue portraits** (do the whole cast in one sitting from the same reference;
+make a cold regime-district and a warm liberated version of the main cast):
+> Chest-up portrait, three-quarter view, looking just off camera. [CHARACTER +
+> one emotion]. Painterly oil style, visible brush strokes, dramatic single light
+> source from the side, deep shadow on the far side of the face, desaturated
+> background of a night street. Documentary mood, not glamour. No text.
+
+**Woodcut** (reports, posters, title, endings; leave lettering blank and set the
+text in-engine so it can be edited and localized):
+> Woodcut print, [SUBJECT], thick carved black lines on cream paper, two flat
+> colours only: [red #9E1A14 for the movement / blue-grey #1A1F2B for the
+> regime], hand-cut lettering space left blank, 1930s protest poster composition.
+
+Order when Chaos unpauses: regime guard sheet first (one sheet covers every
+guard), then Mara/Kesh/Teodor, then portraits. Get full-res files out of Canva
+(the connector only returns 200 px previews).

@@ -156,6 +156,58 @@ From **Advance Wars** (clarity):
 - Mission types: rescues, extractions, broadcast hijacks, sabotage, protests
   (defend the crowd, spot the provocateur), and assassinations (rare, costly).
 
+## The Ledger: the theme in every run (Duff, Nov 13)
+
+The wheel can't wait for Act 3. From week 1, **every shortcut you take becomes
+how the new order behaves after you win.**
+
+- **Shortcuts are methods.** Each one is genuinely stronger in the moment than
+  the clean option (tune so the dirty path wins a mission 10-20% more often).
+  If the clean path is also the efficient one, there's no temptation and no theme.
+- **Every method used goes in the Ledger.** It's visible: a row of woodcut stamps
+  on the weekly report that fills up as you go. (Act 3's Corruption meter stays
+  hidden; the slice shows its cards.)
+- **The ending reads the Ledger.** Each ending gets one variant line per method
+  used, then the final shot: the kid's wall with no poster, your poster, or your
+  poster pasted over the old regime's.
+
+| Method (slice) | Why it tempts | What it becomes after you win |
+|---|---|---|
+| Blackmail Teodor (Leverage) | He joins now and fights | Your security service runs on kompromat; a dock worker gets leaned on by your people |
+| The lie about his brother | Fast trust, strike unlocked | State TV promises what it can't deliver |
+| Fake radio call | Cheap, works | Your broadcast office fakes reports "for stability" |
+| Killing guards | Clears the map | Ex-police are purged, not tried; their families are the next resistance |
+| Lay low / secrecy | Heat drops | Your cabinet meets in secret, no minutes, no press |
+| Fabricated evidence (later acts) | Fast sentiment | Deepfakes of your rivals |
+
+Build cost is small: the run already tracks kills, legitimacy, Teodor's path and
+which tools fired. It's a list, a report row, an end screen and writing.
+
+### Helmets (Duff, Nov 13)
+Faces are a rule, not just a look: **the movement shows faces, the regime never
+does.** A guard who defects takes his helmet off on screen (the defection's one
+camera beat). In a dark ending, your own operatives appear in the epilogue
+wearing the visors. No text needed.
+
+### Related tactical calls (proposed with the Ledger)
+- **Defection is the strongest single action** (pillar 1). Each guard gets a
+  visible lean toward defecting, shown with the intel certainty levels; clean
+  actions push it, and a kill drops the lean of every guard who saw it.
+- **Move range turns white/teal.** Blue belongs to the regime.
+- **The 5th Signal Box guard** spawns only once a tool is used, so tools cost
+  more than noise.
+
+### Flow (slice)
+- **Open on the dormitory raid footage**, not the plan screen: ~10 s of woodcut
+  state TV calling it an anti-terror operation, then the phone video of what
+  happened. Goal on the plan screen: get that footage on the district screens.
+- **Week 1 has one forced choice with a shortcut in it** (Teodor: trust or
+  leverage), so the Ledger gets its first entry early.
+- **The weekly report is the showcase screen** (it repeats six times): state TV
+  vs pirate radio, both woodcut, with the Ledger stamps.
+- **Mission week:** a skippable ~3 s build-up, squad portraits slide in.
+- **Epilogue in three beats, under 60 s:** state TV, the regraded street, the kid's wall.
+
 ## Act structure
 
 1. **Act 1 — The Cell.** You decide everything. Small, hunted, desperate.

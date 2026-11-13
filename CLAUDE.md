@@ -106,6 +106,12 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   **Next for the art (when Chaos is active):** back-3/4 drawing, cutouts for Mara/Kesh/Teodor
   and the guards (needs Canva art per character; full-res via a Canva design + export, which
   needs Duff's OK to save), seam fix.
+- **Duff's calls (Nov 13, design review):** the **Ledger** (every shortcut becomes the new
+  government's toolkit in the ending; visible stamps on the weekly report), the **helmet rule**
+  (movement faces, regime visors, defectors unmask) and the **locked AI prompt templates**
+  (sprites, portraits, woodcut). Written into `docs/design.md` ("The Ledger") and
+  `docs/style-guide.md` (§6, §9). Docs only; build them in J2/J3 when Chaos unpauses.
+  Review doc: https://claude.ai/artifact/RhQ9RR5c2SFYzpTxzVwFYM
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
