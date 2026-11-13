@@ -3,6 +3,10 @@
 Built on the locked templates in `style-guide.md` §9, tuned for Grok Imagine.
 Mara and Kesh had no look before this file; their designs here are proposals.
 
+## Style anchor
+Approved Nov 13: `assets/characters/source/you_front_anchor.jpg` (You, front, A-pose,
+plain tee). Attach it to every other character prompt.
+
 ## How to run them in Grok
 1. **Make You first.** Generate, pick the best of the batch. That image is the
    style anchor for the whole cast.
