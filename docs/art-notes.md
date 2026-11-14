@@ -432,21 +432,31 @@ Known issues, fourth pass:
 - **Captured**: the poster of You copies the anchor's tattoos, ear gauges and
   bandana exactly. This is intentional (it identifies Duff), but the poster is
   more grey than blue-grey.
-- **Broadcast airing**: two of the watchers read as young teens. art-needs bans
-  children only in the raid still, but replace them if you want no minors on
-  screen anywhere.
-- **Kid's wall**: the chalk uses pastel pink, yellow, green and blue. It is
-  childlike and low-saturation, but it goes beyond the strict palette.
-- **Strike**: Teodor holds a red rag in his lowered hand (the only red besides
-  the armbands). His skin reads a little lighter than his brief, as noted for
-  his sprite.
-- **Liberated backdrop and district turns**: the fallen barrier keeps its
-  red-and-white stripes (Duff's call).
-- **Occupiers**: the checkpoint barrier is red-and-white, which fits the
-  movement's red now running the checkpoint.
+- **Broadcast airing**: FIXED (fifth pass). The two watchers who read as young teens are now clearly adults: a middle-aged man and a woman in her 30s.
+- **Kid's wall**: FIXED (fifth pass). In all three versions the chalk is now off-white lines with a movement-red roof and heart. There are no pastels, and the regime poster stays blue-grey. In `over_regime`, one figure's faint blue fill was neutralised by hand (a local desaturation of the chalk only).
+- **Strike**: FIXED (fifth pass). Teodor was redrawn against his approved sprite, with medium-dark brown skin, grey beard and beanie. The red rag stays, as Duff approved.
+- **Liberated backdrop and district turns**: the fallen barrier keeps its red-and-white stripes (Duff's call; not part of the fifth-pass fix).
+- **Occupiers**: FIXED (fifth pass). The barrier is now movement red with dark ink bands, with no white or candy stripes.
 - **Regime poster**: the collar has faint carved marks. They read as texture,
   not lettering, at game size.
 - **District turns**: one woman wears a dull blue apron. It is minor and not
   regime blue-grey.
 - The `.import` files for the new PNGs are not committed. Godot will generate
   them when the editor next opens the project.
+
+## 11. Fifth pass (Nov 14): four scene fixes approved by Duff
+
+These were redrawn as image edits of the fourth-pass files, at the same paths
+(this branch's own files only; nothing from main was overwritten):
+`assets/art/stills/broadcast_airing.png`, `assets/art/stills/strike.png`,
+`assets/art/endings/occupiers.png`, and `assets/art/endings/kids_wall_{bare,your_poster,over_regime}.png`,
+plus their sources in `assets/art/source/`.
+- Broadcast airing: the teen-looking watchers were replaced with adults.
+- Kid's wall x3: the chalk is off-white plus movement red only. `over_regime`
+  needed a second edit and a small hand desaturation of one figure's blue fill.
+- Strike: Teodor was matched to his sprite (the sprite was attached as the
+  reference; this took two edits, since the first barely changed his skin).
+- Occupiers: the barrier is solid red with dark bands.
+All were re-checked for stray text and off-palette colour, and none was found.
+The occupiers barrier still alternates red with dark bands rather than being
+one flat red. That fits "red with dark/ink", but say so if you want it flat.
