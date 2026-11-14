@@ -63,6 +63,11 @@ code already loads.
 | Civilian B (elderly man, flat cap, tweed) | `assets/characters/civilian_b/civilian_b_{front,back}.png` | `.../civilian_b/display/` | `assets/characters/civilian_b/source/civilian_b_{front,back}.jpg` |
 | Civilian C (young labourer, overalls) | `assets/characters/civilian_c/civilian_c_{front,back}.png` | `.../civilian_c/display/` | `assets/characters/civilian_c/source/civilian_c_{front,back}.jpg` |
 | Woodcut icons | `assets/ui/woodcut/icons/<name>.png` (1024 sq, 64-colour palette): `action_{aid,expose,recruit,scavenge,listen,lay_low,see_teodor,diversion}`, `res_{cash,supplies,parts,people,legitimacy,heat}`, `tool_{smoke,lights_out,radio_call,flashbang}` | `assets/ui/woodcut/icons/display/<name>.png` (128 sq) | `assets/art/source/icon_<name>.jpg` |
+| Painted backdrops (new, beside the old ones) | `assets/ui/backdrop_signal_box.png`, `backdrop_regime_painted.png`, `backdrop_liberated_painted.png` (1280x720). The old `backdrop_regime.png` / `backdrop_liberated.png` are untouched | | `assets/art/source/backdrop_<name>.jpg` |
+| Street posters (woodcut) | `assets/ui/woodcut/poster_regime_continuity.png` (blue-grey), `poster_movement_unbroken.png` (red), 768x1024, 64-colour palette, blank text bands | | `assets/art/source/woodcut_poster_<name>.jpg` |
+| Story stills | `assets/art/stills/{opening_raid_phone,teodor_dock,strike,safehouse_door,broadcast_airing}.png` (1280x720). The woodcut state-TV raid version is the existing `assets/ui/woodcut/opening_dormitory_raid.png` | | `assets/art/source/still_<name>.jpg` |
+| Endings + kid's wall | `assets/art/endings/{district_turns,yards_silent,occupiers,captured,window_closes}.png`, `kids_wall_{bare,your_poster,over_regime}.png` (1280x720) | | `assets/art/source/ending_<name>.jpg` |
+| itch page | `assets/art/itch/cover_630x500.png` (crop of the title woodcut), `banner_960x300.png` | | `assets/art/source/itch_banner.jpg` (cover source is `woodcut_title.jpg`) |
 
 ### Operative sheets → recruit names
 
@@ -285,23 +290,14 @@ no text. Visible wood grain and gouge marks."
   theatre mask, jagged waves; killing_guards (v2, empty boots per art-needs) = a pair of empty heavy riot-police boots alone on cobblestones, laces loose, a dropped red cloth band beside them, no body, no blood, no weapons; secrecy = a heavy closed dormitory door with a chain lock, a line of light under it, a small red cloth on the handle; clean_slot = a single open empty hand, palm up, radiating carved lines, thin red ring; lay_low = a figure in a cap and bandana crouched under a dormitory
   stairwell while a searchlight passes above.
 
-## 7. Background art plan (PENDING DUFF'S APPROVAL; not started)
+## 7. Background and scene art (approved Nov 14; done)
 
-Nothing below has been generated. (The woodcut district map was dropped: `docs/art-needs.md` says don't generate maps or UI layouts.) Same palette rules; woodcut pieces get one
-accent colour each. Proposed order:
-
-1. **Mission backdrop, the Signal Box** (`assets/ui/backdrop_signal_box.png`):
-   Depot yard at night, containers, crates, gantry, signal box. Painted to match
-   the Frontline grade (near-monochrome, sodium light).
-2. **Ending scenes**, one per ending, regraded by result:
-   the district turns (full colour), the yards go silent (strike, idle cranes),
-   occupiers (cold, our people in visors), captured, the window closes. Includes
-   the **kid's wall** scene (a child's chalk drawing on a dormitory wall).
-3. **Street posters as scenery**: regime Continuity posters (blue-grey) and
-   Unbroken wall posters (red), as woodcut decals with blank text space.
-4. **Replacements for `assets/ui/backdrop_regime.png` / `backdrop_liberated.png`**
-   in the new painted style (would be new files beside them, not overwrites,
-   until the scenes are switched over).
+Duff approved the three painted drafts (Signal Box, regime street, liberated
+street) and asked for the rest of the list to be filled without further sign-off.
+Those three are the scene-art style anchors: HD-2D painted, near-monochrome
+war-photojournalism grade, grain, crushed blacks, red the only warm accent.
+Everything is in section 10. The district map stays dropped (art-needs says no
+maps or UI layouts).
 
 ## 8. Against `docs/art-needs.md` (second pass, Nov 14)
 
@@ -319,9 +315,8 @@ Done per art-needs:
 - **Sources**: non-cast originals are in `assets/art/source/` (`portrait_*.jpg`,
   `woodcut_*.jpg`). Cast sources stay in `assets/characters/source/`.
 
-Still open from art-needs: regime and movement posters, the phone-video raid
-still, story stills, endings, the kid's wall, itch cover and banner. (Icons and
-the optional civilians are done in the third pass, section 9.) Stills and endings are background
+Everything else on art-needs was done in the third pass (icons, civilians,
+section 9) and the fourth pass (scenes, posters, endings, itch, section 10). Stills and endings are background
 art and wait for Duff's approval (section 7).
 
 Known issues, second pass:
@@ -374,3 +369,84 @@ Known issues, third pass:
 - **lights out** v2: the lamp glass is dark but drawn open, not solid black.
 - Civilian A's headscarf is charcoal. It is neutral, not blue, but check it
   under the cold grade.
+
+## 10. Fourth pass (Nov 14): scenes, posters, endings, itch. List complete
+
+**`docs/art-needs.md` is now complete.** Every item is ticked there. (Mapping for the earlier woodcuts: the State TV bulletin frame is `report_frame_cn24.png`, the pirate radio card is `report_frame_unbroken.png`, and the opening raid's woodcut state-TV still is `opening_dormitory_raid.png`.) Screenshots
+and the GIF come from the engine, not from here.
+
+What was made (all 16:9 paintings are 1280x720 PNG, upscaled with Lanczos from
+the generator's output; full-size originals are in `assets/art/source/`):
+- **Backdrops**: Signal Box (Depot yard at night), Dormitories regime (no red,
+  the barrier is blue-grey/grey), Dormitories liberated (grey dawn, barrier down
+  and kept red-and-white per Duff, red banner). They are saved as `_painted`
+  files beside the old backdrops, so nothing that is already wired changes.
+- **Posters**: the regime "Continuity" poster (a leader's head over a faceless
+  crowd, blue-grey, never red) and the movement "Unbroken" poster (raised open
+  hands, cranes, red sunburst). Both are woodcut with an empty text band.
+- **Stills**: the phone-video raid aftermath (grainy, aftermath only, no people,
+  no gore, no children), Teodor's dock at 2 a.m., the strike (Teodor on a cable
+  drum, floodlight towers going dark), the safehouse door, and the broadcast
+  airing (district screens showing the raid footage, residents stopping).
+- **Endings**: district turns (warm morning crowd), yards go silent (idle
+  cranes, red cloth banners with no lettering), occupiers (our people in visors
+  and red armbands at the checkpoint, empty-handed), captured (an empty chair
+  and a blue-grey woodcut poster of You with a black bar over the eyes), window
+  closes (shuttered empty street, regime van back).
+- **Kid's wall**: a child's chalk drawing (family, house, sun) with a bare wall
+  above, then our movement poster pasted up, then our poster pasted over the
+  torn regime poster. All three versions share one wall.
+- **itch**: the cover is a 630x500 crop of the title woodcut. The banner is
+  960x300, from a new wide woodcut panorama. Its left edge is padded with
+  tiled paper texture from the same image.
+
+Prompts (pattern; the exact references are listed):
+- Scenes: "Wide 16:9 ... in exactly the same painted HD-2D style and grade as
+  the attached <Signal Box | Dormitories> backdrop: <SCENE> ... Empty of people
+  / <who> ... no weapons ... The image contains no text whatsoever." The Signal
+  Box backdrop is the reference for the yard and dock; the regime street for
+  the dormitories, raid, safehouse, broadcast, occupiers, window and kid's
+  wall; the liberated street for district turns. The strike also uses Teodor's
+  front sprite; occupiers uses the visor operative; captured uses the You
+  anchor.
+- Posters and banner: woodcut prompt (section 6) with the blue-grey report
+  frame (regime) or the title woodcut (movement) as reference.
+- Kid's wall 2 and 3 are edits of the bare wall, with the two posters attached.
+
+Redraws (each checked for stray text, wrong colour and off-theme content):
+- **Signal Box draft**: v1 had a graffiti tag, which was removed.
+- **Regime street draft**: v1's barrier was red-and-white, which was recoloured
+  blue-grey.
+- **Phone raid**: v1 had red stains that read as blood, so they were removed
+  and stronger phone grain was added.
+- **District turns**: v1 printed the scene title as a caption, and the crowd
+  wore robe-like costumes. It was redrawn with modern clothes and no text.
+- **Yards go silent**: v1 printed the scene title as a caption, which was
+  painted out.
+- The itch banner's first crop was wrong (the source is 1280x720, not 1024),
+  so it was redone.
+
+Known issues, fourth pass:
+- 16:9 paintings come from the generator at 1280x720 or smaller and are not
+  4K. Re-render or upscale them before any high-resolution use.
+- **Captured**: the poster of You copies the anchor's tattoos, ear gauges and
+  bandana exactly. This is intentional (it identifies Duff), but the poster is
+  more grey than blue-grey.
+- **Broadcast airing**: two of the watchers read as young teens. art-needs bans
+  children only in the raid still, but replace them if you want no minors on
+  screen anywhere.
+- **Kid's wall**: the chalk uses pastel pink, yellow, green and blue. It is
+  childlike and low-saturation, but it goes beyond the strict palette.
+- **Strike**: Teodor holds a red rag in his lowered hand (the only red besides
+  the armbands). His skin reads a little lighter than his brief, as noted for
+  his sprite.
+- **Liberated backdrop and district turns**: the fallen barrier keeps its
+  red-and-white stripes (Duff's call).
+- **Occupiers**: the checkpoint barrier is red-and-white, which fits the
+  movement's red now running the checkpoint.
+- **Regime poster**: the collar has faint carved marks. They read as texture,
+  not lettering, at game size.
+- **District turns**: one woman wears a dull blue apron. It is minor and not
+  regime blue-grey.
+- The `.import` files for the new PNGs are not committed. Godot will generate
+  them when the editor next opens the project.
