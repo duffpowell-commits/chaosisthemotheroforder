@@ -59,6 +59,10 @@ code already loads.
 | Operative C (red armband) | `assets/characters/operative_c/operative_c_{front,back}.png` | `.../operative_c/display/` | `source/operative_c_{front,back}.jpg` |
 | Portraits | `assets/portraits/<name>_<emotion>_{cold,warm}.png` (768 px): duff_{neutral,angry,tired}, teodor_{guarded,betrayed,resolved}, mara_{calm,worried}, kesh_{suspicious,scared}; plus `defector_helmet_cold.png` (cold only) | | `assets/art/source/portrait_<same name>.jpg` (1024 px originals) |
 | Woodcut UI | `assets/ui/woodcut/title.png`, `report_frame_cn24.png`, `report_frame_unbroken.png`, `opening_dormitory_raid.png` (1024x576), `stamp_{blackmail,the_lie,fake_radio,killing_guards,secrecy,clean_slot,lay_low}.png` (1024 sq; `lay_low` is extra, not on the art-needs list) | | `assets/art/source/woodcut_<name>.jpg` (full-size originals); PNGs are 64-colour palette, no dithering |
+| Civilian A (woman, 40s, headscarf, shopping bag) | `assets/characters/civilian_a/civilian_a_{front,back}.png` | `.../civilian_a/display/` | `assets/characters/civilian_a/source/civilian_a_{front,back}.jpg` |
+| Civilian B (elderly man, flat cap, tweed) | `assets/characters/civilian_b/civilian_b_{front,back}.png` | `.../civilian_b/display/` | `assets/characters/civilian_b/source/civilian_b_{front,back}.jpg` |
+| Civilian C (young labourer, overalls) | `assets/characters/civilian_c/civilian_c_{front,back}.png` | `.../civilian_c/display/` | `assets/characters/civilian_c/source/civilian_c_{front,back}.jpg` |
+| Woodcut icons | `assets/ui/woodcut/icons/<name>.png` (1024 sq, 64-colour palette): `action_{aid,expose,recruit,scavenge,listen,lay_low,see_teodor,diversion}`, `res_{cash,supplies,parts,people,legitimacy,heat}`, `tool_{smoke,lights_out,radio_call,flashbang}` | `assets/ui/woodcut/icons/display/<name>.png` (128 sq) | `assets/art/source/icon_<name>.jpg` |
 
 ### Operative sheets → recruit names
 
@@ -315,9 +319,9 @@ Done per art-needs:
 - **Sources**: non-cast originals are in `assets/art/source/` (`portrait_*.jpg`,
   `woodcut_*.jpg`). Cast sources stay in `assets/characters/source/`.
 
-Still open from art-needs: regime and movement posters, action / resource / tool
-icons, the phone-video raid still, story stills, endings, the kid's wall, itch
-cover and banner, and the optional civilians. Stills and endings are background
+Still open from art-needs: regime and movement posters, the phone-video raid
+still, story stills, endings, the kid's wall, itch cover and banner. (Icons and
+the optional civilians are done in the third pass, section 9.) Stills and endings are background
 art and wait for Duff's approval (section 7).
 
 Known issues, second pass:
@@ -326,3 +330,47 @@ Known issues, second pass:
   tone beyond paper / ink / red.
 - The neutral, betrayed and resolved prompts needed one regen each: the first
   tries copied the reference pose too closely to read as a different emotion.
+
+## 9. Third pass (Nov 14): icons and civilians
+
+Done per art-needs:
+- **Action icons** (8): aid, expose, recruit, scavenge, listen, lay low, see
+  Teodor, diversion. **Resource icons** (6): cash, supplies, parts, people,
+  legitimacy, heat. **Tool icons** (4): smoke, lights out, radio call, flashbang.
+  All are woodcut on #E9E0CC with the same round carved border as the stamps,
+  ink #1B1714 plus movement red only, no lettering or numbers. 1024 masters plus
+  128 px display copies, so the 128 px copies can be checked for readability.
+- **Optional civilians x3**, front and back, olive/brown, no red, no blue, faces
+  visible: A is a woman in her 40s (headscarf, cardigan, shopping bag), B is an
+  elderly man (flat cap, tweed jacket), C is a young labourer (overalls). Same
+  cutout pipeline as the cast. Their raw sources are in each character's own
+  `source/` subfolder (per Duff's note), not in `assets/characters/source/`.
+
+Prompts, icons: "Square woodcut game UI <action|resource|tool> icon for <NAME>:
+<one-object motif>, one bold simple silhouette that reads at small size,
+inside a rough circular carved border matching the attached stamp. Thick carved
+black lines (#1B1714) on cream paper (#E9E0CC), flat red #9E1A14 as the only
+other colour, no blue. Visible wood grain and gouge marks. Absolutely no
+letters, no words, no numbers, no text." Reference: the approved empty-boots
+stamp.
+
+Prompts, civilians: the cast sprite prompt (section 6) with "a neutral civilian
+... Clothes ONLY in desaturated olive and brown ... NO red anywhere, NO blue
+anywhere." Backs are made from each front plus the approved You back.
+
+Regens: cash v1 had digit-like markings on the notes and was redrawn. Lights
+out v1's lamp still looked lit and was redrawn with a dark lamp and a red lever.
+
+Known issues, third pass:
+- **expose** shows a small fedora-wearing watcher silhouette beside the torn
+  poster. It reads as an informant, not as a regime officer.
+- **supplies** has no red accent (ink only). It reads fine, but it is the only
+  icon without one.
+- **heat** uses red for the searchlight glow. Here red means danger, not the
+  movement.
+- **people** uses blank, simplified heads (no faces) with a red scarf.
+- **diversion** has rusty-barrel tones that sit slightly warm beyond
+  paper / ink / red.
+- **lights out** v2: the lamp glass is dark but drawn open, not solid black.
+- Civilian A's headscarf is charcoal. It is neutral, not blue, but check it
+  under the cold grade.
