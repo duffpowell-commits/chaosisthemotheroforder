@@ -303,3 +303,27 @@ accent colour each. Proposed order:
 5. **Replacements for `assets/ui/backdrop_regime.png` / `backdrop_liberated.png`**
    in the new painted style (would be new files beside them, not overwrites,
    until the scenes are switched over).
+
+## 8. Against `docs/art-needs.md` (landed on main Nov 14, after this pass was drawn)
+
+Covered by this PR: guard front/back, guard helmet-off front, Teodor/Mara/Kesh
+front/back, generic operatives (three sheets instead of two), cold/warm
+portraits for You/Teodor/Mara/Kesh (one emotion each), title, state-TV frame,
+pirate-radio frame, the woodcut dormitory-raid still, and three of the
+art-needs stamps (blackmail, the lie, fake radio), plus a killing stamp.
+
+Differences and gaps, for a follow-up pass:
+- Sources for non-cast art: art-needs asks for `assets/art/source/`. This PR
+  keeps portrait originals in `assets/portraits/source/` and the woodcut PNGs as
+  their own masters. Move them if you want the single folder.
+- Stamps: the killing stamp is an empty helmet, not the "empty boots" art-needs
+  asks for. **lay low** is extra. Still missing: **secrecy** (closed door) and
+  **clean slot** (open hand).
+- Portraits: one emotion each so far. Still missing: You (angry), Teodor
+  (betrayed, resolved), Mara (worried), Kesh (scared), the defector portrait.
+- Not started: posters, action/resource/tool icons, the phone-video raid still,
+  story stills, endings, the kid's wall, itch cover and banner. Endings and stills
+  are background art and wait for Duff's approval (section 7).
+- art-needs says "don't generate maps or UI layouts", so the woodcut district
+  map (item 1 in section 7) should probably be dropped from the plan. Duff to
+  confirm.
