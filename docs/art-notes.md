@@ -57,8 +57,8 @@ code already loads.
 | Operative A (red scarf) | `assets/characters/operative_a/operative_a_{front,back}.png` | `.../operative_a/display/` | `source/operative_a_{front,back}.jpg` |
 | Operative B (red flat cap) | `assets/characters/operative_b/operative_b_{front,back}.png` | `.../operative_b/display/` | `source/operative_b_{front,back}.jpg` |
 | Operative C (red armband) | `assets/characters/operative_c/operative_c_{front,back}.png` | `.../operative_c/display/` | `source/operative_c_{front,back}.jpg` |
-| Portraits | `assets/portraits/{duff,mara,kesh,teodor}_{cold,warm}.png` (768 px) | | `assets/portraits/source/*.jpg` (1024 px originals) |
-| Woodcut UI | `assets/ui/woodcut/title.png`, `report_frame_cn24.png`, `report_frame_unbroken.png`, `opening_dormitory_raid.png` (1024x576), `stamp_{blackmail,the_lie,fake_radio,killing_guards,lay_low}.png` (1024 sq) | | (PNG is the master; 64-colour palette, no dithering) |
+| Portraits | `assets/portraits/<name>_<emotion>_{cold,warm}.png` (768 px): duff_{neutral,angry,tired}, teodor_{guarded,betrayed,resolved}, mara_{calm,worried}, kesh_{suspicious,scared}; plus `defector_helmet_cold.png` (cold only) | | `assets/art/source/portrait_<same name>.jpg` (1024 px originals) |
+| Woodcut UI | `assets/ui/woodcut/title.png`, `report_frame_cn24.png`, `report_frame_unbroken.png`, `opening_dormitory_raid.png` (1024x576), `stamp_{blackmail,the_lie,fake_radio,killing_guards,secrecy,clean_slot,lay_low}.png` (1024 sq; `lay_low` is extra, not on the art-needs list) | | `assets/art/source/woodcut_<name>.jpg` (full-size originals); PNGs are 64-colour palette, no dithering |
 
 ### Operative sheets → recruit names
 
@@ -226,6 +226,8 @@ All sprite prompts: aspect 3:4. References in brackets.
 
 ### Portraits (1:1)
 
+Second pass: extra emotions use the character's first cold portrait as the reference, with "same chest-up three-quarter framing ... but [EMOTION]". Where that came out too close to the reference (neutral, betrayed, resolved), the regen asked for "a clearly DIFFERENT pose" plus a gesture: Duff neutral with arms folded, looking at the viewer; Teodor betrayed pointing; Teodor resolved with a gloved hand at his collar, cranes behind. Defector: the guard_defector sprite as reference, "holding his removed full-face riot helmet against his chest in both gloved hands ... shaken, uncertain, on the edge of a decision ... No red anywhere." Warm versions are made from each cold one as before.
+
 Cold, [that character's sprite front]:
 > Chest-up portrait of the attached character ([recap]), three-quarter view,
 > looking just off camera, [EMOTION]. Painterly oil style, visible brush
@@ -276,54 +278,51 @@ no text. Visible wood grain and gouge marks."
   blackmail = a hand sliding a sealed envelope across a table while another hand
   closes over cargo-manifest papers; the_lie = a handshake with crossed fingers,
   barred prison window behind; fake_radio = valve radio wearing a grinning
-  theatre mask, jagged waves; killing_guards = an empty riot helmet on its side
-  on cobbles, cracked visor, a red cloth band beside it, no blood, no bodies, no
-  weapons; lay_low = a figure in a cap and bandana crouched under a dormitory
+  theatre mask, jagged waves; killing_guards (v2, empty boots per art-needs) = a pair of empty heavy riot-police boots alone on cobblestones, laces loose, a dropped red cloth band beside them, no body, no blood, no weapons; secrecy = a heavy closed dormitory door with a chain lock, a line of light under it, a small red cloth on the handle; clean_slot = a single open empty hand, palm up, radiating carved lines, thin red ring; lay_low = a figure in a cap and bandana crouched under a dormitory
   stairwell while a searchlight passes above.
 
 ## 7. Background art plan (PENDING DUFF'S APPROVAL; not started)
 
-Nothing below has been generated. Same palette rules; woodcut pieces get one
+Nothing below has been generated. (The woodcut district map was dropped: `docs/art-needs.md` says don't generate maps or UI layouts.) Same palette rules; woodcut pieces get one
 accent colour each. Proposed order:
 
-1. **Woodcut district map** (`assets/ui/woodcut/district_map.png`, 16:9 or
-   phone-portrait 9:16): top-down Rail Yards, Zone A Dormitories and Zone B
-   Freight Depot, rail lines, signal box, dock; blank cartouches for zone labels,
-   sentiment and Attention markers drawn in engine. Ink + paper only (neutral),
-   so both red and blue overlays can sit on it.
-2. **Mission backdrop, the Signal Box** (`assets/ui/backdrop_signal_box.png`):
+1. **Mission backdrop, the Signal Box** (`assets/ui/backdrop_signal_box.png`):
    Depot yard at night, containers, crates, gantry, signal box. Painted to match
    the Frontline grade (near-monochrome, sodium light).
-3. **Ending scenes**, one per ending, regraded by result:
+2. **Ending scenes**, one per ending, regraded by result:
    the district turns (full colour), the yards go silent (strike, idle cranes),
    occupiers (cold, our people in visors), captured, the window closes. Includes
    the **kid's wall** scene (a child's chalk drawing on a dormitory wall).
-4. **Street posters as scenery**: regime Continuity posters (blue-grey) and
+3. **Street posters as scenery**: regime Continuity posters (blue-grey) and
    Unbroken wall posters (red), as woodcut decals with blank text space.
-5. **Replacements for `assets/ui/backdrop_regime.png` / `backdrop_liberated.png`**
+4. **Replacements for `assets/ui/backdrop_regime.png` / `backdrop_liberated.png`**
    in the new painted style (would be new files beside them, not overwrites,
    until the scenes are switched over).
 
-## 8. Against `docs/art-needs.md` (landed on main Nov 14, after this pass was drawn)
+## 8. Against `docs/art-needs.md` (second pass, Nov 14)
 
-Covered by this PR: guard front/back, guard helmet-off front, Teodor/Mara/Kesh
-front/back, generic operatives (three sheets instead of two), cold/warm
-portraits for You/Teodor/Mara/Kesh (one emotion each), title, state-TV frame,
-pirate-radio frame, the woodcut dormitory-raid still, and three of the
-art-needs stamps (blackmail, the lie, fake radio), plus a killing stamp.
+Done per art-needs:
+- **Portraits** follow its emotion list, named `<name>_<emotion>_<cold|warm>`:
+  You (neutral, angry, tired), Teodor (guarded, betrayed, resolved), Mara (calm,
+  worried), Kesh (suspicious, scared). Cold grey for regime weeks, warm amber for
+  liberated endings. The first-pass portraits became the tired / guarded / calm /
+  suspicious sets (renamed, not redrawn).
+- **Defector portrait, helmet in hand**: `defector_helmet_cold.png`. Cold only;
+  art-needs asks for one, for the Persuade beat.
+- **Stamps**: killing is redrawn as **empty boots** (replaces the empty helmet).
+  **secrecy** (closed, chained door) and **clean slot** (open hand) are added.
+  **lay_low** is kept but is extra (not on the list).
+- **Sources**: non-cast originals are in `assets/art/source/` (`portrait_*.jpg`,
+  `woodcut_*.jpg`). Cast sources stay in `assets/characters/source/`.
 
-Differences and gaps, for a follow-up pass:
-- Sources for non-cast art: art-needs asks for `assets/art/source/`. This PR
-  keeps portrait originals in `assets/portraits/source/` and the woodcut PNGs as
-  their own masters. Move them if you want the single folder.
-- Stamps: the killing stamp is an empty helmet, not the "empty boots" art-needs
-  asks for. **lay low** is extra. Still missing: **secrecy** (closed door) and
-  **clean slot** (open hand).
-- Portraits: one emotion each so far. Still missing: You (angry), Teodor
-  (betrayed, resolved), Mara (worried), Kesh (scared), the defector portrait.
-- Not started: posters, action/resource/tool icons, the phone-video raid still,
-  story stills, endings, the kid's wall, itch cover and banner. Endings and stills
-  are background art and wait for Duff's approval (section 7).
-- art-needs says "don't generate maps or UI layouts", so the woodcut district
-  map (item 1 in section 7) should probably be dropped from the plan. Duff to
-  confirm.
+Still open from art-needs: regime and movement posters, action / resource / tool
+icons, the phone-video raid still, story stills, endings, the kid's wall, itch
+cover and banner, and the optional civilians. Stills and endings are background
+art and wait for Duff's approval (section 7).
+
+Known issues, second pass:
+- The defector portrait has a small cut under one eye (no gore).
+- The secrecy stamp has a thin warm-gold glow under the door, a slight third
+  tone beyond paper / ink / red.
+- The neutral, betrayed and resolved prompts needed one regen each: the first
+  tries copied the reference pose too closely to read as a different emotion.
