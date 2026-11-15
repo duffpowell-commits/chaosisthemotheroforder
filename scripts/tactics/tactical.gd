@@ -118,6 +118,8 @@ func _ready() -> void:
 		_capture_rig(_arg_after(args, "--out", "/tmp/rig"))
 	elif "--capture-sprite-sizes" in args:
 		_capture_sprite_sizes()
+	elif "--capture-beauty" in args:
+		_capture_beauty(_arg_after(args, "--out", "res://docs/renders/beauty"))
 	elif "--autoplay" in args:
 		_autoplay("--loud" in args, _arg_after(args, "--out", "/tmp/autoplay"))
 
@@ -1798,3 +1800,158 @@ func _capture_rig(out_dir: String) -> void:
 		await _shot(kind[1])
 	print("rig poses saved")
 	get_tree().quit()
+
+
+# ---------- beauty test (Nov 15) ----------
+
+## Grok's painted sprites standing in the Signal Box street as camera-facing
+## Sprite3Ds (HD-2D), with tilt-shift depth of field, stronger glow, warm
+## practicals and a lighter grade. Renders only; the game is unchanged.
+const BEAUTY_SPRITE_H := 256  # px per body; masters are 1024 tall
+const BEAUTY_CAST := [
+	# [texture, tile, side]
+	["duff/duff_back.png", Vector2i(6, 8), 0],
+	["mara/mara_back.png", Vector2i(4, 10), 0],
+	["kesh/kesh_front.png", Vector2i(9, 9), 0],
+	["teodor/teodor_front.png", Vector2i(10, 11), 0],
+	["guard/guard_front.png", Vector2i(5, 5), 1],
+	["guard/guard_front.png", Vector2i(8, 5), 1],
+	["guard_defector/guard_defector_front.png", Vector2i(7, 6), 1],
+	["visor_operative/visor_operative_front.png", Vector2i(11, 3), 1],
+]
+
+func _beauty_tex(path: String) -> ImageTexture:
+	var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/characters/" + path))
+	var h := BEAUTY_SPRITE_H
+	img.resize(int(img.get_width() * h / float(img.get_height())), h, Image.INTERPOLATE_LANCZOS)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+func _capture_beauty(out: String) -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out))
+	# Strip the game layer: HUD, grid, tags, mannequins.
+	for c in get_children():
+		if c is CanvasLayer and c.layer >= 2:
+			c.visible = false
+	for u in battle.units:
+		if unit_nodes.has(u):
+			unit_nodes[u].visible = false
+	_beauty_dress_containers()
+	# Rain spawns below the closer camera, so no streak lands on the lens.
+	rain.position.y = 4.5
+	# Closer, lower camera on the squad (the in-game zoom is ~0.66x of home).
+	var focus := to_world(Vector2i(7, 8))
+	cam.position = focus + Vector3(3.4, 6.0, 7.0)
+	cam.look_at(focus + Vector3(0, 0.6, 0))
+	cam.fov = 42
+	var cam_up := cam.global_transform.basis.y
+	var sprites: Array[Sprite3D] = []
+	for c in BEAUTY_CAST:
+		var p: Vector2i = c[1]
+		var feet := to_world(p) + Vector3(0, _ground(p), 0)
+		var sp := Sprite3D.new()
+		sp.texture = _beauty_tex(c[0])
+		sp.pixel_size = PERSON_HEIGHT / float(BEAUTY_SPRITE_H)
+		sp.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		sp.shaded = false
+		sp.modulate = Color(1.0, 0.95, 0.9) if c[2] == 0 else Color(0.82, 0.86, 0.98)
+		sp.position = feet + cam_up * PERSON_HEIGHT * 0.5
+		world_root.add_child(sp)
+		sprites.append(sp)
+		# Soft contact shadow under the feet.
+		var sh := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(0.9, 0.5)
+		q.orientation = PlaneMesh.FACE_Y
+		sh.mesh = q
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_texture = _blob_tex()
+		m.albedo_color = Color(0, 0, 0, 0.75)
+		sh.material_override = m
+		sh.position = feet + Vector3(0, 0.02, 0)
+		world_root.add_child(sh)
+		# Faction rim light: warm behind the movement, cold blue behind the regime.
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.55, 0.3) if c[2] == 0 else Color(0.35, 0.5, 1.0)
+		l.light_energy = 0.9
+		l.omni_range = 2.6
+		l.position = feet + Vector3(0, 1.4, -0.8)
+		world_root.add_child(l)
+	await _shot_to(out + "/1_sprites_old_look.png")
+	# The look: tilt-shift DOF, more glow, kinder grade.
+	var attrs := CameraAttributesPractical.new()
+	attrs.dof_blur_far_enabled = true
+	attrs.dof_blur_far_distance = cam.position.distance_to(focus) + 2.0
+	attrs.dof_blur_far_transition = 4.0
+	attrs.dof_blur_near_enabled = true
+	attrs.dof_blur_near_distance = cam.position.distance_to(focus) - 3.0
+	attrs.dof_blur_near_transition = 1.5
+	attrs.dof_blur_amount = 0.3
+	cam.attributes = attrs
+	env.glow_intensity = 1.2
+	env.glow_bloom = 0.18
+	env.glow_hdr_threshold = 0.7
+	env.fog_density = 0.02
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.08
+	env.adjustment_saturation = 1.1
+	grade_mat.set_shader_parameter("liberation", 0.35)
+	grade_mat.set_shader_parameter("grain_mul", 0.25)
+	grade_mat.set_shader_parameter("crush_mul", 0.6)
+	await _shot_to(out + "/2_beauty_regime.png")
+	grade_mat.set_shader_parameter("liberation", 0.9)
+	_apply(1.0)
+	grade_mat.set_shader_parameter("liberation", 0.9)
+	grade_mat.set_shader_parameter("grain_mul", 0.25)
+	await _shot_to(out + "/3_beauty_liberated.png")
+	get_tree().quit()
+
+
+func _shot_to(path: String) -> void:
+	await _wait(30)
+	get_viewport().get_texture().get_image().save_png(path)
+	print("saved ", path)
+
+
+func _blob_tex() -> ImageTexture:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 64:
+			var d := Vector2(x - 31.5, y - 31.5).length() / 32.0
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(1.0 - d, 0.0, 1.0) ** 1.6))
+	return ImageTexture.create_from_image(img)
+
+
+## Swap the flat-colour container boxes for corrugated steel (the shutter
+## texture), tinted per block, so the greybox reads as a real yard.
+func _beauty_dress_containers() -> void:
+	var tex := "res://assets/polyhaven/textures/shutter/"
+	var mats := {}
+	for n in world_root.get_children():
+		if not (n is MeshInstance3D and n.mesh is BoxMesh):
+			continue
+		var bm: BoxMesh = n.mesh
+		if bm.size.is_equal_approx(Vector3(1.0, 0.05, 0.05)):
+			n.visible = false  # walkway hand-rails cut across bodies at this angle
+			continue
+		if not bm.size.is_equal_approx(Vector3(1.0, 2.5, 1.0)):
+			continue
+		var old: StandardMaterial3D = n.material_override
+		var key := old.albedo_color.to_html()
+		if not mats.has(key):
+			var m := StandardMaterial3D.new()
+			m.albedo_texture = load(tex + "albedo.jpg")
+			m.normal_enabled = true
+			m.normal_texture = load(tex + "normal.jpg")
+			m.roughness_texture = load(tex + "rough.jpg")
+			m.albedo_color = old.albedo_color.lightened(0.55) * 1.6
+			m.uv1_triplanar = true
+			m.uv1_scale = Vector3(0.3, 0.3, 0.3)
+			m.metallic = 0.4
+			mats[key] = m
+		n.material_override = mats[key]
