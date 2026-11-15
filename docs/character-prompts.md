@@ -73,3 +73,51 @@ off camera, [ONE EMOTION]. Painterly oil style, visible brush strokes, dramatic
 single light source from the side, deep shadow on the far side of the face,
 desaturated night street behind. Documentary mood, not glamour. No text.
 Make a cold, grey version (regime district) and a warm, amber version (liberated).
+
+---
+
+## Approved anchors and final look (Nov 14, art team pass)
+
+Everything above is kept as history. Where it disagrees with this section, this
+section wins. Full prompts, file map and known issues: `docs/art-notes.md`.
+
+**Style (approved, replaces the "Shared style block" above for new work):**
+semi-realistic painted graphic-novel / comic art; thin dark ink outline,
+slightly thicker around the whole silhouette; light crosshatching; realistic
+painted shading; light from the upper left. A-pose with arms angled out and a
+clear gap from the torso, hands open and empty, feet visible, plain flat light
+grey background, no ground shadow, no text, no weapons. 3:4.
+
+**Approved anchors** (attach as references):
+- You front: `assets/characters/source/you_front_anchor.jpg`
+- You back: `assets/characters/source/you_back.jpg`
+- Guard / Mara / Kesh / Teodor fronts: `assets/characters/source/<name>_front.jpg`
+  (use each as the reference for its own back view and portrait)
+
+**You (Duff), as approved:** the neck tattoo is now a **geometric fox** (not the
+wolf with a blue rose), **round plugs**, gold and black helix rings, **plain
+black t-shirt** (no band graphic), mandala blackwork full sleeve on the left
+arm, illustrative tattoos on the right arm (blue rose on the right forearm),
+faded red bandana, dark jeans, black boots.
+
+**Mara, as approved:** red armband on the left arm carries a white medic cross.
+**Kesh, as approved:** red bandana rather than a scarf; reads lighter-skinned
+than the brief. **Teodor, as approved:** reads lighter-skinned than the brief;
+no cigarette behind the ear.
+
+**New sheets:** guard defector (helmet off, same armour), visor operative
+(dark endings: street clothes + red armband + regime visor helmet), and three
+recruit sheets (`operative_a` red scarf, `operative_b` red flat cap,
+`operative_c` red armband). Prompts in `docs/art-notes.md` §6.
+
+**Back view template (used):** "Same character, same style as the first attached
+image ([one-line recap]): turned around, three-quarter back view seen from
+behind and slightly to one side, same A-pose with arms angled out leaving a
+clear gap from the torso, hands open and empty, legs slightly apart, feet
+visible. From behind: [what must show]." + style tail. Attach the front and
+`you_back.jpg`.
+
+**Portrait template (used):** cold version from the sprite, then the warm
+version from the cold portrait ("The same portrait as the attached image ...
+repainted as the WARM AMBER version for a liberated district ..."), so the two
+match.
