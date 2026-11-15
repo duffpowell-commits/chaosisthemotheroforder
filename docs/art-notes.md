@@ -2,18 +2,30 @@
 
 Art team pass, Nov 14 2026. Duff approved the style and the first draft round
 (You, guard, Mara, Kesh, Teodor fronts) on Nov 14 and asked for the rest in the
-same style. **Background / environment art is on hold until Duff approves the
-plan at the bottom of this page.**
+same style. On Nov 14 Duff moved the setting to the present day; all scene and
+prop art was redone for it (section 12) and the guard designs were kept.
 
 Everything here is new files only. No code, scripts, scenes or rig data were
 changed, and no existing wired path was overwritten (see "Rig" below).
 
-## 1. Style bible (approved)
+## 1. Style bible (approved; rewritten Nov 14 for the present-day setting)
 
-- **Look:** semi-realistic painted graphic-novel / comic art. Thin dark ink
-  outline, slightly thicker around the whole silhouette; light crosshatching;
-  realistic painted shading on faces, skin, denim and leather; light from the
-  upper left.
+- **Setting:** an ordinary present-day American/Western city. Garden apartment
+  complexes, freight rail yards with intermodal container trains, gas stations,
+  power lines, convenience stores, ordinary police cruisers and SUVs, traffic and
+  dome cameras, smartphones. **No dystopian props:** no armoured vans, militarized
+  checkpoints, leader billboards, Soviet blocks, propaganda screens, banners or
+  torn checkpoints. "Regime" in scenes means normal policing and surveillance
+  (cruisers, cameras, drawn blinds); "liberated" means mutual aid, open doors and
+  small red ribbons.
+- **Look:** semi-realistic painted graphic-novel / comic art. Heavy dark ink
+  linework plus diagonal hatching in shadows and crosshatching in deep shadows,
+  applied uniformly to every painted scene by `ink.py` (see section 12); realistic
+  painted shading; muted, desaturated colour.
+- **Colour rules:** movement red `#9E1A14` is the only warm accent and stays small
+  (a ribbon, an armband, a strip of cloth). Lamplight and sunset are allowed;
+  red/blue police light bars are drawn dark. No brand-like badges or logos on
+  cars, laptops, phones or shops. **No readable text anywhere. No drawn weapons.**
 - **Pose (sprites):** full body, three-quarter front (or back) view, A-pose with
   arms angled out and a clear gap between each arm and the torso, hands open,
   relaxed and **empty** (weapons are drawn in code), legs slightly apart, feet
@@ -22,10 +34,16 @@ changed, and no existing wired path was overwritten (see "Rig" below).
   text, no scenery. 3:4 aspect.
 - **Anchors (attach to every character prompt):**
   `assets/characters/source/you_front_anchor.jpg` and
-  `assets/characters/source/you_back.jpg` (also used as the Duff/You fronts and backs).
-- **Faction rules:** regime = dark blue-grey riot gear, full helmet, visor down,
-  no face, never red. Movement = street clothes, one red item, face visible.
-  Civilians = olive/brown, no red, no blue. Human cast only.
+  `assets/characters/source/you_back.jpg`.
+- **Faction rules:** the guard, defector and visor-operative designs are **kept
+  as-is** (dark blue-grey riot gear, full helmet, visor down, no face, never red)
+  and can appear in scenes unchanged. Movement = present-day street clothes, one
+  red item, face visible. Civilians = present-day clothes (puffer, hoodie, ball
+  cap, quilted or canvas work jacket) in olive/brown/charcoal, no red, no blue.
+  Human cast only.
+- **Woodcuts:** paper + ink + one of movement red or regime blue-grey. Regime-side
+  woodcuts are forced to a blue-grey duotone in post; red-side woodcuts have their
+  reds pulled to `#9E1A14`.
 
 ## 2. Palette
 
@@ -460,3 +478,65 @@ plus their sources in `assets/art/source/`.
 All were re-checked for stray text and off-palette colour, and none was found.
 The occupiers barrier still alternates red with dark bands rather than being
 one flat red. That fits "red with dark/ink", but say so if you want it flat.
+
+## 12. Sixth pass (Nov 14): present-day redo (Duff: "keep the current guard designs")
+
+Every scene and prop asset below was redrawn for the present-day setting and
+replaced **at its existing path** (all files added by this PR; each path was
+checked to be absent from main `d03bd97` before writing). Sources are replaced
+in `assets/art/source/` under the same names.
+
+- **Backdrops:** `backdrop_regime_painted` (night apartment street, gas station,
+  ordinary cars), `backdrop_signal_box` (night freight yard with intermodal cars),
+  `backdrop_liberated_painted` (the regime street by day with a mutual-aid table,
+  a red ribbon on the pole and red cloth on a fence; no banners).
+- **Stills:** `opening_raid_phone` (light touch-up: modern apartment aftermath,
+  logo-free laptop, extra phone grain), `strike` (Teodor kept, modern yard),
+  `safehouse_door` (apartment hallway, door ajar), `broadcast_airing` (adults
+  watching phones outside a convenience store). `teodor_dock` **kept unchanged**.
+- **Endings:** `district_turns` (block party, mutual-aid table, ribbons),
+  `yards_silent` (picket round a burn barrel), `occupiers` (two visor operatives
+  with red armbands behind a sawhorse line), `captured` (police interview room,
+  phone on the table showing Duff with a black bar over his eyes),
+  `window_closes` (overcast street, two cruisers, light bars dark).
+- **Kid's wall:** cinderblock apartment wall by a parking lot, chalk in off-white
+  plus red only. `kids_wall_your_poster` and `kids_wall_over_regime` are built
+  from `kids_wall_bare` by pasting the two posters onto the wall in code (torn
+  edges, wall texture multiplied in), so all three match exactly.
+- **Posters:** `poster_regime_continuity` = municipal public-safety campaign
+  (camera, traffic light, police SUV, family) in blue-grey; `poster_movement_unbroken`
+  = wheat-paste flyer of hands holding up phones under a red record-dot sun.
+- **Woodcuts:** `title` (lone figure in a red bandana on a footbridge over the
+  yard, empty top band), `report_frame_cn24` (cable-news studio frame, blank
+  screen and lower third), `report_frame_unbroken` (phone livestream frame, red
+  record dot, reaction hearts, blank comment bubbles), `opening_dormitory_raid`
+  (night apartment-complex raid in the existing guard design, flashlights only).
+- **Icons:** `res_heat` (police light bar glowing red), `action_expose` (phone
+  recording in front of a torn poster). 1024 masters plus 128 display copies.
+- **Itch:** new `itch_banner.jpg` source (panoramic yard/footbridge/apartments);
+  `cover_630x500.png` is cropped from the new title.
+- **Civilians A/B/C:** same people, present-day clothes, same paths
+  (`assets/characters/civilian_{a,b,c}/…`, display 128 px, `source/`):
+  A = olive puffer, brown hoodie, leggings, tote; B = olive ball cap, brown
+  quilted jacket, chinos; C = canvas work jacket, olive hoodie, carpenter pants.
+
+**Ink pass:** `/workspace/art_build/ink.py` (Sobel edges on blurred luminance,
+86th-percentile threshold, dilated; 7 px diagonal hatching where L<0.42 and
+crosshatch where L<0.22, 35% opacity; ink `#1B1714`). Applied to all painted
+scenes before resizing to 1280x720; `opening_raid_phone` gets a lighter pass
+(line 0.7, hatch 0.6) plus grain. Not applied to woodcuts or sprites.
+
+**Known issues (sixth pass):**
+- `teodor_dock` was kept as asked, so it is in the earlier lighter-ink style and
+  shows the older setting's dock; it stands out slightly next to the redo.
+- `district_turns`: a few tiny background figures (balcony, far right) still read
+  maroon/brown-red at full size.
+- `backdrop_signal_box` and `strike`: the locomotive keeps a faint red/blue livery
+  stripe.
+- `poster_regime_continuity`: the SUV grille may still show a tiny blank emblem
+  shape (no lettering).
+- `opening_dormitory_raid` reads more painted than carved even after the duotone
+  and quantize; officers have holsters/belts but no drawn weapons.
+- The older pre-main `assets/ui/backdrop_regime.png` / `backdrop_liberated.png`
+  are untouched and still in the old style.
+
