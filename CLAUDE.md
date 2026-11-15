@@ -112,6 +112,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (sprites, portraits, woodcut). Written into `docs/design.md` ("The Ledger") and
   `docs/style-guide.md` (§6, §9). Docs only; build them in J2/J3 when Chaos unpauses.
   Review doc: https://claude.ai/artifact/RhQ9RR5c2SFYzpTxzVwFYM
+- **Grok art merged (Nov 15)** from `art/rail-yards-slice`: sprites (A-pose fronts/backs + 128 px `display/`), cold/warm portraits, woodcut UI/stamps/icons, stills, endings, itch cover/banner. Notes + known issues: `docs/art-notes.md`. Review verdict: woodcut set and portraits are ship-quality; sprites usable as cutout sources but dark (test under the grade, movement red is only a bandana); painted stills/backdrops/endings are muddy and the weakest set (redo before use, except the kid's wall). Source masters are excluded from export.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
