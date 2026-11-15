@@ -151,7 +151,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Web gives Godot no system fonts: symbols come from `assets/fonts/symbols_dejavu.ttf`
   (autoload `scripts/fonts.gd`). Game files must not live in `docs/` (excluded from export).
 - CI: `.github/workflows/tests.yml` parses every script and runs the tests + flow check on
-  every push. Check the result with `gh run list -L 3` before calling a milestone done.
+  pushes to `main` and on PRs (not plain branch pushes or docs/*.md-only changes: saves Actions
+  minutes, the repo is private). Open a PR to get CI on a branch. Check the result with `gh run list -L 3` before calling a milestone done.
 - Sprite bake: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake`
   then `python3 tools/compose_sprites.py /tmp/bake docs/renders/sprites`
 - In the cloud sandbox Godot isn't installed: download the 4.5-stable Linux zip

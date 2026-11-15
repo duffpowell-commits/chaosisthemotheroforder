@@ -1,10 +1,21 @@
 name: tests
 
-# Runs on every push and PR so a broken build shows a red X on GitHub,
-# whichever Claude session (or Duff) pushed it.
+# Runs on pushes to main and on every PR so a broken build shows a red X on GitHub,
+# whichever Claude session (or Duff) pushed it. Branch pushes without a PR, and changes
+# that only touch docs/ or *.md, skip CI to save Actions minutes (private repo, 2,000 free/month).
+# Run the tests locally before every push (CLAUDE.md); `workflow_dispatch` runs CI on any branch.
 on:
   push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+
+# A newer push to the same PR cancels the older run still in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
