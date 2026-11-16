@@ -101,7 +101,7 @@ func _ready() -> void:
 	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
 	grade_mat.set_shader_parameter("crush_mul", GRADE_CRUSH)
 	var args := OS.get_cmdline_user_args()
-	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--capture-beauty" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -1904,6 +1904,33 @@ func _capture_beauty(out: String) -> void:
 	grade_mat.set_shader_parameter("grain_mul", 0.25)
 	grade_mat.set_shader_parameter("crush_mul", 0.6)
 	await _shot_to(out + "/2_beauty_regime.png")
+	# Same look, the 3D rigged characters in place of the sprites.
+	for sp in sprites:
+		sp.visible = false
+	var spots := {Battle.US: [], Battle.REGIME: []}
+	for c in BEAUTY_CAST:
+		spots[Battle.US if c[2] == 0 else Battle.REGIME].append(c[1])
+	for u in battle.units:
+		if not unit_nodes.has(u):
+			continue
+		var list: Array = spots[u.side]
+		var n: Node3D = unit_nodes[u]
+		if list.is_empty():
+			continue
+		var p: Vector2i = list.pop_front()
+		n.position = to_world(p) + Vector3(0, _ground(p), 0)
+		n.visible = true
+		# Fair test: drop the J1 fresnel rim (it was tuned for the old grey grade).
+		for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
+			for i in range(mi.get_surface_override_material_count()):
+				var m := mi.get_surface_override_material(i)
+				if m != null:
+					m.next_pass = null
+	await _shot_to(out + "/4_3d_regime.png")
+	for u in unit_nodes:
+		unit_nodes[u].visible = false
+	for sp in sprites:
+		sp.visible = true
 	grade_mat.set_shader_parameter("liberation", 0.9)
 	_apply(1.0)
 	grade_mat.set_shader_parameter("liberation", 0.9)
