@@ -114,6 +114,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Review doc: https://claude.ai/artifact/RhQ9RR5c2SFYzpTxzVwFYM
 - **Grok art merged (Nov 15)** from `art/rail-yards-slice`: sprites (A-pose fronts/backs + 128 px `display/`), cold/warm portraits, woodcut UI/stamps/icons, stills, endings, itch cover/banner. Notes + known issues: `docs/art-notes.md`. Review verdict: woodcut set and portraits are ship-quality; sprites usable as cutout sources but dark (test under the grade, movement red is only a bandana); painted stills/backdrops/endings are muddy and the weakest set (redo before use, except the kid's wall). Source masters are excluded from export.
 - **Beauty test (Nov 15):** Duff doubted Godot can look gorgeous (asked about Unity/Unreal). `-- --capture-beauty --out <dir>` puts Grok's sprites (256 px, billboard Sprite3D) on the Signal Box with corrugated-steel containers, tilt-shift DOF, more glow and a lighter grade. Needs the Mobile renderer, not opengl3: in the sandbox `apt-get install mesa-vulkan-drivers`, then `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --rendering-driver vulkan --rendering-method mobile --resolution 1920x1080 res://scenes/tactical.tscn -- --capture-beauty`. Renders: `docs/renders/beauty/`. Finding: sprites sit well in the 3D street; what still looks cheap is greybox set dressing (flat container tops, walkway deck), not the engine.
+- **3D characters (Duff, Nov 15-16): "lets go 3d and we'll do our own image to 3d".** Free open-source
+  image-to-3D, no paid services without his OK. `tools/image_to_3d.py <name>` sends the A-pose front/back
+  (`/mnt/project-files/chaos-art/to-3d/`) to the Hunyuan3D-2 Space and writes `assets/characters/3d/<name>.glb`.
+  All such Spaces are ZeroGPU: anonymous cloud calls get zero quota, so it needs env `HF_TOKEN` (free account).
+  Check a model in the look: add `--glb <file>` to the beauty command (renders `5_glb_regime.png` +
+  `6_glb_closeup.png` with the model beside Duff's sprite; `--glb-yaw <deg>` fixes its facing).
+  Next: rigging (free auto-rig, not Mixamo's manual upload), then the cast.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets

@@ -1904,6 +1904,13 @@ func _capture_beauty(out: String) -> void:
 	grade_mat.set_shader_parameter("grain_mul", 0.25)
 	grade_mat.set_shader_parameter("crush_mul", 0.6)
 	await _shot_to(out + "/2_beauty_regime.png")
+	# Image-to-3D test (Nov 16): `--glb <file>` stands a generated model next to
+	# Duff's sprite in the same look, plus a close-up. Renders only.
+	var glb := _arg_after(OS.get_cmdline_user_args(), "--glb", "")
+	if glb != "":
+		await _beauty_glb(glb, out, sprites[0], focus)
+		get_tree().quit()
+		return
 	# Same look, the 3D rigged characters in place of the sprites.
 	for sp in sprites:
 		sp.visible = false
@@ -1937,6 +1944,65 @@ func _capture_beauty(out: String) -> void:
 	grade_mat.set_shader_parameter("grain_mul", 0.25)
 	await _shot_to(out + "/3_beauty_liberated.png")
 	get_tree().quit()
+
+
+## Loads a .glb at runtime, scales it to PERSON_HEIGHT, stands it one tile
+## from `beside` (Duff's sprite) facing the camera, and renders a wide shot
+## and a close-up: `5_glb_regime.png`, `6_glb_closeup.png`.
+func _beauty_glb(path: String, out: String, beside: Sprite3D, focus: Vector3) -> void:
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if doc.append_from_file(path, state) != OK:
+		push_error("can't load " + path)
+		return
+	var model: Node3D = doc.generate_scene(state)
+	var holder := Node3D.new()
+	holder.add_child(model)
+	world_root.add_child(holder)
+	var box := AABB()
+	var first := true
+	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		var b := mi.global_transform * mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	var s := PERSON_HEIGHT / maxf(box.size.y, 0.001)
+	model.scale = Vector3.ONE * s
+	model.position = -Vector3(box.get_center().x, box.position.y, box.get_center().z) * s
+	# Nearest open tile beside Duff (6,8) with no cast member on it.
+	var taken := {}
+	for c in BEAUTY_CAST:
+		taken[c[1]] = true
+	var tile := Vector2i(7, 8)
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(-1, 1)]:
+		var t: Vector2i = BEAUTY_CAST[0][1] + d
+		if battle.standable(t) and not taken.has(t):
+			tile = t
+			break
+	var feet := to_world(tile) + Vector3(0, _ground(tile), 0)
+	holder.position = feet
+	# Face the camera (yaw only); `--glb-yaw <deg>` corrects a model's own facing.
+	var to_cam := cam.global_position - feet
+	holder.rotation.y = atan2(to_cam.x, to_cam.z) + deg_to_rad(float(_arg_after(OS.get_cmdline_user_args(), "--glb-yaw", "0")))
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.55, 0.3)
+	l.light_energy = 0.9
+	l.omni_range = 2.6
+	l.position = feet + Vector3(0, 1.4, -0.8)
+	world_root.add_child(l)
+	var key := OmniLight3D.new()  # soft fill from the camera side, like the sprite's painted light
+	key.light_energy = 0.5
+	key.omni_range = 4.0
+	key.position = feet + to_cam.normalized() * 1.5 + Vector3(0, 1.6, 0)
+	world_root.add_child(key)
+	await _shot_to(out + "/5_glb_regime.png")
+	var mid := (feet + beside.position) * 0.5 + Vector3(0, 0.9, 0)
+	cam.position = mid + Vector3(1.6, 1.3, 3.4)
+	cam.look_at(mid)
+	cam.fov = 36
+	var attrs: CameraAttributesPractical = cam.attributes
+	attrs.dof_blur_far_distance = cam.position.distance_to(mid) + 1.5
+	attrs.dof_blur_near_distance = cam.position.distance_to(mid) - 1.5
+	await _shot_to(out + "/6_glb_closeup.png")
 
 
 func _shot_to(path: String) -> void:
