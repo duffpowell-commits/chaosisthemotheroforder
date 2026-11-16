@@ -125,7 +125,11 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   so skip rembg: the art is already on white). `tools/to3d/project_colors.py <name>` colours it by projecting the
   front/back art (vertex colours; the art's light halo must be eroded off or sides go white). Shape is good; face and
   shoulders smear. Renders `docs/renders/beauty/7_cpu3d_*.jpg`. Real textures need a GPU (Kaggle/HF).
-  Next: rigging (free auto-rig, not Mixamo's manual upload), then the cast.
+  Also pip `torchvision` (CPU wheel) or hy3dgen fails to import.
+  **Whole cast done on CPU (Nov 16):** all 13 GLBs (`<name>_cpu.glb`, ~15-23 MB each, vertex colours, not in git)
+  live in project files `chaos-art/3d/`; contact sheet `docs/renders/beauty/9_cast_cpu3d.jpg`. `visor_operative` and
+  `guard_defector` have front art only: their backs are the mirrored front (wrong for the defector's helmet-off back;
+  redo when a back drawing exists). Next: rigging (free auto-rig, not Mixamo's manual upload).
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets

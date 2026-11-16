@@ -1,6 +1,6 @@
 """Colour a mesh by projecting the front/back A-pose art straight on (orthographic).
 Front art on faces looking +z, mirrored back art on faces looking -z, blended at the sides."""
-import sys, numpy as np, trimesh
+import os, sys, numpy as np, trimesh
 from PIL import Image
 name = sys.argv[1]; d = '/mnt/project-files/chaos-art/to-3d/'
 mesh = trimesh.load(f'/tmp/h3d/out/{name}_shape.glb', force='mesh')
@@ -16,7 +16,9 @@ def load(v):
     _, (iy, ix) = distance_transform_edt(~mask, return_indices=True)
     im = im[iy, ix]  # bleed edge colours into the background so near-misses don't sample white
     return im, (xs.min(), xs.max(), ys.min(), ys.max())
-F, fb = load('front'); B, bb = load('back')
+F, fb = load('front')
+# front-only art: colour the back with the mirrored front (dark-ish guess, flagged in CLAUDE.md)
+B, bb = load('back') if os.path.exists(f'{d}{name}_back.png') else (F, fb)
 v = mesh.vertices; n = mesh.vertex_normals
 lo, hi = v.min(0), v.max(0)
 def sample(im, box, x01, y01):
