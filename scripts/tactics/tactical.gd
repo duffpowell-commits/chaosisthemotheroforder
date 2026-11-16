@@ -1965,6 +1965,13 @@ func _beauty_glb(path: String, out: String, beside: Sprite3D, focus: Vector3) ->
 		var b := mi.global_transform * mi.get_aabb()
 		box = b if first else box.merge(b)
 		first = false
+	# Generated models come out glossy; cloth and skin under rain read better matte.
+	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		for i in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(i) as BaseMaterial3D
+			if m != null:
+				m.metallic = 0.0
+				m.roughness = maxf(m.roughness, 0.85)
 	var s := PERSON_HEIGHT / maxf(box.size.y, 0.001)
 	model.scale = Vector3.ONE * s
 	model.position = -Vector3(box.get_center().x, box.position.y, box.get_center().z) * s

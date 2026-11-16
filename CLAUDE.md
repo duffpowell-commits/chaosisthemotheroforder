@@ -120,6 +120,11 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   All such Spaces are ZeroGPU: anonymous cloud calls get zero quota, so it needs env `HF_TOKEN` (free account).
   Check a model in the look: add `--glb <file>` to the beauty command (renders `5_glb_regime.png` +
   `6_glb_closeup.png` with the model beside Duff's sprite; `--glb-yaw <deg>` fixes its facing).
+  **CPU fallback, no accounts (Nov 16):** `tools/to3d/cpu_shape.py <name>` runs Hunyuan3D-2mv-turbo shape on the
+  sandbox CPU (pip `hy3dgen==2.0.2`, `transformers==4.49.0`, `diffusers==0.31.0`, torch CPU; ~10 min, ~14 GB peak,
+  so skip rembg: the art is already on white). `tools/to3d/project_colors.py <name>` colours it by projecting the
+  front/back art (vertex colours; the art's light halo must be eroded off or sides go white). Shape is good; face and
+  shoulders smear. Renders `docs/renders/beauty/7_cpu3d_*.jpg`. Real textures need a GPU (Kaggle/HF).
   Next: rigging (free auto-rig, not Mixamo's manual upload), then the cast.
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
