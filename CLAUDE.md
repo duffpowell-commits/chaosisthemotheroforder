@@ -174,3 +174,6 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Visual decisions need real engine renders shown to Duff, not sketches.
 - Tactical numbers Duff set: 2 HP (hit = 1), 4 tiles per AP (spec said 5).
 - Android export (M6): add `*.dlg` to the export include filter or the dialogue won't ship.
+- Android signing (M6): use the keystone, the shared key for every Duff game except Lethemoor. Copy
+  `signing/unlock.sh` + the signing step from godot-game-starter's build.yml; add the `KEYSTONE_PASS` secret
+  (godot-game-starter docs/SIGNING.md). Never make a new key, never use Lethemoor's.
