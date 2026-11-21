@@ -1,0 +1,107 @@
+{
+  "texture": "res://assets/characters/visor_operative/visor_operative_front.png",
+  "tex_size": [
+    610,
+    1024
+  ],
+  "src_size": [
+    116.76,
+    196.0
+  ],
+  "view": "front",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      54.8,
+      1.0
+    ],
+    "neck": [
+      61.7,
+      34.5
+    ],
+    "hip": [
+      55.5,
+      100.9
+    ],
+    "shoulder_L": [
+      42.0,
+      44.6
+    ],
+    "elbow_L": [
+      29.2,
+      66.3
+    ],
+    "hand_L": [
+      6.4,
+      96.9
+    ],
+    "shoulder_R": [
+      79.3,
+      44.6
+    ],
+    "elbow_R": [
+      94.2,
+      67.5
+    ],
+    "hand_R": [
+      109.6,
+      99.0
+    ],
+    "hip_L": [
+      45.0,
+      104.8
+    ],
+    "knee_L": [
+      46.0,
+      141.4
+    ],
+    "ankle_L": [
+      39.8,
+      178.1
+    ],
+    "toe_L": [
+      24.5,
+      183.3
+    ],
+    "hip_R": [
+      65.9,
+      104.8
+    ],
+    "knee_R": [
+      70.8,
+      141.4
+    ],
+    "ankle_R": [
+      72.4,
+      178.1
+    ],
+    "toe_R": [
+      79.6,
+      184.2
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      12.8,
+      88.0
+    ],
+    "wrist_R": [
+      105.8,
+      90.3
+    ],
+    "armpit_L": [
+      23.5,
+      63.9
+    ],
+    "armpit_R": [
+      97.0,
+      58.0
+    ],
+    "crotch": [
+      61.7,
+      114.5
+    ]
+  },
+  "flags": [],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}

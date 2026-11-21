@@ -1,0 +1,109 @@
+{
+  "texture": "res://assets/characters/operative_c/operative_c_front.png",
+  "tex_size": [
+    614,
+    1024
+  ],
+  "src_size": [
+    117.52,
+    196.0
+  ],
+  "view": "front",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      58.0,
+      1.0
+    ],
+    "neck": [
+      58.4,
+      30.1
+    ],
+    "hip": [
+      56.7,
+      92.4
+    ],
+    "shoulder_L": [
+      45.5,
+      39.4
+    ],
+    "elbow_L": [
+      30.4,
+      63.9
+    ],
+    "hand_L": [
+      6.4,
+      97.3
+    ],
+    "shoulder_R": [
+      75.7,
+      39.4
+    ],
+    "elbow_R": [
+      91.5,
+      64.8
+    ],
+    "hand_R": [
+      110.4,
+      98.9
+    ],
+    "hip_L": [
+      46.0,
+      96.2
+    ],
+    "knee_L": [
+      47.1,
+      138.1
+    ],
+    "ankle_L": [
+      42.3,
+      180.0
+    ],
+    "toe_L": [
+      26.6,
+      185.5
+    ],
+    "hip_R": [
+      67.3,
+      96.2
+    ],
+    "knee_R": [
+      72.1,
+      138.1
+    ],
+    "ankle_R": [
+      72.2,
+      180.0
+    ],
+    "toe_R": [
+      78.7,
+      185.7
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      15.3,
+      88.4
+    ],
+    "wrist_R": [
+      106.3,
+      90.2
+    ],
+    "armpit_L": [
+      17.2,
+      74.1
+    ],
+    "armpit_R": [
+      97.0,
+      60.1
+    ],
+    "crotch": [
+      58.4,
+      133.6
+    ]
+  },
+  "flags": [
+    "legs separate only below y=698 (coat/long jacket): hips estimated from proportions"
+  ],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}

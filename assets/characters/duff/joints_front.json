@@ -1,0 +1,107 @@
+{
+  "texture": "res://assets/characters/duff/duff_front.png",
+  "tex_size": [
+    606,
+    1024
+  ],
+  "src_size": [
+    115.99,
+    196.0
+  ],
+  "view": "front",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      50.9,
+      0.6
+    ],
+    "neck": [
+      58.8,
+      31.0
+    ],
+    "hip": [
+      56.1,
+      102.1
+    ],
+    "shoulder_L": [
+      44.9,
+      40.4
+    ],
+    "elbow_L": [
+      30.7,
+      64.2
+    ],
+    "hand_L": [
+      6.0,
+      97.0
+    ],
+    "shoulder_R": [
+      75.8,
+      40.4
+    ],
+    "elbow_R": [
+      91.4,
+      64.9
+    ],
+    "hand_R": [
+      108.8,
+      98.2
+    ],
+    "hip_L": [
+      46.0,
+      106.0
+    ],
+    "knee_L": [
+      47.3,
+      143.1
+    ],
+    "ankle_L": [
+      41.5,
+      180.1
+    ],
+    "toe_L": [
+      25.6,
+      185.5
+    ],
+    "hip_R": [
+      66.2,
+      106.0
+    ],
+    "knee_R": [
+      70.6,
+      143.1
+    ],
+    "ankle_R": [
+      71.6,
+      180.1
+    ],
+    "toe_R": [
+      78.7,
+      185.7
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      11.2,
+      88.0
+    ],
+    "wrist_R": [
+      104.9,
+      89.4
+    ],
+    "armpit_L": [
+      27.9,
+      60.7
+    ],
+    "armpit_R": [
+      92.3,
+      58.4
+    ],
+    "crotch": [
+      58.8,
+      115.8
+    ]
+  },
+  "flags": [],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}

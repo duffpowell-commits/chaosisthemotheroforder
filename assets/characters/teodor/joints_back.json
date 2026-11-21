@@ -1,0 +1,109 @@
+{
+  "texture": "res://assets/characters/teodor/teodor_back.png",
+  "tex_size": [
+    562,
+    1024
+  ],
+  "src_size": [
+    107.57,
+    196.0
+  ],
+  "view": "back",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      59.0,
+      1.0
+    ],
+    "neck": [
+      59.1,
+      31.6
+    ],
+    "hip": [
+      58.7,
+      92.1
+    ],
+    "shoulder_L": [
+      42.8,
+      41.5
+    ],
+    "elbow_L": [
+      28.0,
+      66.8
+    ],
+    "hand_L": [
+      6.7,
+      100.9
+    ],
+    "shoulder_R": [
+      79.3,
+      41.5
+    ],
+    "elbow_R": [
+      88.9,
+      66.4
+    ],
+    "hand_R": [
+      100.8,
+      100.2
+    ],
+    "hip_L": [
+      48.7,
+      96.0
+    ],
+    "knee_L": [
+      48.6,
+      138.9
+    ],
+    "ankle_L": [
+      41.0,
+      181.9
+    ],
+    "toe_L": [
+      24.3,
+      187.6
+    ],
+    "hip_R": [
+      68.7,
+      96.0
+    ],
+    "knee_R": [
+      74.5,
+      138.9
+    ],
+    "ankle_R": [
+      73.9,
+      181.9
+    ],
+    "toe_R": [
+      85.2,
+      187.8
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      13.3,
+      92.1
+    ],
+    "wrist_R": [
+      98.6,
+      91.3
+    ],
+    "armpit_L": [
+      15.1,
+      75.8
+    ],
+    "armpit_R": [
+      101.4,
+      70.1
+    ],
+    "crotch": [
+      59.1,
+      123.3
+    ]
+  },
+  "flags": [
+    "legs separate only below y=644 (coat/long jacket): hips estimated from proportions"
+  ],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}

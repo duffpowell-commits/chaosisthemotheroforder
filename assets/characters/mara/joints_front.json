@@ -1,0 +1,107 @@
+{
+  "texture": "res://assets/characters/mara/mara_front.png",
+  "tex_size": [
+    614,
+    1024
+  ],
+  "src_size": [
+    117.52,
+    196.0
+  ],
+  "view": "front",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      54.2,
+      1.0
+    ],
+    "neck": [
+      57.8,
+      29.7
+    ],
+    "hip": [
+      55.4,
+      103.0
+    ],
+    "shoulder_L": [
+      47.0,
+      39.4
+    ],
+    "elbow_L": [
+      31.1,
+      63.7
+    ],
+    "hand_L": [
+      6.4,
+      97.0
+    ],
+    "shoulder_R": [
+      74.3,
+      39.4
+    ],
+    "elbow_R": [
+      90.3,
+      64.9
+    ],
+    "hand_R": [
+      110.7,
+      99.0
+    ],
+    "hip_L": [
+      44.2,
+      106.9
+    ],
+    "knee_L": [
+      45.8,
+      142.8
+    ],
+    "ankle_L": [
+      40.2,
+      178.7
+    ],
+    "toe_L": [
+      25.5,
+      184.0
+    ],
+    "hip_R": [
+      66.5,
+      106.9
+    ],
+    "knee_R": [
+      70.0,
+      142.8
+    ],
+    "ankle_R": [
+      72.2,
+      178.7
+    ],
+    "toe_R": [
+      79.4,
+      184.8
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      15.1,
+      88.0
+    ],
+    "wrist_R": [
+      106.8,
+      90.3
+    ],
+    "armpit_L": [
+      20.5,
+      70.8
+    ],
+    "armpit_R": [
+      95.3,
+      58.6
+    ],
+    "crotch": [
+      57.8,
+      116.6
+    ]
+  },
+  "flags": [],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}

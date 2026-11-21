@@ -1,0 +1,107 @@
+{
+  "texture": "res://assets/characters/civilian_a/civilian_a_back.png",
+  "tex_size": [
+    521,
+    1024
+  ],
+  "src_size": [
+    99.72,
+    196.0
+  ],
+  "view": "back",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      54.3,
+      1.1
+    ],
+    "neck": [
+      56.8,
+      33.1
+    ],
+    "hip": [
+      54.7,
+      102.4
+    ],
+    "shoulder_L": [
+      40.0,
+      43.4
+    ],
+    "elbow_L": [
+      26.0,
+      68.7
+    ],
+    "hand_L": [
+      5.7,
+      103.0
+    ],
+    "shoulder_R": [
+      70.4,
+      43.4
+    ],
+    "elbow_R": [
+      81.7,
+      66.7
+    ],
+    "hand_R": [
+      94.2,
+      98.7
+    ],
+    "hip_L": [
+      44.7,
+      106.3
+    ],
+    "knee_L": [
+      45.3,
+      144.1
+    ],
+    "ankle_L": [
+      41.1,
+      181.9
+    ],
+    "toe_L": [
+      25.8,
+      187.7
+    ],
+    "hip_R": [
+      64.7,
+      106.3
+    ],
+    "knee_R": [
+      69.3,
+      144.1
+    ],
+    "ankle_R": [
+      65.7,
+      181.9
+    ],
+    "toe_R": [
+      75.6,
+      187.8
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      12.1,
+      94.0
+    ],
+    "wrist_R": [
+      90.8,
+      90.0
+    ],
+    "armpit_L": [
+      10.1,
+      84.4
+    ],
+    "armpit_R": [
+      88.8,
+      66.0
+    ],
+    "crotch": [
+      56.8,
+      116.0
+    ]
+  },
+  "flags": [],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}

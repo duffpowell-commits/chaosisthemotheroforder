@@ -1,0 +1,107 @@
+{
+  "texture": "res://assets/characters/kesh/kesh_front.png",
+  "tex_size": [
+    605,
+    1024
+  ],
+  "src_size": [
+    115.8,
+    196.0
+  ],
+  "view": "front",
+  "lr": "screen left/right in the art (same convention as cutout_rig.gd)",
+  "j": {
+    "head_top": [
+      53.7,
+      1.0
+    ],
+    "neck": [
+      58.9,
+      27.6
+    ],
+    "hip": [
+      55.7,
+      102.4
+    ],
+    "shoulder_L": [
+      48.5,
+      37.1
+    ],
+    "elbow_L": [
+      30.8,
+      63.1
+    ],
+    "hand_L": [
+      6.5,
+      97.8
+    ],
+    "shoulder_R": [
+      74.0,
+      37.1
+    ],
+    "elbow_R": [
+      90.1,
+      63.7
+    ],
+    "hand_R": [
+      108.8,
+      99.1
+    ],
+    "hip_L": [
+      45.6,
+      106.3
+    ],
+    "knee_L": [
+      46.6,
+      142.8
+    ],
+    "ankle_L": [
+      42.2,
+      179.2
+    ],
+    "toe_L": [
+      24.9,
+      184.5
+    ],
+    "hip_R": [
+      65.8,
+      106.3
+    ],
+    "knee_R": [
+      70.3,
+      142.8
+    ],
+    "ankle_R": [
+      71.2,
+      179.2
+    ],
+    "toe_R": [
+      78.7,
+      184.8
+    ]
+  },
+  "extra": {
+    "wrist_L": [
+      13.0,
+      89.0
+    ],
+    "wrist_R": [
+      104.9,
+      90.3
+    ],
+    "armpit_L": [
+      18.0,
+      72.2
+    ],
+    "armpit_R": [
+      98.6,
+      63.0
+    ],
+    "crotch": [
+      58.9,
+      116.0
+    ]
+  },
+  "flags": [],
+  "method": "tools/joint_map.py silhouette analysis, checked on joints_overlay.png"
+}
