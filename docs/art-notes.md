@@ -6,7 +6,24 @@ same style. On Nov 14 Duff moved the setting to the present day; all scene and
 prop art was redone for it (section 12) and the guard designs were kept.
 
 Everything here is new files only. No code, scripts, scenes or rig data were
-changed, and no existing wired path was overwritten (see "Rig" below).
+changed, and no existing wired path was overwritten (see "Rig" below). One exception, approved by
+Duff on Nov 21: the CI import step in `.github/workflows/tests.yml` no longer ignores
+import failures.
+
+**Pipeline docs (Nov 21):** identity packs for every cast member are in
+[`docs/art/identity/`](art/identity/) ([duff](art/identity/duff.md),
+[mara](art/identity/mara.md), [kesh](art/identity/kesh.md),
+[teodor](art/identity/teodor.md), [guard](art/identity/guard.md),
+[guard_defector](art/identity/guard_defector.md),
+[visor_operative](art/identity/visor_operative.md),
+[operative_a](art/identity/operative_a.md), [operative_b](art/identity/operative_b.md),
+[operative_c](art/identity/operative_c.md), [civilian_a](art/identity/civilian_a.md),
+[civilian_b](art/identity/civilian_b.md), [civilian_c](art/identity/civilian_c.md)).
+The style anchor crops and standard scene preamble are in
+[`docs/art/style-anchor.md`](art/style-anchor.md), and approved and banned props
+and palette notes are in [`docs/art/prop-bible.md`](art/prop-bible.md). Godot
+`.import` sidecars (lossless, no mipmaps) are committed for every PNG this PR
+adds, and CI now fails if the import fails.
 
 ## 1. Style bible (approved; rewritten Nov 14 for the present-day setting)
 
