@@ -557,3 +557,128 @@ scenes before resizing to 1280x720; `opening_raid_phone` gets a lighter pass
 - The older pre-main `assets/ui/backdrop_regime.png` / `backdrop_liberated.png`
   are untouched and still in the old style.
 
+
+## 13. Pipeline upgrades (Nov 21): art QA, lettering, joint maps
+
+### Automated art QA (`tools/art_qa.py`, config `tools/art_qa.json`)
+
+Runs in CI as the `art-qa` job (Tesseract from apt). It runs the self-test
+`tools/test_art_qa.py` first, then checks every PNG matched by a config group:
+
+- **Readable text:** Tesseract (`--psm 11`) on the image at 0.5x, 1x and 2x;
+  sprites are composited on paper `#E9E0CC` and on grey. A word (3+ characters)
+  counts as text if two runs read it at confidence 85 or more, or one run at
+  95. Allowlisted: `0417` (the guard's chest patch). Without Tesseract the OCR
+  check is skipped with a warning; `--require-ocr` (used in CI) makes that a
+  failure.
+- **Palette:** limits for each group, as a % of opaque pixels: movement red,
+  maroon (dark red) and saturated blue. Civilians: no red, no maroon, no blue.
+  Guards: never red. Movement sprites: one small red item. Painted scenes: red
+  2% or less, maroon 1.5% or less. Regime woodcuts: no red. Movement woodcuts,
+  stamps, icons and itch art: no blue.
+- **Sizes:**
+  - sprite masters are 1024 tall (RGBA) and display copies 128 tall
+  - portraits are 768x768
+  - scenes and 16:9 woodcuts are 1280x720
+  - posters are 768x1024
+  - stamps and icons are 1024 square, with 128 square icon copies
+  - itch art is 630x500 and 960x300
+- **Sprites:** real alpha (at least 30% transparent, transparent corners) and no
+  opaque pixels on the frame edge (alpha 16 or less on masters; 200 or less on
+  128 px copies, where the 5 px master padding shrinks to under a pixel).
+
+`*_lettered.png`, `assets/characters/rigged/` and the rig placeholder are
+ignored. Approved one-offs are listed in `exceptions`, each with a reason,
+instead of loosening a rule. Current exceptions:
+- `district_turns` maroon is 2.63%.
+- `operative_a_back` maroon is 6.7% (the scarf's shadow side).
+- Boot soles touch the bottom edge on `duff_front`, `civilian_c_front` and
+  `operative_a_front`, plus their display copies. The boots are complete; the
+  source images had no padding under the soles.
+
+Run locally: `pip install pillow numpy pytesseract`, install `tesseract`, then
+`python3 tools/art_qa.py [--require-ocr] [files...]`.
+
+### Lettering (`tools/letter.py`, `docs/art/type-sheet.md`)
+
+[`docs/art/type-sheet.md`](art/type-sheet.md) lists the fonts, the copy (each
+line marked final or PLACEHOLDER) and a JSON spec of the type boxes.
+`letter.py` fits each line to its box, inks it with a light worn-print pass and
+writes `*_lettered.png` beside the blank original. It never overwrites the blank
+original. The font is Anton (SIL OFL 1.1), committed at
+`assets/fonts/anton/Anton-Regular.ttf` with `OFL.txt`.
+
+Lettered outputs:
+- `assets/art/itch/banner_960x300_lettered.png`
+- `assets/art/itch/cover_630x500_lettered.png`
+- `assets/ui/woodcut/poster_regime_continuity_lettered.png`
+- `assets/ui/woodcut/poster_movement_unbroken_lettered.png`
+- `assets/ui/woodcut/report_frame_cn24_lettered.png`
+
+### Joint maps (`tools/joint_map.py`)
+
+For each A-pose sprite there is `assets/characters/<name>/joints_<view>.json`,
+24 in all: front and back for duff, mara, kesh, teodor, guard, operatives A-C and
+civilians A-C, plus fronts for guard_defector and visor_operative. They are
+measured by silhouette analysis:
+- **Head and neck:** head top, then the neck at the base of the neck (just
+  above where the shoulder line widens).
+- **Arms:** found from the arm-to-torso gaps. Each arm is traced to the hand.
+- **Shoulders:** inset from the deltoid by about half an arm width.
+- **Elbows:** halfway between shoulder and wrist, snapped to the arm's centre
+  line.
+- **Legs:** traced up from the feet to the crotch. Hips sit 0.05h above the
+  crotch, knees halfway between hip and ankle, ankles 0.045h above the sole,
+  and toes at the outermost sole pixel.
+
+Long coats (Teodor, Operative C) hide the crotch. For those, hips are set from
+proportions (0.49h), and the JSON `flags` field says so. Every map was checked
+by eye on `/workspace/art_preview/joints_overlay.png` (not committed;
+regenerate with `python3 tools/joint_map.py --overlay <png>`). Per-sprite
+nudges go in `OVERRIDES` in the script. None are needed yet.
+
+JSON layout:
+
+```json
+{"texture": "res://assets/characters/duff/duff_front.png", "tex_size": [606, 1024],
+ "src_size": [115.99, 196.0], "view": "front",
+ "j": {"head_top": [x, y], "neck": [...], "hip": [...], "shoulder_L": [...], "elbow_L": [...], "hand_L": [...],
+       "shoulder_R": ..., "elbow_R": ..., "hand_R": ..., "hip_L": ..., "knee_L": ..., "ankle_L": ..., "toe_L": ...,
+       "hip_R": ..., "knee_R": ..., "ankle_R": ..., "toe_R": ...},
+ "extra": {"wrist_L": ..., "wrist_R": ..., "armpit_L": ..., "armpit_R": ..., "crotch": ...},
+ "flags": [], "method": "..."}
+```
+
+These use the same keys and the same convention as `CutoutRig.DUFF`: `L`/`R`
+mean screen left/right in the art. The coordinates are in the rig's source
+space. Height is 196, as in the placeholder, and width is scaled by the same
+factor (`src_size = [W*196/H, 196]`). That works because `_build()` derives
+`s = tex.get_height() / src_size.y`, so the new sprites (about 116 wide, not
+72) need no other maths.
+
+**How a follow-up code PR would load them.** This PR does not change
+`cutout_rig.gd` or any scene. The follow-up would:
+
+1. Add `static func spec_from_json(path: String, faces_right: bool, gun_arm := "R") -> Dictionary`
+   to `CutoutRig`. It would read the file with
+   `JSON.parse_string(FileAccess.get_file_as_string(path))` and return the
+   current spec shape:
+   - `texture` and `src_size` (as a `Vector2`)
+   - `faces_right` and `gun_arm`
+   - `j`, with every `[x, y]` converted to `Vector2(x, y)`
+
+   It would ignore `extra` and `flags`.
+2. Build the characters with
+   `CutoutRig.create(CutoutRig.spec_from_json("res://assets/characters/duff/joints_front.json", <facing>))`,
+   using the back JSON for away-facing poses. Set `faces_right` for each
+   sprite after looking at it in engine: the 3/4 A-pose art is nearly frontal,
+   so the JSON doesn't claim a facing.
+3. Re-check `RADIUS` (capsule radii in source px). The new sprites are wider
+   for their height than the 72x196 placeholder, so the torso radius probably
+   wants to go from about 15 to 18-20. Check how bulky sprites like the guard
+   and Teodor split into body parts.
+4. Keep the drawn back views instead of flipping (see the identity packs'
+   laterality notes).
+
+Check the JSON keys against the `j` keys the rig reads. If the rig gains new
+joints, extend `ORDER` in `joint_map.py` and rerun it.
