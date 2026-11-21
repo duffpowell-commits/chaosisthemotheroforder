@@ -38,3 +38,30 @@ jobs:
 
       - name: Run -> mission -> run flow
         run: godot --headless --path . --script tools/mission_flow_check.gd
+
+  art-qa:
+    # Automated art checks (tools/art_qa.py): readable text via OCR, palette
+    # rules, sizes, sprite alpha and edges. Rules and logged exceptions are in
+    # tools/art_qa.json.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Tesseract and Python deps
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng
+          python -m pip install --quiet pillow numpy pytesseract
+
+      - name: Art QA self-test (catches synthetic text and off-palette art)
+        env:
+          ART_QA_REQUIRE_OCR: "1"
+        run: python tools/test_art_qa.py
+
+      - name: Art QA on the repo's art
+        run: python tools/art_qa.py --require-ocr

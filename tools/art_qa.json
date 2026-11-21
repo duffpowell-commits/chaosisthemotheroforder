@@ -1,0 +1,332 @@
+{
+  "_doc": "Rules for tools/art_qa.py. Palette limits are % of opaque pixels. Groups are matched in order; the first match wins. Put approved one-off exceptions in 'exceptions' with a reason instead of loosening a group.",
+  "ignore": [
+    "*_lettered.png",
+    "assets/characters/rigged/*",
+    "assets/characters/duff_front.png"
+  ],
+  "palette_defs": {
+    "red": {
+      "hue": [
+        345,
+        12
+      ],
+      "s_min": 0.5,
+      "v_min": 0.35
+    },
+    "maroon": {
+      "hue": [
+        345,
+        12
+      ],
+      "s_min": 0.35,
+      "v_min": 0.12,
+      "v_max": 0.35
+    },
+    "blue": {
+      "hue": [
+        195,
+        250
+      ],
+      "s_min": 0.35,
+      "v_min": 0.25
+    }
+  },
+  "ocr": {
+    "backgrounds": [
+      [
+        233,
+        224,
+        204
+      ],
+      [
+        200,
+        200,
+        200
+      ]
+    ],
+    "scales": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "psm": 11,
+    "min_len": 3,
+    "min_conf": 85,
+    "confirm_runs": 2,
+    "single_conf": 95,
+    "allow_tokens": [
+      "0417"
+    ]
+  },
+  "groups": [
+    {
+      "name": "sprite display copy (128 tall)",
+      "globs": [
+        "assets/characters/*/display/*.png"
+      ],
+      "size": {
+        "h": 128
+      },
+      "mode": [
+        "RGBA"
+      ],
+      "sprite": true,
+      "edge_alpha_max": 200,
+      "min_transparent": 0.3,
+      "ocr": false
+    },
+    {
+      "name": "regime sprite (never red)",
+      "globs": [
+        "assets/characters/guard/*.png",
+        "assets/characters/guard_defector/*.png"
+      ],
+      "size": {
+        "h": 1024
+      },
+      "mode": [
+        "RGBA"
+      ],
+      "sprite": true,
+      "edge_alpha_max": 16,
+      "palette": {
+        "red_max": 0.05,
+        "maroon_max": 0.1
+      }
+    },
+    {
+      "name": "civilian sprite (olive/brown, no red, no blue)",
+      "globs": [
+        "assets/characters/civilian_*/*.png"
+      ],
+      "size": {
+        "h": 1024
+      },
+      "mode": [
+        "RGBA"
+      ],
+      "sprite": true,
+      "edge_alpha_max": 16,
+      "palette": {
+        "red_max": 0.05,
+        "maroon_max": 0.25,
+        "blue_max": 0.1
+      }
+    },
+    {
+      "name": "movement sprite (one small red item)",
+      "globs": [
+        "assets/characters/duff/*.png",
+        "assets/characters/mara/*.png",
+        "assets/characters/kesh/*.png",
+        "assets/characters/teodor/*.png",
+        "assets/characters/operative_*/*.png",
+        "assets/characters/visor_operative/*.png"
+      ],
+      "size": {
+        "h": 1024
+      },
+      "mode": [
+        "RGBA"
+      ],
+      "sprite": true,
+      "edge_alpha_max": 16,
+      "palette": {
+        "red_max": 5.0,
+        "maroon_max": 4.0
+      }
+    },
+    {
+      "name": "portrait",
+      "globs": [
+        "assets/portraits/*.png"
+      ],
+      "size": {
+        "w": 768,
+        "h": 768
+      }
+    },
+    {
+      "name": "painted scene (red subtle, no maroon extras)",
+      "globs": [
+        "assets/art/stills/*.png",
+        "assets/art/endings/*.png",
+        "assets/ui/backdrop_*_painted.png",
+        "assets/ui/backdrop_signal_box.png"
+      ],
+      "size": {
+        "w": 1280,
+        "h": 720
+      },
+      "palette": {
+        "red_max": 2.0,
+        "maroon_max": 1.5
+      }
+    },
+    {
+      "name": "regime woodcut (blue-grey, no red)",
+      "globs": [
+        "assets/ui/woodcut/poster_regime_continuity.png",
+        "assets/ui/woodcut/report_frame_cn24.png",
+        "assets/ui/woodcut/opening_dormitory_raid.png"
+      ],
+      "palette": {
+        "red_max": 0.02,
+        "maroon_max": 0.02
+      }
+    },
+    {
+      "name": "movement woodcut 16:9 (red, no blue)",
+      "globs": [
+        "assets/ui/woodcut/title.png",
+        "assets/ui/woodcut/report_frame_unbroken.png"
+      ],
+      "size": {
+        "w": 1280,
+        "h": 720
+      },
+      "palette": {
+        "blue_max": 0.02
+      }
+    },
+    {
+      "name": "movement poster (red, no blue)",
+      "globs": [
+        "assets/ui/woodcut/poster_movement_unbroken.png"
+      ],
+      "size": {
+        "w": 768,
+        "h": 1024
+      },
+      "palette": {
+        "blue_max": 0.02
+      }
+    },
+    {
+      "name": "woodcut stamp (red, no blue)",
+      "globs": [
+        "assets/ui/woodcut/stamp_*.png"
+      ],
+      "size": {
+        "w": 1024,
+        "h": 1024
+      },
+      "palette": {
+        "blue_max": 0.02
+      }
+    },
+    {
+      "name": "woodcut icon display (128 sq)",
+      "globs": [
+        "assets/ui/woodcut/icons/display/*.png"
+      ],
+      "size": {
+        "w": 128,
+        "h": 128
+      },
+      "palette": {
+        "blue_max": 0.05
+      },
+      "ocr": false
+    },
+    {
+      "name": "woodcut icon (red, no blue)",
+      "globs": [
+        "assets/ui/woodcut/icons/*.png"
+      ],
+      "size": {
+        "w": 1024,
+        "h": 1024
+      },
+      "palette": {
+        "blue_max": 0.02
+      }
+    },
+    {
+      "name": "itch cover",
+      "globs": [
+        "assets/art/itch/cover_630x500.png"
+      ],
+      "size": {
+        "w": 630,
+        "h": 500
+      },
+      "palette": {
+        "blue_max": 0.02
+      }
+    },
+    {
+      "name": "itch banner",
+      "globs": [
+        "assets/art/itch/banner_960x300.png"
+      ],
+      "size": {
+        "w": 960,
+        "h": 300
+      },
+      "palette": {
+        "blue_max": 0.02
+      }
+    },
+    {
+      "name": "style anchor crop",
+      "globs": [
+        "assets/art/source/style_anchor_*.png"
+      ],
+      "palette": {
+        "red_max": 0.05
+      }
+    }
+  ],
+  "exceptions": {
+    "assets/art/endings/district_turns.png": {
+      "palette": {
+        "maroon_max": 3.0
+      },
+      "reason": "Approved Nov 14: red tablecloth in shadow plus a few tiny maroon-ish background figures (logged in art-notes section 12)."
+    },
+    "assets/characters/operative_a/operative_a_back.png": {
+      "palette": {
+        "maroon_max": 7.5
+      },
+      "reason": "Approved: the long red knit scarf hangs down her back and its shadow side reads as maroon; it is her one movement item."
+    },
+    "assets/characters/duff/duff_front.png": {
+      "skip": [
+        "edge"
+      ],
+      "reason": "Approved sprite: boot soles sit on the bottom edge of the source image, so the cut has no bottom padding. Boots are complete."
+    },
+    "assets/characters/duff/display/duff_front.png": {
+      "skip": [
+        "edge"
+      ],
+      "reason": "Display copy of duff_front (soles on the bottom edge)."
+    },
+    "assets/characters/civilian_c/civilian_c_front.png": {
+      "skip": [
+        "edge"
+      ],
+      "reason": "Approved sprite: boot soles on the bottom edge of the source image; boots are complete."
+    },
+    "assets/characters/civilian_c/display/civilian_c_front.png": {
+      "skip": [
+        "edge"
+      ],
+      "reason": "Display copy of civilian_c_front (soles on the bottom edge)."
+    },
+    "assets/characters/operative_a/operative_a_front.png": {
+      "skip": [
+        "edge"
+      ],
+      "reason": "Approved sprite: boot soles on the bottom edge of the source image; boots are complete."
+    },
+    "assets/characters/operative_a/display/operative_a_front.png": {
+      "skip": [
+        "edge"
+      ],
+      "reason": "Display copy of operative_a_front (soles on the bottom edge)."
+    }
+  }
+}
