@@ -20,7 +20,7 @@ jobs:
           mv Godot_v4.5-stable_linux.x86_64 /usr/local/bin/godot
 
       - name: Import assets
-        run: godot --headless --path . --import || true
+        run: godot --headless --path . --import
 
       - name: Parse every script
         # A parse error makes a scene hang instead of failing, so check them all.
