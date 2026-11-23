@@ -41,6 +41,38 @@ const DUFF_BACK := {
 	},
 }
 
+const MARA := {
+	"texture": "res://assets/characters/mara/display/mara_front.png",
+	"src_size": Vector2(77, 128),
+	"faces_right": false,
+	"fixed_facing": true,
+	"gun_arm": "L",
+	"j": {
+		"head_top": Vector2(33, 3), "neck": Vector2(38, 23), "hip": Vector2(37, 61),
+		"shoulder_L": Vector2(23, 28), "elbow_L": Vector2(13, 47), "hand_L": Vector2(2, 65),
+		"shoulder_R": Vector2(54, 29), "elbow_R": Vector2(65, 49), "hand_R": Vector2(74, 65),
+		"hip_L": Vector2(29, 67), "knee_L": Vector2(27, 90), "ankle_L": Vector2(25, 111),
+		"toe_L": Vector2(18, 120), "hip_R": Vector2(44, 68), "knee_R": Vector2(47, 91),
+		"ankle_R": Vector2(47, 116), "toe_R": Vector2(45, 125),
+	},
+}
+
+const MARA_BACK := {
+	"texture": "res://assets/characters/mara/display/mara_back.png",
+	"src_size": Vector2(71, 128),
+	"faces_right": false,
+	"fixed_facing": true,
+	"gun_arm": "L",
+	"j": {
+		"head_top": Vector2(35, 3), "neck": Vector2(34, 22), "hip": Vector2(36, 61),
+		"shoulder_L": Vector2(23, 29), "elbow_L": Vector2(13, 49), "hand_L": Vector2(3, 66),
+		"shoulder_R": Vector2(48, 27), "elbow_R": Vector2(59, 47), "hand_R": Vector2(69, 66),
+		"hip_L": Vector2(28, 68), "knee_L": Vector2(27, 92), "ankle_L": Vector2(25, 113),
+		"toe_L": Vector2(17, 121), "hip_R": Vector2(44, 69), "knee_R": Vector2(45, 92),
+		"ankle_R": Vector2(48, 117), "toe_R": Vector2(46, 125),
+	},
+}
+
 const GUARD := {
 	"texture": "res://assets/characters/guard/display/guard_front.png",
 	"src_size": Vector2(74, 128),

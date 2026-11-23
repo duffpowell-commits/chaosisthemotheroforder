@@ -1556,6 +1556,16 @@ func _rig_spec(u) -> Dictionary:
 		return CutoutRig.GUARD
 	if u.is_you or u.name == "You":
 		return CutoutRig.DUFF
+	if u.name == "Mara":
+		return CutoutRig.MARA
+	return {}
+
+
+func _authored_rear_spec(front_spec: Dictionary) -> Dictionary:
+	if front_spec == CutoutRig.DUFF:
+		return CutoutRig.DUFF_BACK
+	if front_spec == CutoutRig.MARA:
+		return CutoutRig.MARA_BACK
 	return {}
 
 
@@ -1576,13 +1586,15 @@ func _update_rigs() -> void:
 		var seen: Array = rig_seen.get(u, [feet, u.hp])
 		var movement: Vector3 = feet - seen[0]
 		var moving := movement.length_squared() > 0.0005 * 0.0005
-		if spec == CutoutRig.DUFF and rigs.has(u):
+		var rear_spec := _authored_rear_spec(spec)
+		if not rear_spec.is_empty() and rigs.has(u):
 			var current: CutoutRig = rigs[u]
+			var front_spec := spec
 			spec = current.spec
 			if moving and u.alive() and u.hp >= seen[1] and current.state in ["idle", "walk"]:
 				var depth := movement.dot(cam.global_transform.basis.z)
 				if absf(depth) > movement.length() * 0.15:
-					spec = CutoutRig.DUFF_BACK if depth < 0.0 else CutoutRig.DUFF
+					spec = rear_spec if depth < 0.0 else front_spec
 		if rigs.has(u) and rigs[u].spec.texture != spec.texture:
 			rig_root.remove_child(rig_clips[u])
 			rig_root.remove_child(ghost_clips[u])
