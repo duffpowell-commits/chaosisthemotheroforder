@@ -113,6 +113,23 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   `docs/style-guide.md` (§6, §9). Docs only; build them in J2/J3 when Chaos unpauses.
   Review doc: https://claude.ai/artifact/RhQ9RR5c2SFYzpTxzVwFYM
 - **Grok art merged (Nov 15)** from `art/rail-yards-slice`: sprites (A-pose fronts/backs + 128 px `display/`), cold/warm portraits, woodcut UI/stamps/icons, stills, endings, itch cover/banner. Notes + known issues: `docs/art-notes.md`. Review verdict: woodcut set and portraits are ship-quality; sprites usable as cutout sources but dark (test under the grade, movement red is only a bandana); painted stills/backdrops/endings are muddy and the weakest set (redo before use, except the kid's wall). Source masters are excluded from export.
+- **Beauty test (Nov 15):** Duff doubted Godot can look gorgeous (asked about Unity/Unreal). `-- --capture-beauty --out <dir>` puts Grok's sprites (256 px, billboard Sprite3D) on the Signal Box with corrugated-steel containers, tilt-shift DOF, more glow and a lighter grade. Needs the Mobile renderer, not opengl3: in the sandbox `apt-get install mesa-vulkan-drivers`, then `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --rendering-driver vulkan --rendering-method mobile --resolution 1920x1080 res://scenes/tactical.tscn -- --capture-beauty`. Renders: `docs/renders/beauty/`. Finding: sprites sit well in the 3D street; what still looks cheap is greybox set dressing (flat container tops, walkway deck), not the engine.
+- **3D characters (Duff, Nov 15-16): "lets go 3d and we'll do our own image to 3d".** Free open-source
+  image-to-3D, no paid services without his OK. `tools/image_to_3d.py <name>` sends the A-pose front/back
+  (`/mnt/project-files/chaos-art/to-3d/`) to the Hunyuan3D-2 Space and writes `assets/characters/3d/<name>.glb`.
+  All such Spaces are ZeroGPU: anonymous cloud calls get zero quota, so it needs env `HF_TOKEN` (free account).
+  Check a model in the look: add `--glb <file>` to the beauty command (renders `5_glb_regime.png` +
+  `6_glb_closeup.png` with the model beside Duff's sprite; `--glb-yaw <deg>` fixes its facing).
+  **CPU fallback, no accounts (Nov 16):** `tools/to3d/cpu_shape.py <name>` runs Hunyuan3D-2mv-turbo shape on the
+  sandbox CPU (pip `hy3dgen==2.0.2`, `transformers==4.49.0`, `diffusers==0.31.0`, torch CPU; ~10 min, ~14 GB peak,
+  so skip rembg: the art is already on white). `tools/to3d/project_colors.py <name>` colours it by projecting the
+  front/back art (vertex colours; the art's light halo must be eroded off or sides go white). Shape is good; face and
+  shoulders smear. Renders `docs/renders/beauty/7_cpu3d_*.jpg`. Real textures need a GPU (Kaggle/HF).
+  Also pip `torchvision` (CPU wheel) or hy3dgen fails to import.
+  **Whole cast done on CPU (Nov 16):** all 13 GLBs (`<name>_cpu.glb`, ~15-23 MB each, vertex colours, not in git)
+  live in project files `chaos-art/3d/`; contact sheet `docs/renders/beauty/9_cast_cpu3d.jpg`. `visor_operative` and
+  `guard_defector` have front art only: their backs are the mirrored front (wrong for the defector's helmet-off back;
+  redo when a back drawing exists). Next: rigging (free auto-rig, not Mixamo's manual upload).
 - Duff's calls (Nov 6): Signal Box slightly less brutal (done: broadcast freezes
   guards 1 turn); the fight carries on when You fall (already true); **save mid-fight:
   yes** (build it in J2 with the saves work). Combat should play like **XCOM meets
