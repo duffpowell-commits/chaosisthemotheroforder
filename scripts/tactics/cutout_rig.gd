@@ -7,19 +7,67 @@ extends Node2D
 ## Origin = between the feet. The rig is drawn in 2D above the street grade, so
 ## it keeps its colour; the tactical scene places, scales and clips it.
 
-## Joints in source-art pixels (the Canva cut-out, 72x196). "L"/"R" are screen
-## left/right in the art, which faces screen right.
+## Joints measured in the 128 px display art. L/R refer to screen sides.
 const DUFF := {
-	"texture": "res://assets/characters/duff_front.png",
-	"src_size": Vector2(72, 196),
+	"texture": "res://assets/characters/duff/display/duff_front.png",
+	"src_size": Vector2(76, 128),
+	"faces_right": false,
+	"fixed_facing": true,
+	"gun_arm": "L",
+	"j": {
+		"head_top": Vector2(34, 2), "neck": Vector2(35, 24), "hip": Vector2(36, 61),
+		"shoulder_L": Vector2(22, 28), "elbow_L": Vector2(14, 46), "hand_L": Vector2(2, 64),
+		"shoulder_R": Vector2(53, 28), "elbow_R": Vector2(63, 47), "hand_R": Vector2(74, 65),
+		"hip_L": Vector2(28, 67), "knee_L": Vector2(27, 88), "ankle_L": Vector2(25, 110),
+		"toe_L": Vector2(18, 121), "hip_R": Vector2(43, 68), "knee_R": Vector2(48, 92),
+		"ankle_R": Vector2(48, 119), "toe_R": Vector2(45, 126),
+	},
+}
+
+# Use the authored rear art so Duff's tattoos stay on the correct arms.
+const DUFF_BACK := {
+	"texture": "res://assets/characters/duff/display/duff_back.png",
+	"src_size": Vector2(75, 128),
 	"faces_right": true,
+	"fixed_facing": true,
 	"gun_arm": "R",
 	"j": {
-		"head_top": Vector2(39, 2), "neck": Vector2(40, 33), "hip": Vector2(38, 90),
-		"shoulder_L": Vector2(15, 49), "elbow_L": Vector2(9, 77), "hand_L": Vector2(10, 106),
-		"shoulder_R": Vector2(60, 52), "elbow_R": Vector2(64, 79), "hand_R": Vector2(61, 107),
-		"hip_L": Vector2(27, 94), "knee_L": Vector2(23, 136), "ankle_L": Vector2(19, 172), "toe_L": Vector2(9, 192),
-		"hip_R": Vector2(50, 94), "knee_R": Vector2(52, 138), "ankle_R": Vector2(60, 174), "toe_R": Vector2(63, 194),
+		"head_top": Vector2(36, 2), "neck": Vector2(36, 23), "hip": Vector2(35, 61),
+		"shoulder_L": Vector2(21, 29), "elbow_L": Vector2(13, 46), "hand_L": Vector2(3, 64),
+		"shoulder_R": Vector2(49, 29), "elbow_R": Vector2(59, 47), "hand_R": Vector2(72, 66),
+		"hip_L": Vector2(29, 68), "knee_L": Vector2(24, 91), "ankle_L": Vector2(25, 115),
+		"toe_L": Vector2(31, 122), "hip_R": Vector2(42, 68), "knee_R": Vector2(43, 93),
+		"ankle_R": Vector2(44, 118), "toe_R": Vector2(53, 124),
+	},
+}
+
+const GUARD := {
+	"texture": "res://assets/characters/guard/display/guard_front.png",
+	"src_size": Vector2(74, 128),
+	"faces_right": false,
+	"gun_arm": "L",
+	"j": {
+		"head_top": Vector2(35, 2), "neck": Vector2(36, 24), "hip": Vector2(35, 61),
+		"shoulder_L": Vector2(23, 28), "elbow_L": Vector2(15, 49), "hand_L": Vector2(3, 65),
+		"shoulder_R": Vector2(52, 28), "elbow_R": Vector2(63, 48), "hand_R": Vector2(72, 66),
+		"hip_L": Vector2(28, 68), "knee_L": Vector2(27, 92), "ankle_L": Vector2(25, 113),
+		"toe_L": Vector2(17, 120), "hip_R": Vector2(43, 68), "knee_R": Vector2(46, 92),
+		"ankle_R": Vector2(48, 119), "toe_R": Vector2(46, 126),
+	},
+}
+
+const DEFECTOR := {
+	"texture": "res://assets/characters/guard_defector/display/guard_defector_front.png",
+	"src_size": Vector2(75, 128),
+	"faces_right": false,
+	"gun_arm": "L",
+	"j": {
+		"head_top": Vector2(34, 2), "neck": Vector2(35, 24), "hip": Vector2(36, 61),
+		"shoulder_L": Vector2(22, 28), "elbow_L": Vector2(13, 47), "hand_L": Vector2(2, 65),
+		"shoulder_R": Vector2(53, 28), "elbow_R": Vector2(64, 47), "hand_R": Vector2(73, 66),
+		"hip_L": Vector2(29, 68), "knee_L": Vector2(27, 92), "ankle_L": Vector2(25, 113),
+		"toe_L": Vector2(17, 120), "hip_R": Vector2(44, 68), "knee_R": Vector2(46, 92),
+		"ankle_R": Vector2(49, 119), "toe_R": Vector2(47, 126),
 	},
 }
 
@@ -88,6 +136,8 @@ func play(anim: String) -> void:
 
 
 func face(right: bool) -> void:
+	if spec.get("fixed_facing", false):
+		return
 	facing_right = right
 	var flip := right != bool(spec.faces_right)
 	scale.x = -absf(scale.x) if flip else absf(scale.x)
@@ -199,7 +249,7 @@ func _nearest_seg(p: Vector2) -> String:
 	var best := ""
 	var bd := INF
 	for sg in segs:
-		var d: float = _seg_dist(p, segs[sg][0], segs[sg][1]) - RADIUS[sg] * s
+		var d: float = _seg_dist(p, segs[sg][0], segs[sg][1]) - (RADIUS[sg] * height_px() / 196.0) * s
 		if d < bd:
 			bd = d
 			best = sg
@@ -252,7 +302,7 @@ func _make_part(part: String, part_cells: Array, part_bones: Array, origin: Vect
 		var raw := {}
 		for b in part_bones:
 			var sg: String = seg_of.get(b, b)
-			var d: float = maxf(_seg_dist(verts[i], segs[sg][0], segs[sg][1]) - RADIUS[sg] * s, 0.0)
+			var d: float = maxf(_seg_dist(verts[i], segs[sg][0], segs[sg][1]) - (RADIUS[sg] * height_px() / 196.0) * s, 0.0)
 			var wgt := 1.0 / pow(d + 1.0, 4.0)
 			if b == "hip" and part == "body":
 				wgt *= 0.0001 if verts[i].y < segs.spine[0].y - 6.0 * s else 1.0
@@ -392,3 +442,9 @@ func _pose(anim: String, at: float) -> void:
 			body_root.rotation = -1.48 * e
 			body_root.scale = Vector2.ONE * lerpf(1.0, 0.55, e)
 			body_root.position = Vector2(0.28 * height_px() * e, 0.0)
+	if not spec.faces_right:
+		for bone in bones.values():
+			bone.rotation = -bone.rotation
+		bones.hip.position.x = 2.0 * bones.hip.rest.origin.x - bones.hip.position.x
+		body_root.rotation = -body_root.rotation
+		body_root.position.x = -body_root.position.x

@@ -1548,9 +1548,15 @@ func _capture_sprite_sizes() -> void:
 
 # ---------- HD-2D cutout characters ----------
 
-## Which units have a cutout yet (the rest keep their 3D rigs for now).
+## Units without calibrated sprite joints still use their 3D models.
 func _rig_spec(u) -> Dictionary:
-	return CutoutRig.DUFF if u.side == Battle.US and (u.is_you or u.name == "You") else {}
+	if u.defected:
+		return CutoutRig.DEFECTOR
+	if u.side == Battle.REGIME:
+		return CutoutRig.GUARD
+	if u.is_you or u.name == "You":
+		return CutoutRig.DUFF
+	return {}
 
 
 ## Keep every cutout on its unit: placed at the feet, sized to a 1.8 m body at
@@ -1562,26 +1568,42 @@ func _update_rigs() -> void:
 	var cam_up := cam.global_transform.basis.y
 	_hulls_frame = -1  # wall outlines are rebuilt once, on first use this frame
 	for u in battle.units:
-		if not unit_nodes.has(u) or _rig_spec(u).is_empty():
+		var spec := _rig_spec(u)
+		if not unit_nodes.has(u) or spec.is_empty():
 			continue
 		var n: Node3D = unit_nodes[u]
+		var feet := n.global_position
+		var seen: Array = rig_seen.get(u, [feet, u.hp])
+		var movement: Vector3 = feet - seen[0]
+		var moving := movement.length_squared() > 0.0005 * 0.0005
+		if spec == CutoutRig.DUFF and rigs.has(u):
+			var current: CutoutRig = rigs[u]
+			spec = current.spec
+			if moving and u.alive() and u.hp >= seen[1] and current.state in ["idle", "walk"]:
+				var depth := movement.dot(cam.global_transform.basis.z)
+				if absf(depth) > movement.length() * 0.15:
+					spec = CutoutRig.DUFF_BACK if depth < 0.0 else CutoutRig.DUFF
+		if rigs.has(u) and rigs[u].spec.texture != spec.texture:
+			rig_root.remove_child(rig_clips[u])
+			rig_root.remove_child(ghost_clips[u])
+			rig_clips[u].queue_free()
+			ghost_clips[u].queue_free()
+			rigs.erase(u)
 		if not rigs.has(u):
-			_attach_rig(u, n)
+			_attach_rig(u, n, spec)
 		var rig: CutoutRig = rigs[u]
 		var clip: Node2D = rig_clips[u]
 		var ghost: CutoutRig = rig_ghosts[u]
 		clip.visible = n.visible
+		ghost_clips[u].visible = n.visible
 		ghost.visible = n.visible  # downed bodies behind cover still show as a silhouette
 		if not n.visible:
 			continue
-		var feet := n.global_position
 		var a := cam.unproject_position(feet)
 		var b := cam.unproject_position(feet + cam_up * 1.8)
 		var k := a.distance_to(b) / rig.height_px()
 		rig.position = a
 		rig.scale = Vector2(-k if rig.scale.x < 0 else k, k)
-		var seen: Array = rig_seen.get(u, [feet, u.hp])
-		var moving := feet.distance_to(seen[0]) > 0.0005
 		if not u.alive():
 			rig.play("down")
 		elif u.hp < seen[1]:
@@ -1602,14 +1624,21 @@ func _update_rigs() -> void:
 		ghost_clips[u].queue_redraw()
 		clip.set_meta("unit", u)
 		clip.queue_redraw()
+	var ordered := rigs.keys()
+	ordered.sort_custom(func(a, b):
+		return cam.to_local(unit_nodes[a].global_position).z < cam.to_local(unit_nodes[b].global_position).z)
+	for index in ordered.size():
+		var u = ordered[index]
+		rig_root.move_child(ghost_clips[u], index * 2)
+		rig_root.move_child(rig_clips[u], index * 2 + 1)
 
 
-func _attach_rig(u, n: Node3D) -> void:
+func _attach_rig(u, n: Node3D, spec: Dictionary) -> void:
 	# The 3D node stays (tweens, tags and rings follow it); only its meshes hide.
 	for vi: VisualInstance3D in n.find_children("*", "VisualInstance3D", true, false):
 		vi.visible = false
-	var rig := CutoutRig.create(_rig_spec(u))
-	var ghost := CutoutRig.silhouette(rig, Color(C_RING_US, 0.5))
+	var rig := CutoutRig.create(spec)
+	var ghost := CutoutRig.silhouette(rig, Color(C_RING_US if u.side == Battle.US else C_RING_REGIME, 0.5))
 	var gclip := Node2D.new()
 	gclip.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
 	gclip.draw.connect(_draw_ghost_clip.bind(gclip))
@@ -1664,6 +1693,7 @@ func _draw_rig_clip(clip: Node2D) -> void:
 	var hw := rig.height_px() * absf(rig.scale.y) * 0.9
 	var box := PackedVector2Array([rig.position + Vector2(-hw, -hw * 1.2), rig.position + Vector2(hw, -hw * 1.2),
 		rig.position + Vector2(hw, hw * 0.35), rig.position + Vector2(-hw, hw * 0.35)])
+	clip.draw_rect(Rect2(-10, -10, 1, 1), Color.WHITE)
 	var visible_parts: Array = [box]
 	var uz: float = unit_nodes[u].global_position.z
 	var box_rect := Rect2(box[0], box[2] - box[0])
