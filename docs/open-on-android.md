@@ -8,4 +8,4 @@
 5. Tap **Run** (the play button, top right).
 6. Play a run: give operatives jobs, end the week, talk to Teodor, read the report. (The street render test is `scenes/render_test.tscn`.)
 
-The project uses Godot 4.5 and the Mobile renderer.
+The project uses Godot 4.7.2 and the Mobile renderer.
