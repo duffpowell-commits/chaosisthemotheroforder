@@ -3,7 +3,7 @@
 > **PAUSED (Nov 7, Duff's call):** Lethemoor is the active game now (own repo). Don't start J2 here
 > unless Duff says Chaos is back on. See `QUEUE.md`.
 
-Grim Godot 4.5 strategy-RPG about organizing a revolution against a modern
+Grim Godot 4.7.2 strategy-RPG about organizing a revolution against a modern
 police state. Owner: Duff. Read this first; it is the handoff between sessions.
 
 ## Where things stand
@@ -146,8 +146,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   then `python3 tools/make_gif.py /tmp/autoplay docs/renders/autoplay_quiet.gif`. Exits 1 if it stalls.
   Run it after any change to the tactical scene and look at the frames before pushing.
 - Web export: `godot --headless --path . --export-release "Web" build/web/index.html`
-  (templates: 4.5-stable `web_nothreads_release.zip` into
-  `~/.local/share/godot/export_templates/4.5.stable/`). Local check: serve `build/web`
+  (templates: 4.7.2-stable `web_nothreads_release.zip` into
+  `~/.local/share/godot/export_templates/4.7.2.stable/`). Local check: serve `build/web`
   and drive Chrome with playwright (`--use-angle=swiftshader`); see J1 notes in todo.md.
   Web gives Godot no system fonts: symbols come from `assets/fonts/symbols_dejavu.ttf`
   (autoload `scripts/fonts.gd`). Game files must not live in `docs/` (excluded from export).
@@ -156,7 +156,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   minutes, the repo is private). Open a PR to get CI on a branch. Check the result with `gh run list -L 3` before calling a milestone done.
 - Sprite bake: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake`
   then `python3 tools/compose_sprites.py /tmp/bake docs/renders/sprites`
-- In the cloud sandbox Godot isn't installed: download the 4.5-stable Linux zip
+- In the cloud sandbox Godot isn't installed: download the 4.7.2-stable Linux zip
   from github.com/godotengine/godot/releases with curl (not `gh`).
 
 ## House rules
