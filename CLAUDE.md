@@ -43,8 +43,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   death, crouch_walk, injured_walk, sneak) in `assets/characters/meshy/clips/*.res`, made by
   `tools/extract_meshy_clips.gd` from GLBs kept in project files `chaos-art/meshy/clips_src/`.
   `_meshy_person` (render_test.gd) builds a body; `_update_bodies` (tactical.gd) picks its clip.
-  Readability: matte materials + slight glow, a unit-only key light (`UNIT_LAYER`, `UNIT_KEY`),
-  tactical grade keeps 30% colour (`GRADE_SAT`), tile fills thin under bodies. Spent 166 Meshy
+  Readability: matte materials + slight glow, a warm side key light on units only (`UNIT_LAYER`,
+  `UNIT_KEY`, `UNIT_KEY_YAW`), tactical grade keeps 60% colour (`GRADE_SAT`), tile fills thin under bodies,
+  camera frames the selected unit + allies within 3 + guards within 4 (`FRAME_*_RANGE`, zoom to 0.5x). Spent 166 Meshy
   credits (balance 2,113). Renders: `docs/renders/cast/`. The street scene still uses MakeHuman crowds.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;

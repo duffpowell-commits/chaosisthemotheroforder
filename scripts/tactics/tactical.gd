@@ -1933,7 +1933,10 @@ func _update_bodies() -> void:
 			want = "c/hit"
 		if want != "c/shoot":
 			body.rotation.y = PI
-		if ap.current_animation != want:
+		# One-shot clips (death, shoot) end with current_animation == "": compare the assigned
+		# clip too, or a dead body gets up and falls again every clip length (fresh-eyes, Nov 25).
+		var once := want == "c/death" or want == "c/shoot"
+		if ap.current_animation != want and not (once and ap.assigned_animation == want):
 			ap.play(want, 0.15)
 			if want == "c/shoot":
 				ap.seek(SHOOT_FROM, true)
