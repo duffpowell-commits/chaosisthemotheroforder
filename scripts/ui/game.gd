@@ -3,6 +3,7 @@ extends Control
 ## scenes, weekly report, ending. Built in code from the M1 rules; phone-first (big touch targets,
 ## nothing on hover). Run with `-- --shots` to save screenshots of each screen.
 
+const Config = preload("res://scripts/config.gd")
 const RunState = preload("res://scripts/sim/run_state.gd")
 const Rules = preload("res://scripts/sim/rules.gd")
 const Policies = preload("res://scripts/sim/policies.gd")
@@ -87,6 +88,8 @@ func show_title() -> void:
 		row.add_child(_button("Continue", _continue_run, 220))
 	# M4 test entry; the Signal Box mission (M5) launches it from the run instead.
 	row.add_child(_button("Skirmish", func(): get_tree().change_scene_to_file("res://scenes/tactical.tscn"), 220))
+	box.add_child(_spacer(8))
+	box.add_child(_label(Config.version_label(), 18, C_MUTED))
 
 
 func show_district() -> void:

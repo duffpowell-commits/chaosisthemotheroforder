@@ -34,6 +34,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (`EXTRA_GUARDS`, `GUARD_ROUTES[4]`): 3 v 4 quiet gets out 64%, airs 83%, close 83%.
   `--capture-tools` renders each tool (`docs/renders/tools_*.png`).
 - Next: **J2 = M6** (endings, saves incl. mid-fight, Android pass).
+- **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
+  `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
+  on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
+  (`scripts/updater.gd` autoload, never offers during the Tactical scene), version on the title
+  (`scripts/config.gd`). Signing: the keystone via `signing/unlock.sh` (fetched from the starter);
+  until Duff adds the `KEYSTONE_PASS` secret here, CI signs with a throwaway key and warns.
+  Off-phone updater check render: `docs/renders/updater_offer.png`.
 - J1.5 review leftovers: tool results scroll out of the 2-line log (banner, J3); 5th guard
   always on vs only once a tool is used (Duff); defector still named "Guard N", ✦ unexplained.
 - **End of every milestone:** run autoplay, the tension numbers, and an independent
@@ -151,9 +158,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   and drive Chrome with playwright (`--use-angle=swiftshader`); see J1 notes in todo.md.
   Web gives Godot no system fonts: symbols come from `assets/fonts/symbols_dejavu.ttf`
   (autoload `scripts/fonts.gd`). Game files must not live in `docs/` (excluded from export).
-- CI: `.github/workflows/tests.yml` parses every script and runs the tests + flow check on
-  pushes to `main` and on PRs (not plain branch pushes or docs/*.md-only changes: saves Actions
-  minutes, the repo is private). Open a PR to get CI on a branch. Check the result with `gh run list -L 3` before calling a milestone done.
+- CI: `.github/workflows/build.yml` parses every script, runs the tests + flow check and builds
+  the Android APK on pushes to `main` and on PRs (not plain branch pushes or docs/*.md-only changes:
+  saves Actions minutes, the repo is private). Main publishes the APK to the `dev` release. Open a PR to get CI on a branch. Check the result with `gh run list -L 3` before calling a milestone done.
 - Sprite bake: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/sprite_bake.tscn -- --out /tmp/bake`
   then `python3 tools/compose_sprites.py /tmp/bake docs/renders/sprites`
 - In the cloud sandbox Godot isn't installed: download the 4.7.2-stable Linux zip
