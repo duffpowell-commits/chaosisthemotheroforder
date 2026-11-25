@@ -1418,7 +1418,9 @@ func _place(u, p: Vector2i) -> void:
 # "watch" a run: frames -> GIF with tools/make_gif.py, log -> log.txt.
 # Fails loudly (exit 1) if the mission stalls past MAX_AUTO_TURNS.
 
-const MissionSim = preload("res://tools/mission_sim.gd")
+## Loaded only when autoplay runs: tools/ is excluded from the Android export, and a const
+## preload of it broke this whole scene on the phone (Nov 25 fresh-eyes review).
+const MISSION_SIM_PATH := "res://tools/mission_sim.gd"
 const MAX_AUTO_TURNS := 30
 
 
@@ -1437,7 +1439,7 @@ func _autoplay(loud: bool, out: String) -> void:
 			if battle.is_over():
 				break
 			selected = u
-			MissionSim.act(battle, u, loud)
+			load(MISSION_SIM_PATH).act(battle, u, loud)
 			await _sync_nodes()
 			n = await _auto_frame(out, n)
 		if battle.is_over():

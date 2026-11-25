@@ -710,6 +710,7 @@ func _capture_portraits() -> void:
 		img = img.get_region(Rect2i((img.get_width() - side) / 2, (img.get_height() - side) / 2, side, side))
 		img.resize(512, 512, Image.INTERPOLATE_LANCZOS)
 		img.save_png("res://docs/renders/portrait_%s.png" % c[0])
+		img.save_png("res://assets/portraits/%s_dialogue.png" % c[0])   # the copy that ships
 		print("saved portrait ", c[0])
 		who.queue_free()
 	get_tree().quit()

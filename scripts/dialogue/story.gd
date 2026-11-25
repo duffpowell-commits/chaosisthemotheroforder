@@ -11,11 +11,12 @@ const SCRIPT_PATH := "res://dialogue/teodor.dlg"
 ## Every scene the game can start directly.
 const ALL_NODES := ["meet", "talk", "confess", "strike", "confess_stayed", "confess_left", "found_out", "betrayal"]
 
-## Who appears in a scene's portrait, by speaker name.
+## Who appears in a scene's portrait, by speaker name. In assets/, not docs/: docs/ is
+## excluded from every export, so portraits there never shipped (Nov 25 review).
 const PORTRAITS := {
-	"TEODOR": "res://docs/renders/portrait_teodor.png",
-	"MARA": "res://docs/renders/portrait_mara.png",
-	"KESH": "res://docs/renders/portrait_kesh.png",
+	"TEODOR": "res://assets/portraits/teodor_dialogue.png",
+	"MARA": "res://assets/portraits/mara_dialogue.png",
+	"KESH": "res://assets/portraits/kesh_dialogue.png",
 }
 
 static var _cache := {}
