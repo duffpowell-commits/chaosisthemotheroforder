@@ -42,6 +42,12 @@ const ACTION_ICONS := {
 const DOSSIER := "res://assets/ui/dossier/%s.png"
 const INK_SHADER := preload("res://shaders/ui_ink_stamp.gdshader")
 const ROUND_SHADER := preload("res://shaders/ui_round_icon.gdshader")
+const OP_FACES := {
+	"You": "res://assets/portraits/duff_neutral_warm.png",
+	"Mara": "res://assets/portraits/mara_calm_warm.png",
+	"Kesh": "res://assets/portraits/kesh_suspicious_warm.png",
+	"Teodor": "res://assets/portraits/teodor_guarded_warm.png",
+}
 const TEODOR_FACE := "res://assets/portraits/teodor_guarded_warm.png"
 const STORY_ACTIONS := ["see_teodor", "strike", "confess"]
 const RISKY_ACTIONS := ["scavenge", "diversion", "signal_box", "rally", "seize"]
@@ -417,16 +423,27 @@ func _pick_action(op: int) -> void:
 		cash_left -= int(Rules.ACTIONS[pa].cash)
 		sup_left -= int(Rules.ACTIONS[pa].supplies)
 	# Header: the red week stamp, who it's for, and Cancel (no row lost at the bottom).
+	# Case-file header: the operative's photo taped on, the week stamp, a typed
+	# file line, a faded CONFIDENTIAL stamp, and CLOSE.
 	var head := _hbox(16)
 	list.add_child(head)
-	head.add_child(_stamp("WEEK %d · ORDERS" % s.week, C_STAMP, 30, -3.0))
-	var for_lbl := _label("for " + ("you" if who.is_you else who.name), 24, C_INK)
+	var face: String = OP_FACES.get(who.name, "")
+	if face != "":
+		head.add_child(_polaroid(load(face), Vector2(62, 62), -4.0))
+	var titles := _vbox(0)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(titles)
+	titles.add_child(_stamp("WEEK %d · ORDERS" % s.week, C_STAMP, 30, -2.0))
+	var for_lbl := _label("FILE 07 · RAIL YARDS CELL · FOR: " + ("YOU" if who.is_you else who.name.to_upper()), 20, C_INK_SOFT)
 	for_lbl.add_theme_font_override("font", TYPE_FONT)
-	for_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(for_lbl)
+	titles.add_child(for_lbl)
+	var conf := _stamp("CONFIDENTIAL", C_STAMP, 24, 6.0)
+	conf.modulate = Color(1, 1, 1, 0.55)
+	head.add_child(conf)
 	# Cancel as a red ink "close file" stamp you tap.
 	var cancel := _button("✕  CLOSE", _close_overlay, 0)
 	cancel.custom_minimum_size = Vector2(170, 64)
+	cancel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cancel.add_theme_font_override("font", TYPE_FONT)
 	cancel.add_theme_font_size_override("font_size", 26)
 	for st in ["normal", "hover", "pressed", "focus"]:
@@ -446,7 +463,7 @@ func _pick_action(op: int) -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.add_theme_constant_override("v_separation", 11)
 	list.add_child(grid)
 	var story: Array[String] = []
 	for a in Rules.available_actions(s):
@@ -466,7 +483,7 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 	var card: Dictionary = Text.ACTION_CARDS.get(a, {"line": info.desc, "fx": []})
 	var cost: Dictionary = Rules.ACTIONS[a]
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 112 if story else 104)
+	b.custom_minimum_size = Vector2(0, 108 if story else 100)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# An index card (a manila folder card for story beats) on the desk.
 	var paper_tex: Texture2D = load(DOSSIER % ("manila" if story else "card"))
@@ -485,15 +502,16 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 	b.add_child(pad)
 	var row := _hbox(12)
 	pad.add_child(row)
-	var pic := TextureRect.new()
-	pic.texture = load(TEODOR_FACE if story else ACTION_ICON % ACTION_ICONS.get(a, "res_people"))
-	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if story else TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pic.custom_minimum_size = Vector2(96, 96) if story else Vector2(84, 84)
-	pic.clip_contents = true
-	if not story:
+	if story:
+		row.add_child(_polaroid(load(TEODOR_FACE), Vector2(78, 78), -3.0))
+	else:
+		var pic := TextureRect.new()
+		pic.texture = load(ACTION_ICON % ACTION_ICONS.get(a, "res_people"))
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.custom_minimum_size = Vector2(80, 80)
 		pic.material = _round_mat()
-	row.add_child(pic)
+		row.add_child(pic)
 	var col := _vbox(2)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -550,21 +568,36 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 ## ink cost tag with the resource icon, ink-outlined info. Colour is never the
 ## only cue (icon or outline style too; standards colour rule).
 func _chip(text: String, kind: String, icon := "") -> PanelContainer:
-	var bgc: Color = {"good": Color("2f5a2c"), "heat": C_STAMP, "cost": C_INK}.get(kind, Color(0, 0, 0, 0))
-	var fg: Color = C_PAPER if kind in ["good", "heat", "cost"] else (C_STAMP if kind == "bad" else C_INK)
 	if kind == "heat":
 		icon = "res_heat"
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bgc
-	sb.border_color = fg if kind in ["bad", "info"] else bgc
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(3)
-	sb.content_margin_left = 8 if icon == "" else 3
-	sb.content_margin_right = 10
-	sb.content_margin_top = 1
-	sb.content_margin_bottom = 1
-	p.add_theme_stylebox_override("panel", sb)
+	var fg: Color
+	if kind in ["good", "heat", "cost"]:
+		# Label-maker tape: tinted strip, raised pale letters.
+		var tb := StyleBoxTexture.new()
+		tb.texture = load(DOSSIER % "tape_label")
+		tb.texture_margin_left = 6
+		tb.texture_margin_right = 6
+		tb.texture_margin_top = 4
+		tb.texture_margin_bottom = 4
+		tb.modulate_color = {"good": Color("2e6a34"), "heat": Color("a8261d"), "cost": Color("2a2622")}[kind]
+		tb.content_margin_left = 10 if icon == "" else 5
+		tb.content_margin_right = 11
+		tb.content_margin_top = 1
+		tb.content_margin_bottom = 1
+		p.add_theme_stylebox_override("panel", tb)
+		fg = Color("f3efe4")
+	else:
+		# Typed note boxed in pen: red for a downside, ink for plain info.
+		fg = C_STAMP if kind == "bad" else C_INK
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0)
+		sb.border_color = Color(fg, 0.8)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(2)
+		sb.content_margin_left = 8
+		sb.content_margin_right = 8
+		p.add_theme_stylebox_override("panel", sb)
 	var h := _hbox(5)
 	p.add_child(h)
 	if icon != "":
@@ -575,8 +608,60 @@ func _chip(text: String, kind: String, icon := "") -> PanelContainer:
 		t.custom_minimum_size = Vector2(24, 24)
 		t.material = _round_mat()
 		h.add_child(t)
-	h.add_child(_label(text, 20, fg))
+	var l := _label(text, 20, fg)
+	if kind in ["good", "heat", "cost"]:
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+		l.add_theme_constant_override("shadow_offset_x", 1)
+		l.add_theme_constant_override("shadow_offset_y", 1)
+	else:
+		l.add_theme_font_override("font", TYPE_FONT)
+	h.add_child(l)
 	return p
+
+
+## A photo in a white instant-print frame, tilted, with tape across the top.
+## Returns a plain holder so containers keep the tilt.
+func _polaroid(tex: Texture2D, pic_size: Vector2, tilt: float) -> Control:
+	var frame := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("f4f1ea")
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(2, 3)
+	frame.add_theme_stylebox_override("panel", sb)
+	var fsize := pic_size + Vector2(10, 22)
+	frame.size = fsize
+	frame.position = Vector2(4, 6)
+	frame.pivot_offset = fsize / 2.0
+	frame.rotation_degrees = tilt
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pic := TextureRect.new()
+	pic.texture = tex
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.clip_contents = true
+	pic.position = Vector2(5, 5)
+	pic.size = pic_size
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(pic)
+	var tape := _fastener("tape")
+	tape.position = Vector2(fsize.x / 2.0 - 26, -9)
+	frame.add_child(tape)
+	var holder := Control.new()
+	holder.custom_minimum_size = fsize + Vector2(8, 10)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(frame)
+	return holder
+
+
+## What holds a card to the page: a paper clip, a strip of masking tape or a staple.
+func _fastener(kind: String) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load(DOSSIER % {"clip": "clip", "tape": "tape_mask", "staple": "staple"}[kind])
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.size = {"clip": Vector2(16, 42), "tape": Vector2(54, 18), "staple": Vector2(34, 10)}[kind]
+	return t
 
 
 ## A rubber stamp: typewriter caps in a rough box, tilted. Wrapped in a plain
@@ -698,14 +783,21 @@ func _on_desk(card: Button, key: String) -> Control:
 	holder.resized.connect(func():
 		card.pivot_offset = card.size / 2.0
 		shadow.pivot_offset = shadow.size / 2.0)
-	var clip := TextureRect.new()
-	clip.texture = load(DOSSIER % "clip")
-	clip.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clip.size = Vector2(16, 42)
-	clip.position = Vector2(16 + absi(key.hash()) % 24, -9)
-	clip.rotation_degrees = -6.0
-	card.add_child(clip)
+	var hsh := absi(key.hash())
+	var kind: String = ["clip", "tape", "staple"][hsh % 3]
+	var f := _fastener(kind)
+	match kind:
+		"clip":
+			f.position = Vector2(16 + hsh % 24, -9)
+			f.rotation_degrees = -6.0
+		"tape":
+			f.pivot_offset = f.size / 2.0
+			f.position = Vector2(4, 6) - f.size / 2.0
+			f.rotation_degrees = -40.0 + float(hsh % 10)
+		"staple":
+			f.position = Vector2(12, 8)
+			f.rotation_degrees = -20.0 + float(hsh % 12)
+	card.add_child(f)
 	return holder
 
 

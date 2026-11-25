@@ -57,7 +57,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Cancel in the header, "more below" hint when a late week scrolls. Then **desk dossier** (Duff's pick): dark desk +
   torn stained sheet, index cards (manila for Teodor) tilted up to 2° with paper clips, icons cut round
   (`shaders/ui_round_icon`), inked stamps (`shaders/ui_ink_stamp`); textures made free by `tools/gen_dossier.py`
-  into `assets/ui/dossier/`. Typewriter font Special Elite (Apache 2.0,
+  into `assets/ui/dossier/`. "More stylish" pass: label-maker tape chips, case-file header (operative photo
+  taped on, typed file line, CONFIDENTIAL), clips / masking tape / staples by action, Teodor as a taped photo. Typewriter font Special Elite (Apache 2.0,
   `assets/fonts/`). `_pick_action` / `_action_tile` / `_chip` / `_stamp` / `_ledger_box` in game.gd.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;

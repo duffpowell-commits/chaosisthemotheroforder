@@ -125,3 +125,31 @@ W = 256
 n = noise(W, W, 24, 4, 51) * 0.7 + rng.random((W, W)) * 0.3
 save(n * 255, "ink_noise.png")
 print("dossier textures ->", os.path.abspath(OUT))
+
+# label-maker tape (near white so the game tints it green / red / black), 9-patch
+W, H = 96, 32
+t = np.ones((H, W)) * 235
+t *= 0.9 + 0.1 * noise(W, H, 8, 3, 61)
+yy = np.arange(H)[:, None]
+t *= (0.82 + 0.18 * np.exp(-((yy - 9) / 5.0) ** 2))  # glossy band
+t[1:2] *= 1.08
+a = np.ones((H, W)) * 255
+for x in range(5):  # crimped short ends
+    for y in range(H):
+        if (y // 3) % 2 == 0 and x < 2: a[y, x] = 0; a[y, W - 1 - x] = 0
+a[0, :] = 120; a[-1, :] = 120
+save(np.dstack([t, t, t, a]), "tape_label.png")
+
+# masking tape strip, torn ends, see-through
+W, H = 72, 24
+mk = paper(W, H, (212, 196, 150), 71, stains=0, fibers=False)
+ma = torn_alpha(W, H, 72, 4) * 0.9
+save(np.dstack([mk, ma]), "tape_mask.png")
+
+# staple
+im = Image.new("RGBA", (26 * S, 8 * S), (0, 0, 0, 0))
+d = ImageDraw.Draw(im)
+d.rounded_rectangle([1 * S, 2 * S, 25 * S, 6 * S], radius=2 * S, fill=(60, 62, 66, 170))
+d.rounded_rectangle([1 * S, 1 * S, 24 * S, 4 * S], radius=2 * S, fill=(178, 182, 188, 255))
+d.line([3 * S, 2 * S, 22 * S, 2 * S], fill=(235, 238, 242, 255), width=S)
+im.resize((26, 8), Image.LANCZOS).save(os.path.join(OUT, "staple.png"))
