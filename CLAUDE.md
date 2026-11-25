@@ -65,6 +65,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   woodcut (`_framed`); dialogue = painted portrait polaroid (`_portrait_for`: warm/cold by liberation, mood by
   heat/Teodor state) + transcript card with the last lines faded; title/ending use `_ink_button`. Helpers:
   `_page`, `_typed`, `_paper_panel`, `_paper_button`, `_ink_button`, `_street_photo`.
+  Then **graffiti + worn** (Duff: "too boring", "more worn ... often carried"): Forge graffiti wall
+  (`assets/ui/dossier/wall.png`, Foxboard job `chaos-graffiti-wall-20261125` take 0) behind a crooked stack of 3 sheets
+  (`_wall_and_sheets`); `gen_dossier.py` wear pass: folds, creases, dog-ears, thumb grime; cards tilt up to 3.5° and scatter.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates

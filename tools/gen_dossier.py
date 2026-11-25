@@ -153,3 +153,100 @@ d.rounded_rectangle([1 * S, 2 * S, 25 * S, 6 * S], radius=2 * S, fill=(60, 62, 6
 d.rounded_rectangle([1 * S, 1 * S, 24 * S, 4 * S], radius=2 * S, fill=(178, 182, 188, 255))
 d.line([3 * S, 2 * S, 22 * S, 2 * S], fill=(235, 238, 242, 255), width=S)
 im.resize((26, 8), Image.LANCZOS).save(os.path.join(OUT, "staple.png"))
+
+
+# ---- "Often carried" wear (Duff, Nov 25: "make them look more worn ... often carried") ----
+# Re-makes sheet / card / manila with folds, crumple creases, a dog-ear, thumb grime,
+# dirty edges and nibbled corners. Overwrites the clean versions above.
+def wear(img, alpha, seed, folds_x=(), folds_y=(), dogear=None, creases=6, thumbs=2, grime=0.18):
+    h, w = alpha.shape
+    r = np.random.default_rng(seed)
+    img = img.copy()
+    yy, xx = np.mgrid[0:h, 0:w]
+    # low-frequency dirt, heavier toward the edges (hands hold the edges)
+    dirt = noise(w, h, max(8, min(w, h) // 3), 4, seed + 5)
+    edge = np.minimum.reduce([xx, yy, w - 1 - xx, h - 1 - yy]) / (0.12 * min(w, h))
+    edge_dirt = (1 - np.clip(edge, 0, 1)) ** 1.5
+    img *= (1 - grime * (dirt * 0.6 + edge_dirt * 0.9))[..., None] * np.array([1.0, 0.98, 0.94])
+    # folds: a soft shaded band one side, dark crease line, light ridge, dirt in the fold
+    for fx in folds_x:
+        x0 = int(fx * w) + int(r.integers(-4, 5))
+        d = (xx - x0 - (yy - h / 2) * r.uniform(-0.01, 0.01)).astype(float)
+        img *= (1 - 0.10 * np.exp(-np.maximum(d, 0) / (w * 0.06)) * (d > 0))[..., None]
+        img *= (1 - 0.35 * np.exp(-(d / 1.2) ** 2))[..., None]
+        img *= (1 + 0.10 * np.exp(-((d + 2.5) / 1.5) ** 2))[..., None]
+        img *= (1 - 0.12 * dirt * np.exp(-(d / 6) ** 2))[..., None]
+    for fy in folds_y:
+        y0 = int(fy * h) + int(r.integers(-3, 4))
+        d = (yy - y0 - (xx - w / 2) * r.uniform(-0.01, 0.01)).astype(float)
+        img *= (1 - 0.08 * np.exp(-np.maximum(d, 0) / (h * 0.08)) * (d > 0))[..., None]
+        img *= (1 - 0.32 * np.exp(-(d / 1.2) ** 2))[..., None]
+        img *= (1 + 0.10 * np.exp(-((d + 2.5) / 1.5) ** 2))[..., None]
+        img *= (1 - 0.12 * dirt * np.exp(-(d / 6) ** 2))[..., None]
+    # crumple creases: short jagged light/dark line pairs
+    pil = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
+    lay = Image.new("RGBA", pil.size, (0, 0, 0, 0))
+    dr = ImageDraw.Draw(lay)
+    for _ in range(creases):
+        x, y = r.random() * w, r.random() * h
+        a = r.random() * math.pi
+        pts = []
+        for k in range(5):
+            pts.append((x, y))
+            a += r.uniform(-0.5, 0.5)
+            step = min(w, h) * r.uniform(0.06, 0.16)
+            x += math.cos(a) * step
+            y += math.sin(a) * step
+        dr.line(pts, fill=(60, 45, 30, 38), width=2)
+        dr.line([(p[0] + 2, p[1] + 2) for p in pts], fill=(255, 250, 240, 46), width=2)
+    pil = Image.alpha_composite(pil.convert("RGBA"), lay.filter(ImageFilter.GaussianBlur(1.1)))
+    # thumb grime where it's held: smudged grey ovals near the side edges
+    sm = Image.new("L", pil.size, 0)
+    ds = ImageDraw.Draw(sm)
+    for t in range(thumbs):
+        side = t % 2
+        cx = (0.03 + r.random() * 0.08) * w if side == 0 else (0.89 + r.random() * 0.08) * w
+        cy = (0.25 + r.random() * 0.5) * h
+        rx, ry = min(w, h) * 0.07, min(w, h) * 0.10
+        ds.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=int(60 + r.random() * 40))
+    sm = np.asarray(sm.filter(ImageFilter.GaussianBlur(min(w, h) * 0.03)), float) / 255
+    sm *= 0.6 + 0.4 * noise(w, h, 3, 2, seed + 9)  # whorl-ish breakup
+    arr = np.asarray(pil, float)[..., :3] * (1 - 0.45 * sm[..., None])
+    alpha = alpha.copy()
+    # nibbled, rounded corners
+    for (cx, cy) in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]:
+        rad = r.uniform(3, 7) * (min(w, h) / 160)
+        dist = np.hypot(xx - cx, yy - cy)
+        alpha[dist < rad * 1.4] = 0
+    # dog-ear: fold one corner over; the back of the flap shows, with a shadow
+    if dogear:
+        corner, s = dogear
+        cx = 0 if "l" in corner else w - 1
+        cy = 0 if "t" in corner else h - 1
+        u = np.abs(xx - cx) + np.abs(yy - cy)
+        cut = u < s
+        # the flap mirrors the cut triangle across the fold line
+        fx = np.abs(xx - cx)
+        fy = np.abs(yy - cy)
+        tri = (fx + fy >= s) & (fx < s) & (fy < s)  # region the folded flap covers
+        shadow = (fx + fy >= s) & (fx + fy < s + 5)
+        arr[shadow] *= 0.72
+        back = np.array([0.80, 0.77, 0.70]) * arr[tri].mean(axis=0) / 0.85
+        arr[tri] = arr[tri] * 0.25 + back * 0.75 * (0.95 + 0.05 * dirt[tri][:, None])
+        # crease along the fold
+        arr[(fx + fy >= s - 1) & (fx + fy < s + 1)] *= 0.7
+        alpha[cut] = 0
+    return np.dstack([arr, alpha])
+
+
+W, H = 1024, 576
+sh = paper(W, H, (228, 218, 196), 21, stains=3)
+save(wear(sh, torn_alpha(W, H, 22, 11), 23, folds_x=(0.5,), folds_y=(0.48,), dogear=("br", 72),
+          creases=22, thumbs=3, grime=0.32), "sheet.png")
+W, H = 512, 168
+cd = paper(W, H, (243, 236, 220), 31, stains=1)
+cd[9:11] = cd[9:11] * 0.45 + np.array([200, 80, 70]) * 0.55
+save(wear(cd, torn_alpha(W, H, 32, 4), 33, folds_x=(0.62,), dogear=("tr", 24), creases=8, thumbs=2, grime=0.26), "card.png")
+mn = paper(W, H, (216, 188, 138), 41, stains=2)
+save(wear(mn, torn_alpha(W, H, 42, 4), 43, folds_y=(0.55,), dogear=("bl", 24), creases=8, thumbs=2, grime=0.26), "manila.png")
+print("worn sheet / card / manila")

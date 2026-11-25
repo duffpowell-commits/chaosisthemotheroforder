@@ -518,7 +518,7 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var sb := StyleBoxTexture.new()
 		sb.texture = paper_tex
-		sb.set_texture_margin_all(14)
+		sb.set_texture_margin_all(26)
 		sb.set_content_margin_all(0)
 		sb.modulate_color = Color(0.86, 0.84, 0.8) if st == "pressed" else (Color(1, 0.97, 0.93) if st in ["hover", "focus"] else Color.WHITE)
 		b.add_theme_stylebox_override(st, sb)
@@ -742,29 +742,14 @@ func _ledger_box() -> VBoxContainer:
 	overlay = Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
-	# The desk, then the torn, stained page on it.
-	var desk := TextureRect.new()
-	desk.texture = load(DOSSIER % "desk")
-	desk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	desk.stretch_mode = TextureRect.STRETCH_SCALE
-	desk.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(desk)
-	var sheet := TextureRect.new()
-	sheet.texture = load(DOSSIER % "sheet")
-	sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sheet.stretch_mode = TextureRect.STRETCH_SCALE
-	sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sheet.offset_left = 10
-	sheet.offset_top = 6
-	sheet.offset_right = -10
-	sheet.offset_bottom = -6
-	overlay.add_child(sheet)
+	# The graffiti wall, then the carried stack of pages on it.
+	_wall_and_sheets(overlay)
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, 34)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_bottom", 16)
+		margin.add_theme_constant_override("margin_" + side, 58)
+	margin.add_theme_constant_override("margin_top", 26)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	overlay.add_child(margin)
 	var v := _vbox(0)
 	margin.add_child(v)
@@ -789,7 +774,7 @@ func _ledger_box() -> VBoxContainer:
 ## Lays a card on the desk: a soft shadow under it, a paper clip on top, and a
 ## small crooked tilt that's the same every time for the same action. The holder
 ## takes the grid slot because containers reset a child's rotation.
-func _on_desk(card: Control, key: String, fill_v := false, max_tilt := 2.0) -> Control:
+func _on_desk(card: Control, key: String, fill_v := false, max_tilt := 3.5) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = card.get_combined_minimum_size()
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -808,10 +793,17 @@ func _on_desk(card: Control, key: String, fill_v := false, max_tilt := 2.0) -> C
 		holder.add_child(c)
 		c.set_anchors_preset(Control.PRESET_FULL_RECT)
 		c.rotation_degrees = tilt
-	shadow.offset_left = 3
-	shadow.offset_top = 5
-	shadow.offset_right = 4
-	shadow.offset_bottom = 6
+	# Scatter: nudge each card off the grid a few pixels, same every time.
+	var jx := float((absi(key.hash()) / 7) % 13 - 6)
+	var jy := float((absi(key.hash()) / 13) % 7 - 3)
+	for side in ["offset_left", "offset_right"]:
+		card.set(side, card.get(side) + jx)
+	for side in ["offset_top", "offset_bottom"]:
+		card.set(side, card.get(side) + jy)
+	shadow.offset_left = 3 + jx
+	shadow.offset_top = 5 + jy
+	shadow.offset_right = 4 + jx
+	shadow.offset_bottom = 6 + jy
 	holder.resized.connect(func():
 		card.pivot_offset = card.size / 2.0
 		shadow.pivot_offset = shadow.size / 2.0)
@@ -834,6 +826,35 @@ func _on_desk(card: Control, key: String, fill_v := false, max_tilt := 2.0) -> C
 	return holder
 
 
+
+## Behind every dossier page: the graffiti wall, then a dog-eared stack of carried
+## sheets, each a little crooked (Duff, Nov 25: "too boring", "more worn ... often carried").
+func _wall_and_sheets(parent: Control) -> void:
+	var wall := TextureRect.new()
+	wall.texture = load(DOSSIER % ("wall" if ResourceLoader.exists(DOSSIER % "wall") else "desk"))
+	wall.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	wall.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	wall.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wall.modulate = Color(0.7, 0.68, 0.66)
+	parent.add_child(wall)
+	# [inset x, inset y, tilt, shade]: the back sheets peek out under the top one.
+	for s in [[54.0, 24.0, 2.4, 0.72], [48.0, 18.0, -1.8, 0.84], [42.0, 12.0, -0.6, 1.0]]:
+		var sheet := TextureRect.new()
+		sheet.texture = load(DOSSIER % "sheet")
+		sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sheet.stretch_mode = TextureRect.STRETCH_SCALE
+		sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
+		sheet.offset_left = s[0]
+		sheet.offset_top = s[1]
+		sheet.offset_right = -s[0]
+		sheet.offset_bottom = -s[1]
+		sheet.rotation_degrees = s[2]
+		sheet.modulate = Color(s[3], s[3] * 0.98, s[3] * 0.94)
+		sheet.flip_h = s[2] > 0.0
+		sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sheet.resized.connect(func(): sheet.pivot_offset = sheet.size / 2.0)
+		parent.add_child(sheet)
+
 ## A full-screen dossier page: the desk, the torn sheet, and a column inside it.
 ## Used by the planner, report and dialogue screens (Duff, Nov 25: "Dossier look everywhere").
 func _page() -> VBoxContainer:
@@ -842,28 +863,13 @@ func _page() -> VBoxContainer:
 	var page := Control.new()
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	screen.add_child(page)
-	var desk := TextureRect.new()
-	desk.texture = load(DOSSIER % "desk")
-	desk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	desk.stretch_mode = TextureRect.STRETCH_SCALE
-	desk.set_anchors_preset(Control.PRESET_FULL_RECT)
-	page.add_child(desk)
-	var sheet := TextureRect.new()
-	sheet.texture = load(DOSSIER % "sheet")
-	sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sheet.stretch_mode = TextureRect.STRETCH_SCALE
-	sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sheet.offset_left = 10
-	sheet.offset_top = 6
-	sheet.offset_right = -10
-	sheet.offset_bottom = -6
-	page.add_child(sheet)
+	_wall_and_sheets(page)
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 34)
-	margin.add_theme_constant_override("margin_right", 34)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_bottom", 18)
+	margin.add_theme_constant_override("margin_left", 58)
+	margin.add_theme_constant_override("margin_right", 58)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 20)
 	page.add_child(margin)
 	var col := _vbox(14)
 	margin.add_child(col)
@@ -940,7 +946,7 @@ func _paper_panel(kind: String) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxTexture.new()
 	sb.texture = load(DOSSIER % kind)
-	sb.set_texture_margin_all(14)
+	sb.set_texture_margin_all(26)
 	sb.content_margin_left = 20
 	sb.content_margin_right = 20
 	sb.content_margin_top = 18
@@ -1050,7 +1056,7 @@ func _top_bar() -> Control:
 	# typed tags with their woodcut icons; heat on label-maker tape.
 	var row := _hbox(18)
 	row.add_child(_stamp("WEEK %d / %d" % [s.week, RunState.MAX_WEEKS], C_STAMP, 30, -2.0))
-	var file := _typed("FILE 07 · RAIL YARDS CELL", 20, C_INK_SOFT)
+	var file := _typed("FILE 07", 20, C_INK_SOFT)
 	file.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(file)
 	var heat_kind := "good" if s.heat < 3 else "heat"
