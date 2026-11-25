@@ -12,6 +12,9 @@ const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
 const Story = preload("res://scripts/dialogue/story.gd")
 
 const SAVE_PATH := "user://run.save"
+## The week's half-made plan, saved when the app loses focus or the back button leaves
+## the run (QoL step 1, Nov 25). Only kept while its week is still the run's week.
+const PLAN_PATH := "user://plan.save"
 ## Smallest text on a phone screen (1280x720 canvas on a ~6" phone).
 const MIN_TEXT := 20
 
@@ -66,6 +69,7 @@ var dlg_runner
 var dlg_done: Callable
 var dlg_portrait := ""
 var dlg_log: Array = []  # lines so far in this scene, shown as a running transcript
+var on_title := false
 
 
 func _ready() -> void:
@@ -105,6 +109,7 @@ func _ready() -> void:
 
 func show_title() -> void:
 	_clear()
+	on_title = true
 	var box := _vbox(18)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	screen.add_child(box)
@@ -387,7 +392,7 @@ func _continue_run() -> void:
 		_new_run()
 		return
 	s = RunState.from_dict(_fix_ints(d))
-	plan.clear()
+	_load_plan()
 	if s.is_over():
 		show_ending()
 	else:
@@ -455,6 +460,53 @@ func _save() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(s.to_dict()))
+	_save_plan()
+
+
+## Keeps the half-made plan for this week (empty plan = no file).
+func _save_plan() -> void:
+	if plan.is_empty() or s == null:
+		if FileAccess.file_exists(PLAN_PATH):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(PLAN_PATH))
+		return
+	var f := FileAccess.open(PLAN_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"week": s.week, "plan": plan}))
+
+
+func _load_plan() -> void:
+	plan.clear()
+	if not FileAccess.file_exists(PLAN_PATH):
+		return
+	var d = JSON.parse_string(FileAccess.get_file_as_string(PLAN_PATH))
+	if d is Dictionary and int(d.get("week", -1)) == s.week and d.get("plan") is Dictionary:
+		var ready: Array = s.ready_operatives()
+		for k in d.plan:
+			var e = _fix_ints(d.plan[k])
+			if e is Dictionary and Text.ACTIONS.has(e.get("action", "")) and int(k) in ready:
+				plan[int(k)] = e
+
+
+## Phone lifecycle (standards: focus-out saves, back button goes back, deferred).
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST:
+			if s != null and not s.is_over():
+				_save()
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			_go_back.call_deferred()
+
+
+## Back: closes the action picker, else leaves the run for the title (saved), else quits.
+func _go_back() -> void:
+	if overlay:
+		_close_overlay()
+	elif on_title:
+		get_tree().quit()
+	else:
+		if s != null and not s.is_over():
+			_save()
+		show_title()
 
 
 ## JSON turns every number into a float; the rules expect ints.
@@ -1293,6 +1345,7 @@ func _spacer(h: int) -> Control:
 
 func _clear() -> void:
 	_close_overlay()
+	on_title = false
 	for side in ["left", "right", "top", "bottom"]:
 		screen.add_theme_constant_override("margin_" + side, 20)
 	for c in screen.get_children():
