@@ -39,6 +39,9 @@ const ACTION_ICONS := {
 	"diversion": "action_diversion", "signal_box": "tool_radio_call", "rally": "res_legitimacy",
 	"seize": "res_heat",
 }
+const DOSSIER := "res://assets/ui/dossier/%s.png"
+const INK_SHADER := preload("res://shaders/ui_ink_stamp.gdshader")
+const ROUND_SHADER := preload("res://shaders/ui_round_icon.gdshader")
 const TEODOR_FACE := "res://assets/portraits/teodor_guarded_warm.png"
 const STORY_ACTIONS := ["see_teodor", "strike", "confess"]
 const RISKY_ACTIONS := ["scavenge", "diversion", "signal_box", "rally", "seize"]
@@ -421,23 +424,39 @@ func _pick_action(op: int) -> void:
 	for_lbl.add_theme_font_override("font", TYPE_FONT)
 	for_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(for_lbl)
-	var cancel := _button("✕  Cancel", _close_overlay, 0)
+	# Cancel as a red ink "close file" stamp you tap.
+	var cancel := _button("✕  CLOSE", _close_overlay, 0)
 	cancel.custom_minimum_size = Vector2(170, 64)
+	cancel.add_theme_font_override("font", TYPE_FONT)
+	cancel.add_theme_font_size_override("font_size", 26)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var csb := StyleBoxFlat.new()
+		csb.bg_color = Color(C_STAMP, 0.18 if st == "pressed" else 0.0)
+		csb.border_color = C_STAMP
+		csb.set_border_width_all(3)
+		csb.set_corner_radius_all(4)
+		cancel.add_theme_stylebox_override(st, csb)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		cancel.add_theme_color_override(k, C_STAMP)
+	var cm := ShaderMaterial.new()
+	cm.shader = INK_SHADER
+	cm.set_shader_parameter("ink", load(DOSSIER % "ink_noise"))
+	cancel.material = cm
 	head.add_child(cancel)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.add_theme_constant_override("v_separation", 12)
 	list.add_child(grid)
 	var story: Array[String] = []
 	for a in Rules.available_actions(s):
 		if a in STORY_ACTIONS:
 			story.append(a)
 		else:
-			grid.add_child(_action_tile(a, op, planned.get(a, 0), cash_left, sup_left))
+			grid.add_child(_on_desk(_action_tile(a, op, planned.get(a, 0), cash_left, sup_left), a))
 	# Story beats look different from chores: a full-width card with the face.
 	for a in story:
-		list.add_child(_action_tile(a, op, planned.get(a, 0), cash_left, sup_left, true))
+		list.add_child(_on_desk(_action_tile(a, op, planned.get(a, 0), cash_left, sup_left, true), a))
 
 
 ## One action on the ledger: woodcut icon (or Teodor's face), typewriter title,
@@ -449,19 +468,20 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, 112 if story else 104)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var bg := Color("e2c9a0") if story else C_PAPER_DARK
+	# An index card (a manila folder card for story beats) on the desk.
+	var paper_tex: Texture2D = load(DOSSIER % ("manila" if story else "card"))
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = bg.darkened(0.12) if st == "pressed" else bg
-		sb.border_color = C_STAMP if st in ["hover", "focus"] or story else C_INK
-		sb.set_border_width_all(3 if story else 2)
-		sb.set_corner_radius_all(3)
+		var sb := StyleBoxTexture.new()
+		sb.texture = paper_tex
+		sb.set_texture_margin_all(14)
+		sb.set_content_margin_all(0)
+		sb.modulate_color = Color(0.86, 0.84, 0.8) if st == "pressed" else (Color(1, 0.97, 0.93) if st in ["hover", "focus"] else Color.WHITE)
 		b.add_theme_stylebox_override(st, sb)
 	b.pressed.connect(func(): _after_action(op, a))
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		pad.add_theme_constant_override("margin_" + side, 8)
+		pad.add_theme_constant_override("margin_" + side, 10)
 	b.add_child(pad)
 	var row := _hbox(12)
 	pad.add_child(row)
@@ -471,6 +491,8 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if story else TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pic.custom_minimum_size = Vector2(96, 96) if story else Vector2(84, 84)
 	pic.clip_contents = true
+	if not story:
+		pic.material = _round_mat()
 	row.add_child(pic)
 	var col := _vbox(2)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -537,7 +559,7 @@ func _chip(text: String, kind: String, icon := "") -> PanelContainer:
 	sb.bg_color = bgc
 	sb.border_color = fg if kind in ["bad", "info"] else bgc
 	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(12)
+	sb.set_corner_radius_all(3)
 	sb.content_margin_left = 8 if icon == "" else 3
 	sb.content_margin_right = 10
 	sb.content_margin_top = 1
@@ -551,6 +573,7 @@ func _chip(text: String, kind: String, icon := "") -> PanelContainer:
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.custom_minimum_size = Vector2(24, 24)
+		t.material = _round_mat()
 		h.add_child(t)
 	h.add_child(_label(text, 20, fg))
 	return p
@@ -565,8 +588,8 @@ func _stamp(text: String, col: Color, size: int, tilt: float) -> Control:
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(col, 0.08)
-	sb.border_color = Color(col, 0.85)
+	sb.bg_color = Color(col, 0.0)
+	sb.border_color = col
 	sb.set_border_width_all(3)
 	sb.set_corner_radius_all(4)
 	sb.content_margin_left = 10
@@ -574,6 +597,10 @@ func _stamp(text: String, col: Color, size: int, tilt: float) -> Control:
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 0
 	l.add_theme_stylebox_override("normal", sb)
+	var m := ShaderMaterial.new()
+	m.shader = INK_SHADER
+	m.set_shader_parameter("ink", load(DOSSIER % "ink_noise"))
+	l.material = m
 	# Measure with the font itself: a Label outside the tree reports a stale minimum size.
 	var tf: Font = TYPE_FONT
 	var sz := Vector2(tf.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 20,
@@ -602,30 +629,37 @@ func _ledger_box() -> VBoxContainer:
 	overlay = Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.7)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(dim)
-	var vp := get_viewport_rect().size
-	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = C_PAPER
-	sb.border_color = C_INK
-	sb.set_border_width_all(3)
-	sb.set_content_margin_all(12)
-	sb.shadow_color = Color(0, 0, 0, 0.5)
-	sb.shadow_size = 14
-	p.add_theme_stylebox_override("panel", sb)
-	p.position = Vector2(12, 10)
-	p.size = vp - Vector2(24, 20)
-	overlay.add_child(p)
+	# The desk, then the torn, stained page on it.
+	var desk := TextureRect.new()
+	desk.texture = load(DOSSIER % "desk")
+	desk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	desk.stretch_mode = TextureRect.STRETCH_SCALE
+	desk.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(desk)
+	var sheet := TextureRect.new()
+	sheet.texture = load(DOSSIER % "sheet")
+	sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sheet.stretch_mode = TextureRect.STRETCH_SCALE
+	sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sheet.offset_left = 10
+	sheet.offset_top = 6
+	sheet.offset_right = -10
+	sheet.offset_bottom = -6
+	overlay.add_child(sheet)
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 34)
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	overlay.add_child(margin)
 	var v := _vbox(0)
-	p.add_child(v)
+	margin.add_child(v)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
-	var box := _vbox(8)
+	var box := _vbox(10)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(box)
 	var more := _label("▼  more below  ▼", 20, C_STAMP)
@@ -637,6 +671,48 @@ func _ledger_box() -> VBoxContainer:
 	bar.changed.connect(upd)
 	bar.value_changed.connect(func(_v): upd.call())
 	return box
+
+
+## Lays a card on the desk: a soft shadow under it, a paper clip on top, and a
+## small crooked tilt that's the same every time for the same action. The holder
+## takes the grid slot because containers reset a child's rotation.
+func _on_desk(card: Button, key: String) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = card.custom_minimum_size
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tilt := (float(absi(key.hash()) % 100) / 100.0 - 0.5) * 4.0
+	var shadow := Panel.new()
+	var ssb := StyleBoxFlat.new()
+	ssb.bg_color = Color(0.1, 0.07, 0.04, 0.32)
+	ssb.set_corner_radius_all(4)
+	shadow.add_theme_stylebox_override("panel", ssb)
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c: Control in [shadow, card]:
+		holder.add_child(c)
+		c.set_anchors_preset(Control.PRESET_FULL_RECT)
+		c.rotation_degrees = tilt
+	shadow.offset_left = 3
+	shadow.offset_top = 5
+	shadow.offset_right = 4
+	shadow.offset_bottom = 6
+	holder.resized.connect(func():
+		card.pivot_offset = card.size / 2.0
+		shadow.pivot_offset = shadow.size / 2.0)
+	var clip := TextureRect.new()
+	clip.texture = load(DOSSIER % "clip")
+	clip.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.size = Vector2(16, 42)
+	clip.position = Vector2(16 + absi(key.hash()) % 24, -9)
+	clip.rotation_degrees = -6.0
+	card.add_child(clip)
+	return holder
+
+
+func _round_mat() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = ROUND_SHADER
+	return m
 
 
 func _after_action(op: int, a: String) -> void:

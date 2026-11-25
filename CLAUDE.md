@@ -54,7 +54,10 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Action picker is a **ledger page** (Duff picked "All six"): woodcut icon per action (128 px `icons/display/`),
   effect chips from `Text.ACTION_CARDS` (green good, red heat + flame, cost tag by the title), red
   "WEEK N · ORDERS" stamp, RISK / PLANNED / NO CASH stamps, Teodor beats as a full-width card with his face,
-  Cancel in the header, "more below" hint when a late week scrolls. Typewriter font Special Elite (Apache 2.0,
+  Cancel in the header, "more below" hint when a late week scrolls. Then **desk dossier** (Duff's pick): dark desk +
+  torn stained sheet, index cards (manila for Teodor) tilted up to 2° with paper clips, icons cut round
+  (`shaders/ui_round_icon`), inked stamps (`shaders/ui_ink_stamp`); textures made free by `tools/gen_dossier.py`
+  into `assets/ui/dossier/`. Typewriter font Special Elite (Apache 2.0,
   `assets/fonts/`). `_pick_action` / `_action_tile` / `_chip` / `_stamp` / `_ledger_box` in game.gd.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
