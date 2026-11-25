@@ -12,6 +12,7 @@ extends "res://scripts/render_test.gd"
 
 const Battle = preload("res://scripts/tactics/battle.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
+const FightSave = preload("res://scripts/fight_save.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -129,6 +130,7 @@ func _ready() -> void:
 	if Engine.has_meta("mission"):
 		mission_meta = Engine.get_meta("mission")
 	_new_battle(seed_value)
+	_save_fight()  # first checkpoint: leaving now resumes here, not a replayed week
 	if "--capture-tactical" in args:
 		_capture_tactical()
 	elif "--capture-mission" in args:
@@ -192,6 +194,10 @@ func _new_battle(s: int) -> void:
 	add_child(world_root)
 	if mission_meta.is_empty():
 		battle = Battle.create_skirmish(s)
+	elif mission_meta.has("resume"):
+		# Continue from the title: the fight as it stood at the last save (QoL step 4).
+		battle = Battle.from_dict(mission_meta.resume)
+		mission_meta.erase("resume")
 	else:
 		battle = Battle.create_mission(mission_meta.params)
 	unit_nodes.clear()
@@ -1126,6 +1132,7 @@ func _show_result() -> void:
 
 
 func _return_to_run(r: Dictionary) -> void:
+	FightSave.clear()  # the week finishes now; the run save takes over
 	if mission_meta.has("state"):
 		mission_meta["result"] = r
 		Engine.set_meta("mission", mission_meta)
@@ -1156,6 +1163,7 @@ func bug_state() -> String:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:
+			_save_fight()  # now, not deferred: Android may kill the app right after
 			_set_paused.call_deferred(true)
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			_back.call_deferred()
@@ -1166,6 +1174,13 @@ func _back() -> void:
 	if SettingsSheet.close_open(self):
 		return
 	_set_paused(pause_layer == null)
+
+
+## Mid-fight save (scripts/fight_save.gd). Only fights a run launched; never under autoplay.
+func _save_fight() -> void:
+	if "--autoplay" in OS.get_cmdline_user_args() or battle == null:
+		return
+	FightSave.save(mission_meta, battle)
 
 
 func _set_paused(on: bool) -> void:
@@ -1180,6 +1195,7 @@ func _set_paused(on: bool) -> void:
 		get_tree().paused = false
 		return
 	get_tree().paused = true
+	_save_fight()
 	pause_layer = CanvasLayer.new()
 	pause_layer.layer = 20
 	pause_layer.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -1204,13 +1220,14 @@ func _set_paused(on: bool) -> void:
 	settings.custom_minimum_size = Vector2(360, 72)
 	box.add_child(settings)
 	var run := mission_meta.has("state")
-	var quit := _hud_button("Quit to title (this week replays)" if run else "Quit to title", _quit_fight)
+	var quit := _hud_button("Save and quit to title" if run else "Quit to title", _quit_fight)
 	quit.custom_minimum_size = Vector2(360, 72)
 	box.add_child(quit)
 	resume.grab_focus.call_deferred()
 
 
 func _quit_fight() -> void:
+	_save_fight()  # Continue on the title picks the fight up at this turn
 	get_tree().paused = false
 	Engine.remove_meta("mission")
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
@@ -1406,6 +1423,7 @@ func _on_end_turn() -> void:
 		var left: Array = battle.alive_units(Battle.US)
 		selected = left[0] if not left.is_empty() else null
 	_refresh()
+	_save_fight()  # checkpoint at the start of each of your turns
 
 
 func _flash_from_line(line: String) -> void:

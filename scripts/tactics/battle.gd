@@ -230,6 +230,53 @@ static func create_mission(params: Dictionary) -> RefCounted:
 	return b
 
 
+## Mid-fight save (scripts/fight_save.gd): every script variable of the Battle and its Units,
+## plus the RNG's seed and state so the regime plays on exactly as it would have.
+func to_dict() -> Dictionary:
+	var d := _vars(self)
+	d.erase("rng")
+	d.erase("units")
+	d["rng_seed"] = rng.seed
+	d["rng_state"] = rng.state
+	d["units"] = units.map(func(u): return _vars(u))
+	return d
+
+
+static func from_dict(d: Dictionary) -> RefCounted:
+	var b = load("res://scripts/tactics/battle.gd").new()
+	for k in d:
+		if k in ["units", "rng_seed", "rng_state"]:
+			continue
+		_put(b, k, d[k])
+	b.rng.seed = int(d.get("rng_seed", 1))
+	b.rng.state = int(d.get("rng_state", 0))
+	b.units.clear()
+	for ud in d.get("units", []):
+		var u := Unit.new()
+		for k in ud:
+			_put(u, k, ud[k])
+		b.units.append(u)
+	return b
+
+
+static func _vars(o: Object) -> Dictionary:
+	var d := {}
+	for p in o.get_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			var v = o.get(p.name)
+			d[p.name] = v.duplicate(true) if (v is Array or v is Dictionary) else v
+	return d
+
+
+## Typed arrays (log: Array[String]) won't take a plain Array: fill them in place.
+static func _put(o: Object, k: String, v) -> void:
+	var cur = o.get(k)
+	if cur is Array and v is Array:
+		cur.assign(v)
+	elif typeof(cur) == typeof(v) or cur == null:
+		o.set(k, v)
+
+
 ## A whole skirmish with both sides on the simple policy. For tests and the sim.
 static func play_auto(seed_value: int) -> RefCounted:
 	var b = create_skirmish(seed_value)

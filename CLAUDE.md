@@ -84,7 +84,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   menu): a typed note, then SEND (prefilled GitHub issue, label bug) or COPY (clipboard). The report adds version, build,
   phone, screen, fps, settings and the scene's `bug_state()` (game.gd: screen/week/heat/cash...; tactical.gd: turn, side,
   noise, upload, every unit's hp + tile). Render `docs/renders/ui/10_bug_report.png`. The version shows on the title, the
-  settings card and the bug card. Next: mid-fight save.
+  settings card and the bug card.
+  Step 4: **mid-fight save** (`scripts/fight_save.gd`, `user://fight.save`, store_var): a run's Signal Box fight saves as it
+  starts, at the start of each of your turns, on focus-out (immediately, not deferred), on pause and on "Save and quit to
+  title". `Battle.to_dict/from_dict` copy every script var + the RNG seed/state, so the regime plays on identically (rule test
+  `test_mission_save_round_trip`). The title shows CONTINUE FIGHT; `_continue_run` resumes when the save matches the run's
+  seed + week (stale ones are deleted). `_return_to_run` and New run clear it. Fight now is never saved. Renders
+  `11_title_continue_fight.png`, `11_fight_resumed.png`. QoL (item 5) is done; next is item 6 (sound/feel).
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
