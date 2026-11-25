@@ -386,6 +386,7 @@ func _build_hud() -> void:
 	result_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	result_panel.add_theme_stylebox_override("panel", _panel_style())
 	ui.add_child(result_panel)
+	_build_coach(ui)
 	var rc := VBoxContainer.new()
 	rc.add_theme_constant_override("separation", 14)
 	result_panel.add_child(rc)
@@ -421,8 +422,9 @@ func _hud_label(t: String, size: int, c: Color) -> Label:
 func _hud_button(t: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = t
-	b.custom_minimum_size = Vector2(150, 56)
-	b.add_theme_font_size_override("font_size", 22)
+	b.custom_minimum_size = Vector2(150, 64)
+	b.add_theme_font_size_override("font_size", 24)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # phone text size: long labels wrap, never clip
 	b.pressed.connect(cb)
 	return b
 
@@ -615,7 +617,7 @@ func _refresh_column() -> void:
 	shoot.disabled = c <= 0 or u.ap < 1
 	column.add_child(shoot)
 	for b in column.get_children():
-		b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+		b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 	if c > 0:
 		shoot.add_theme_font_size_override("font_size", 18)
 		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
@@ -770,7 +772,7 @@ func _tool_column(u) -> void:
 	column.add_child(_hud_button("Cancel", func(): _start_tool("")))
 	for b in column.get_children():
 		if b is Button:
-			b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+			b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 
 
 ## "+4 noise", or "+4 noise: ALARM, 3 riot police in 2" when it would trip it.
@@ -1192,6 +1194,8 @@ func _move_selected(p: Vector2i, sneak: bool) -> void:
 	var ok: bool = battle.sneak(selected, p) if sneak else battle.move(selected, p)
 	if not ok:
 		return
+	_coach_done()
+	sneak_walk = sneak
 	sneaking = false
 	busy = true
 	_refresh()
@@ -1926,7 +1930,7 @@ func _update_bodies() -> void:
 		elif body_shot_until.get(u, 0) > now:
 			want = "c/shoot"
 		elif moving:
-			want = "c/sneak" if sneaking and u == selected else ("c/injured_walk" if u.hp <= 1 else "c/walk")
+			want = "c/sneak" if sneak_walk and u == selected else ("c/injured_walk" if u.hp <= 1 else "c/walk")
 			var d: Vector3 = feet - seen[0]
 			n.rotation.y = atan2(d.x, d.z) + PI
 		elif ap.current_animation in ["c/hit"] and ap.is_playing():
@@ -1956,3 +1960,40 @@ func _body_shoot(from, to) -> void:
 	n.rotation.y = atan2(d.x, d.z) + PI
 	(n.get_node("Body") as Node3D).rotation.y = PI + PI / 2.0
 	body_shot_until[from] = Time.get_ticks_msec() + SHOOT_FOR_MS
+
+
+# ---------- first-minute coach (standards/08: teach by doing, 4 words, once) ----------
+
+const COACH_FILE := "user://coach.cfg"
+var coach: Label
+var sneak_walk := false   # the move now playing was a sneak (sneaking resets as it starts)
+
+func _build_coach(ui: CanvasLayer) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	if cfg.get_value("seen", "move", false) or "--autoplay" in OS.get_cmdline_user_args():
+		return
+	coach = _hud_label("Tap a blue tile", 30, C_FG)
+	coach.autowrap_mode = TextServer.AUTOWRAP_OFF
+	coach.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coach.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	coach.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	coach.position.y -= BOTTOM_H + 64
+	coach.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	coach.add_theme_constant_override("outline_size", 10)
+	ui.add_child(coach)
+	var tw := create_tween().set_loops()
+	tw.tween_property(coach, "modulate:a", 0.45, 0.7)
+	tw.tween_property(coach, "modulate:a", 1.0, 0.7)
+
+
+## The first move teaches it: the hint goes, for good.
+func _coach_done() -> void:
+	if coach == null:
+		return
+	coach.queue_free()
+	coach = null
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	cfg.set_value("seen", "move", true)
+	cfg.save(COACH_FILE)
