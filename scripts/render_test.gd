@@ -273,9 +273,10 @@ func _figure(pos: Vector3, coat: Color, parent: Node3D, height := 1.75, visor :=
 ## node's "anim" meta, clips under "c/<name>".
 const MESHY_CLIPS := ["idle", "walk", "run", "shoot", "hit", "death", "crouch_walk", "injured_walk", "sneak"]
 var _meshy_lib: AnimationLibrary
-const MESHY_GLOW := 0.1
+const MESHY_GLOW := 0.03
 const UNIT_LAYER := 1 << 19   # render layer 20: the cast, so a key light can pick them out
-const UNIT_KEY := 1.6        # that key light's energy (tactical.gd)
+const UNIT_KEY_YAW := 55.0  # side angle of that key light vs the camera (tactical.gd)
+const UNIT_KEY := 1.3        # that key light's energy (tactical.gd)
 
 func _meshy_person(kind: String, pos: Vector3, rot_y: float, parent: Node3D) -> Node3D:
 	if _meshy_lib == null:

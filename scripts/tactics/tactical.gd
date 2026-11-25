@@ -32,9 +32,11 @@ const C_SMOKE := Color(0.82, 0.83, 0.85)
 const C_DARK := Color(0.0, 0.0, 0.0, 0.45)  # near-black: blue is taken by move range and the regime
 const C_TOOL := Color(0.92, 0.92, 0.88)  # tool targeting: neutral, not team or danger
 const TAG_SIZE := 19
-const GRADE_GRAIN := 0.35  # the tactical map keeps the Frontline grade, lighter
+const GRADE_GRAIN := 0.2  # the tactical map keeps the Frontline grade, lighter
 const GRADE_CRUSH := 0.45
-const GRADE_SAT := 0.3       # colour kept on the tactical map (street grade is 0.07)
+const GRADE_SAT := 0.6       # colour kept on the tactical map (street grade is 0.07)
+const FRAME_GUARD_RANGE := 4  # guards this close to the selected unit stay in frame
+const FRAME_ALLY_RANGE := 3   # squad mates this close to it too (was: whole squad + guards within 6)
 
 const TOP_H := 56
 const BOTTOM_H := 148
@@ -107,8 +109,10 @@ func _ready() -> void:
 	var key := DirectionalLight3D.new()
 	key.light_cull_mask = UNIT_LAYER
 	key.light_energy = UNIT_KEY
-	key.light_color = Color(0.85, 0.9, 1.0)
-	key.rotation = cam.rotation
+	# Warm and from the side (Nov 25): a cold light from the camera flattened the cast into pale
+	# grey shapes; side light gives form, warmth keeps skin and the movement red alive.
+	key.light_color = Color(1.0, 0.88, 0.74)
+	key.rotation = cam.rotation + Vector3(0, deg_to_rad(UNIT_KEY_YAW), 0)
 	add_child(key)
 	var args := OS.get_cmdline_user_args()
 	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
@@ -672,14 +676,16 @@ func _frame_camera() -> void:
 	var ours: Array = battle.alive_units(Battle.US)
 	if ours.is_empty() or cam_offset == Vector3.ZERO:
 		return
-	var pts: Array[Vector2i] = []
+	# Phone readability (Nov 25): frame the unit you're moving plus who's near it, not the
+	# whole squad, so the camera can get close enough that bodies read on a phone.
+	var focus = selected if selected != null and selected.alive() else ours[0]
+	var pts: Array[Vector2i] = [focus.pos]
 	for u in ours:
-		pts.append(u.pos)
+		if u != focus and Battle._cheb(u.pos, focus.pos) <= FRAME_ALLY_RANGE:
+			pts.append(u.pos)
 	for g in battle.alive_units(Battle.REGIME):
-		for u in ours:
-			if Battle._cheb(g.pos, u.pos) <= 6:
-				pts.append(g.pos)
-				break
+		if Battle._cheb(g.pos, focus.pos) <= FRAME_GUARD_RANGE:
+			pts.append(g.pos)
 	var lo := Vector2(pts[0])
 	var hi := Vector2(pts[0])
 	for p in pts:
@@ -695,7 +701,7 @@ func _frame_camera() -> void:
 	# HUD bars, left of the action column). If none fits, the home framing.
 	var goal := CAM_HOME + cam_offset
 	var keep := cam.global_transform
-	for zoom in [0.66, 0.74, 0.82, 0.9, 1.0]:
+	for zoom in [0.5, 0.58, 0.66, 0.74, 0.82, 0.9, 1.0]:
 		var g: Vector3 = target + cam_offset * zoom
 		if _fits(g, target, pts):
 			goal = g
