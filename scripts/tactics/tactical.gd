@@ -1146,7 +1146,14 @@ func _notification(what: int) -> void:
 		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:
 			_set_paused.call_deferred(true)
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			_set_paused.call_deferred(pause_layer == null)
+			_back.call_deferred()
+
+
+## Back: closes the settings sheet first (the fight stays paused), else toggles pause.
+func _back() -> void:
+	if SettingsSheet.close_open(self):
+		return
+	_set_paused(pause_layer == null)
 
 
 func _set_paused(on: bool) -> void:

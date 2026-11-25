@@ -10,6 +10,9 @@ const Rules = preload("res://scripts/sim/rules.gd")
 var ok := true
 
 
+var settings_done := false
+
+
 func _init() -> void:
 	_run.call_deferred()
 
@@ -74,6 +77,7 @@ func _run() -> void:
 	await _frames(6)
 	expect(not paused and current_scene.scene_file_path.ends_with("game.tscn") and current_scene.on_title, "quit goes to the title")
 	await _settings_checks()
+	expect(settings_done, "settings checks ran to the end (a script error stops them early)")
 	print("QOL PASS" if ok else "QOL FAIL")
 	quit(0 if ok else 1)
 
@@ -126,5 +130,36 @@ func _settings_checks() -> void:
 	t._set_paused(true)
 	await _frames(2)
 	expect(t.pause_layer.find_child("*", true, false) != null, "pause menu still builds")
+	t.SettingsSheet.open(t)
+	await _frames(2)
+	t._back()
+	await _frames(2)
+	expect(paused and t.pause_layer != null and not _sheet_open(t), "back in the fight closes the sheet, stays paused")
 	t._quit_fight()
 	await _frames(6)
+	g = current_scene
+	g.show_title()
+	g.SettingsSheet.open(g, g.show_title)
+	await _frames(2)
+	g._go_back()
+	await _frames(2)
+	expect(g.on_title and not _sheet_open(g), "back on the title closes the sheet, doesn't quit")
+	# A corrupt settings file falls back to safe values (gamma 0 would black the screen).
+	var bad := ConfigFile.new()
+	bad.set_value("settings", "gamma", "oops")
+	bad.set_value("settings", "music", [1, 2])
+	bad.set_value("settings", "low_graphics", "false")
+	bad.set_value("settings", "text_size", 9)
+	bad.save(st.PATH)
+	st.load_settings()
+	expect(st.get_value("gamma") == 1.0 and st.get_value("music") == 0.8 and st.get_value("low_graphics") == false and st.get_value("text_size") == 2, "corrupt settings file falls back safely")
+	st.values = st.DEFAULTS.duplicate()
+	st.save_settings()
+	settings_done = true
+
+
+func _sheet_open(n: Node) -> bool:
+	for c in n.get_children():
+		if c is CanvasLayer and c.has_meta("sheet_close") and not c.is_queued_for_deletion():
+			return true
+	return false

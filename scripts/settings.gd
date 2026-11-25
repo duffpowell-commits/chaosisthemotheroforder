@@ -58,8 +58,20 @@ func load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
 		return
+	# A hand-edited or corrupt file falls back per key: wrong type -> default, numbers clamped
+	# (gamma 0 would black the screen).
 	for k in DEFAULTS:
-		values[k] = cfg.get_value("settings", k, DEFAULTS[k])
+		var v = cfg.get_value("settings", k, DEFAULTS[k])
+		var d = DEFAULTS[k]
+		if typeof(d) == TYPE_BOOL:
+			values[k] = v if v is bool else d
+		elif typeof(d) == TYPE_INT:
+			values[k] = clampi(int(v), 0, TEXT_SCALES.size() - 1) if (v is int or v is float) else d
+		else:
+			values[k] = float(v) if (v is int or v is float) else d
+	values["music"] = clampf(values["music"], 0.0, 1.0)
+	values["sfx"] = clampf(values["sfx"], 0.0, 1.0)
+	values["gamma"] = clampf(values["gamma"], 0.6, 1.6)
 
 
 func save_settings() -> void:
