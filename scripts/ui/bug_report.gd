@@ -45,6 +45,7 @@ static func open(parent: Node) -> CanvasLayer:
 	layer.layer = 31
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	parent.add_child(layer)
+	layer.set_meta("sheet_close", layer.queue_free)  # back closes it (SettingsSheet.close_open)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.7)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -83,6 +84,18 @@ static func open(parent: Node) -> CanvasLayer:
 	note.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	note.placeholder_text = "I tapped... and then..."
 	note.add_theme_font_size_override("font_size", 22)
+	# Paper field, ink text: the default grey box looked like a hole in the card.
+	var fsb := StyleBoxFlat.new()
+	fsb.bg_color = Color(0.97, 0.94, 0.86)
+	fsb.border_color = Sheet.C_INK_SOFT
+	fsb.set_border_width_all(2)
+	fsb.set_content_margin_all(12)
+	for st in ["normal", "focus", "read_only"]:
+		note.add_theme_stylebox_override(st, fsb)
+	note.add_theme_color_override("font_color", Sheet.C_INK)
+	note.add_theme_color_override("font_placeholder_color", Color(Sheet.C_INK_SOFT, 0.6))
+	note.add_theme_color_override("caret_color", Sheet.C_STAMP)
+	note.add_theme_font_override("font", load("res://assets/fonts/SpecialElite-Regular.ttf"))
 	col.add_child(note)
 	var status := Sheet._text("", 20, Sheet.C_INK_SOFT)
 	var row := HBoxContainer.new()

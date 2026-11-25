@@ -524,6 +524,8 @@ func bug_state() -> String:
 
 ## Back: closes the action picker, else leaves the run for the title (saved), else quits.
 func _go_back() -> void:
+	if SettingsSheet.close_open(self):
+		return
 	if overlay:
 		_close_overlay()
 	elif on_title:
@@ -658,12 +660,21 @@ func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: 
 	line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	line.clip_text = true
 	col.add_child(line)
-	var chips := _hbox(6)
+	# Chips wrap onto a second line when text is LARGE/HUGE (Settings) instead of running off.
+	var chips := HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 6)
+	chips.add_theme_constant_override("v_separation", 4)
+	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for fx in card.fx:
 		chips.add_child(_chip(fx[0], fx[1]))
 	if chips.get_child_count() > 0:
 		col.add_child(chips)
 	_mouse_through(pad)
+	# The card grows with its text (big TEXT SIZE), never clips the heat/fail chips.
+	var base_h: float = b.custom_minimum_size.y
+	var fit := func(): b.custom_minimum_size.y = maxf(base_h, pad.get_combined_minimum_size().y)
+	pad.minimum_size_changed.connect(fit)
+	fit.call_deferred()
 	# Stamps in the top-right corner, stacked.
 	var stamps: Array = []
 	if a in RISKY_ACTIONS:

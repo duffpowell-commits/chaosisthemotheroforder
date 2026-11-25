@@ -12,6 +12,19 @@ const C_STAMP := Color("9e1a14")
 const C_PAPER := Color("e9e0cc")
 
 
+## Back button: closes the top open sheet (bug report, then settings) the way DONE does. True if there was one.
+static func close_open(parent: Node) -> bool:
+	var top: CanvasLayer = null
+	for c in parent.get_children():
+		if c is CanvasLayer and c.has_meta("sheet_close") and not c.is_queued_for_deletion():
+			if top == null or c.layer > top.layer:
+				top = c
+	if top == null:
+		return false
+	(top.get_meta("sheet_close") as Callable).call()
+	return true
+
+
 static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
 	var st: Node = parent.get_node("/root/Settings")
 	var layer := CanvasLayer.new()
@@ -49,6 +62,7 @@ static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
 		layer.queue_free()
 		if on_close.is_valid():
 			on_close.call()
+	layer.set_meta("sheet_close", close)
 	_slider(col, st, "MUSIC", "music", 0.0, 1.0)
 	_slider(col, st, "SOUND EFFECTS", "sfx", 0.0, 1.0)
 	_slider(col, st, "BRIGHTNESS", "gamma", 0.6, 1.6)
