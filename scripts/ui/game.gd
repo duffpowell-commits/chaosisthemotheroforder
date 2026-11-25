@@ -26,6 +26,22 @@ const C_PAPER := Color("e9e0cc")
 const C_INK := Color("1b1714")
 const C_RED := Color("c8372d")
 const C_GOOD := Color("6fa36b")
+# Ledger action picker (Nov 25): darker paper for tiles, stamp red = movement red.
+const C_PAPER_DARK := Color("ddd2b8")
+const C_INK_SOFT := Color("4a423a")
+const C_STAMP := Color("9e1a14")
+const TYPE_FONT := preload("res://assets/fonts/SpecialElite-Regular.ttf")
+const SYMBOLS_FONT := preload("res://assets/fonts/symbols_dejavu.ttf")
+const ACTION_ICON := "res://assets/ui/woodcut/icons/display/%s.png"  # 128 px copies
+const ACTION_ICONS := {
+	"aid": "action_aid", "expose": "action_expose", "recruit": "action_recruit",
+	"scavenge": "action_scavenge", "listen": "action_listen", "lay_low": "action_lay_low",
+	"diversion": "action_diversion", "signal_box": "tool_radio_call", "rally": "res_legitimacy",
+	"seize": "res_heat",
+}
+const TEODOR_FACE := "res://assets/portraits/teodor_guarded_warm.png"
+const STORY_ACTIONS := ["see_teodor", "strike", "confess"]
+const RISKY_ACTIONS := ["scavenge", "diversion", "signal_box", "rally", "seize"]
 
 var s: RunState
 var plan := {}  # operative index -> plan entry
@@ -43,6 +59,9 @@ var dlg_portrait := ""
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	var tf: FontFile = TYPE_FONT  # typewriter has no ▼ ✕: borrow the symbols font
+	if not tf.fallbacks.has(SYMBOLS_FONT):
+		tf.fallbacks = [SYMBOLS_FONT]
 	theme = _make_theme()
 	var bg := ColorRect.new()
 	bg.color = C_BG
@@ -381,24 +400,243 @@ func _fix_ints(v):
 
 func _pick_action(op: int) -> void:
 	var who: Dictionary = s.operatives[op]
-	var list := _overlay_box("What do you do this week?" if who.is_you else "What does %s do this week?" % who.name)
+	var list := _ledger_box()
+	# What the other operatives already use this week: their actions get a
+	# PLANNED stamp and their costs come off what's left to spend.
+	var planned := {}
+	var cash_left: int = s.cash
+	var sup_left: int = s.supplies
+	for k in plan:
+		if k == op:
+			continue
+		var pa: String = plan[k].action
+		planned[pa] = planned.get(pa, 0) + 1
+		cash_left -= int(Rules.ACTIONS[pa].cash)
+		sup_left -= int(Rules.ACTIONS[pa].supplies)
+	# Header: the red week stamp, who it's for, and Cancel (no row lost at the bottom).
+	var head := _hbox(16)
+	list.add_child(head)
+	head.add_child(_stamp("WEEK %d · ORDERS" % s.week, C_STAMP, 30, -3.0))
+	var for_lbl := _label("for " + ("you" if who.is_you else who.name), 24, C_INK)
+	for_lbl.add_theme_font_override("font", TYPE_FONT)
+	for_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(for_lbl)
+	var cancel := _button("✕  Cancel", _close_overlay, 0)
+	cancel.custom_minimum_size = Vector2(170, 64)
+	head.add_child(cancel)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
 	list.add_child(grid)
+	var story: Array[String] = []
 	for a in Rules.available_actions(s):
-		var info: Dictionary = Text.ACTIONS[a]
-		var cost: Dictionary = Rules.ACTIONS[a]
-		var cost_txt := []
-		if cost.cash > 0:
-			cost_txt.append("%d cash" % cost.cash)
-		if cost.supplies > 0:
-			cost_txt.append("%d supplies" % cost.supplies)
-		var b := _card_button(info.title, info.desc + ("" if cost_txt.is_empty() else "\nCost: " + ", ".join(cost_txt)),
-			func(): _after_action(op, a))
-		grid.add_child(b)
-	list.add_child(_button("Cancel", _close_overlay, 0))
+		if a in STORY_ACTIONS:
+			story.append(a)
+		else:
+			grid.add_child(_action_tile(a, op, planned.get(a, 0), cash_left, sup_left))
+	# Story beats look different from chores: a full-width card with the face.
+	for a in story:
+		list.add_child(_action_tile(a, op, planned.get(a, 0), cash_left, sup_left, true))
+
+
+## One action on the ledger: woodcut icon (or Teodor's face), typewriter title,
+## a short line, effect chips, and stamps for RISK / PLANNED / can't afford.
+func _action_tile(a: String, op: int, n_planned: int, cash_left: int, sup_left: int, story := false) -> Button:
+	var info: Dictionary = Text.ACTIONS[a]
+	var card: Dictionary = Text.ACTION_CARDS.get(a, {"line": info.desc, "fx": []})
+	var cost: Dictionary = Rules.ACTIONS[a]
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 112 if story else 104)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bg := Color("e2c9a0") if story else C_PAPER_DARK
+	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = bg.darkened(0.12) if st == "pressed" else bg
+		sb.border_color = C_STAMP if st in ["hover", "focus"] or story else C_INK
+		sb.set_border_width_all(3 if story else 2)
+		sb.set_corner_radius_all(3)
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(func(): _after_action(op, a))
+	var pad := MarginContainer.new()
+	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 8)
+	b.add_child(pad)
+	var row := _hbox(12)
+	pad.add_child(row)
+	var pic := TextureRect.new()
+	pic.texture = load(TEODOR_FACE if story else ACTION_ICON % ACTION_ICONS.get(a, "res_people"))
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if story else TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.custom_minimum_size = Vector2(96, 96) if story else Vector2(84, 84)
+	pic.clip_contents = true
+	row.add_child(pic)
+	var col := _vbox(2)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(col)
+	# Title row: typewriter title, then what it costs (ink tag with the resource icon).
+	var title_row := _hbox(10)
+	col.add_child(title_row)
+	var title := _label(info.title, 26, C_INK)
+	title.add_theme_font_override("font", TYPE_FONT)
+	title_row.add_child(title)
+	if cost.cash > 0:
+		title_row.add_child(_chip("%d cash" % cost.cash, "cost", "res_cash"))
+	if cost.supplies > 0:
+		title_row.add_child(_chip("%d supplies" % cost.supplies, "cost", "res_supplies"))
+	var line := _label(card.line, 20, C_INK_SOFT)
+	line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	line.clip_text = true
+	col.add_child(line)
+	var chips := _hbox(6)
+	for fx in card.fx:
+		chips.add_child(_chip(fx[0], fx[1]))
+	if chips.get_child_count() > 0:
+		col.add_child(chips)
+	_mouse_through(pad)
+	# Stamps in the top-right corner, stacked.
+	var stamps: Array = []
+	if a in RISKY_ACTIONS:
+		stamps.append(["RISK", C_STAMP])
+	if n_planned > 0:
+		stamps.append(["PLANNED" + (" ×%d" % n_planned if n_planned > 1 else ""), C_INK])
+	var broke := ""
+	if int(cost.cash) > cash_left:
+		broke = "NO CASH"
+	elif int(cost.supplies) > sup_left:
+		broke = "NO SUPPLIES"
+	if broke != "":
+		stamps.append([broke, C_INK])
+		b.disabled = true
+		pad.modulate = Color(1, 1, 1, 0.45)
+	for i in stamps.size():
+		var st := _stamp(stamps[i][0], stamps[i][1], 20, -7.0 + 4.0 * i)
+		st.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		st.anchor_left = 1.0
+		st.anchor_right = 1.0
+		st.offset_left = -st.custom_minimum_size.x - 10
+		st.offset_right = -10
+		st.offset_top = 6 + 40 * i
+		st.offset_bottom = st.offset_top + st.custom_minimum_size.y
+		b.add_child(st)
+	return b
+
+
+## Effect chip: green +good, red heat with the flame icon, red-outlined bad,
+## ink cost tag with the resource icon, ink-outlined info. Colour is never the
+## only cue (icon or outline style too; standards colour rule).
+func _chip(text: String, kind: String, icon := "") -> PanelContainer:
+	var bgc: Color = {"good": Color("2f5a2c"), "heat": C_STAMP, "cost": C_INK}.get(kind, Color(0, 0, 0, 0))
+	var fg: Color = C_PAPER if kind in ["good", "heat", "cost"] else (C_STAMP if kind == "bad" else C_INK)
+	if kind == "heat":
+		icon = "res_heat"
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bgc
+	sb.border_color = fg if kind in ["bad", "info"] else bgc
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 8 if icon == "" else 3
+	sb.content_margin_right = 10
+	sb.content_margin_top = 1
+	sb.content_margin_bottom = 1
+	p.add_theme_stylebox_override("panel", sb)
+	var h := _hbox(5)
+	p.add_child(h)
+	if icon != "":
+		var t := TextureRect.new()
+		t.texture = load(ACTION_ICON % icon)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.custom_minimum_size = Vector2(24, 24)
+		h.add_child(t)
+	h.add_child(_label(text, 20, fg))
+	return p
+
+
+## A rubber stamp: typewriter caps in a rough box, tilted. Wrapped in a plain
+## Control because containers reset their children's rotation.
+func _stamp(text: String, col: Color, size: int, tilt: float) -> Control:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", TYPE_FONT)
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(col, 0.08)
+	sb.border_color = Color(col, 0.85)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 0
+	l.add_theme_stylebox_override("normal", sb)
+	# Measure with the font itself: a Label outside the tree reports a stale minimum size.
+	var tf: Font = TYPE_FONT
+	var sz := Vector2(tf.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 20,
+		tf.get_height(size) + 2)
+	var holder := Control.new()
+	holder.custom_minimum_size = sz + Vector2(6, 8)
+	holder.add_child(l)
+	l.size = sz
+	l.position = Vector2(3, 4)
+	l.pivot_offset = sz / 2.0
+	l.rotation_degrees = tilt
+	return holder
+
+
+func _mouse_through(n: Node) -> void:
+	if n is Control:
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in n.get_children():
+		_mouse_through(c)
+
+
+## The action picker's sheet: a full-screen ledger page on paper. Scrolls only
+## if a late week has more actions than fit, with a "more" hint at the bottom.
+func _ledger_box() -> VBoxContainer:
+	_close_overlay()
+	overlay = Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(dim)
+	var vp := get_viewport_rect().size
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = C_PAPER
+	sb.border_color = C_INK
+	sb.set_border_width_all(3)
+	sb.set_content_margin_all(12)
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 14
+	p.add_theme_stylebox_override("panel", sb)
+	p.position = Vector2(12, 10)
+	p.size = vp - Vector2(24, 20)
+	overlay.add_child(p)
+	var v := _vbox(0)
+	p.add_child(v)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(scroll)
+	var box := _vbox(8)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
+	var more := _label("▼  more below  ▼", 20, C_STAMP)
+	more.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	more.visible = false
+	v.add_child(more)
+	var bar := scroll.get_v_scroll_bar()
+	var upd := func(): more.visible = bar.max_value - bar.page > bar.value + 4.0
+	bar.changed.connect(upd)
+	bar.value_changed.connect(func(_v): upd.call())
+	return box
 
 
 func _after_action(op: int, a: String) -> void:

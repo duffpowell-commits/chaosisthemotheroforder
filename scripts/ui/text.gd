@@ -17,6 +17,26 @@ const ACTIONS := {
 	"seize": {"title": "Seize the district", "desc": "Take the Rail Yards by force. Fast. You will hold it like an occupier."},
 }
 
+## The ledger look of the action picker (Nov 25, Duff picked "All six"): one short
+## line per action plus effect chips, so the numbers read at a glance. Chip kinds:
+## good (green, +), heat (red, flame icon), bad (red outline), info (ink outline).
+## Costs come from Rules.ACTIONS, not from here. Keep in sync with ACTIONS above.
+const ACTION_CARDS := {
+	"aid": {"line": "Food and medicine. Quiet unless it fails.", "fx": [["+10 Sentiment", "good"]]},
+	"expose": {"line": "Posters and leaflets.", "fx": [["+8 Sentiment", "good"], ["+1 Legitimacy", "good"], ["+1 Heat", "heat"]]},
+	"recruit": {"line": "Find new hands.", "fx": [["+1 operative", "good"], ["+2 if Sympathetic", "good"], ["+1 Heat", "heat"]]},
+	"scavenge": {"line": "Scrapyards. You might get stopped.", "fx": [["+cash, supplies or parts", "good"]]},
+	"listen": {"line": "Bars and stairwells.", "fx": [["Confirms a zone's mood", "info"]]},
+	"lay_low": {"line": "Keep the cell quiet.", "fx": [["−3 Heat", "good"]]},
+	"diversion": {"line": "A fake protest pulls patrols away.", "fx": [["Moves 2 patrols", "good"], ["+1 Heat", "heat"], ["Fail: arrested", "bad"]]},
+	"see_teodor": {"line": "The dock foreman at the Freight Depot. What you say to him matters.", "fx": []},
+	"strike": {"line": "Teodor stops the cranes.", "fx": [["+20 Depot", "good"], ["−1 patrols, 2 weeks", "good"], ["+2 Heat", "heat"]]},
+	"confess": {"line": "There was never a plan for Kell.", "fx": [["He might walk", "bad"]]},
+	"signal_box": {"line": "Air the raid footage, get out.", "fx": [["Everyone free goes", "info"]]},
+	"rally": {"line": "Both zones are Ready. Fill the Rail Yards.", "fx": [["No proof: crushed", "bad"]]},
+	"seize": {"line": "Take the Rail Yards by force.", "fx": [["You hold it like an occupier", "bad"]]},
+}
+
 ## Plan actions that ask "how?" before they're committed. The Signal Box used to
 ## (quiet or loud); since M5 you decide that in the mission itself.
 const CHOICES := {}

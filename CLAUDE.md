@@ -51,6 +51,11 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - **Nov 25: phone-first UI** (standards item 4): title opens on **Fight now** (straight into the Signal
   Box, `_fight_now` in game.gd), buttons 72 px / text >= 20 px (`MIN_TEXT`), HUD buttons 64 px and wrap,
   first-move coach hint "Tap a blue tile" (`_build_coach`, seen flag in `user://coach.cfg`).
+  Action picker is a **ledger page** (Duff picked "All six"): woodcut icon per action (128 px `icons/display/`),
+  effect chips from `Text.ACTION_CARDS` (green good, red heat + flame, cost tag by the title), red
+  "WEEK N · ORDERS" stamp, RISK / PLANNED / NO CASH stamps, Teodor beats as a full-width card with his face,
+  Cancel in the header, "more below" hint when a late week scrolls. Typewriter font Special Elite (Apache 2.0,
+  `assets/fonts/`). `_pick_action` / `_action_tile` / `_chip` / `_stamp` / `_ledger_box` in game.gd.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
