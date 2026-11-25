@@ -12,6 +12,7 @@ config/quit_on_go_back=false
 [autoload]
 
 Fonts="*res://scripts/fonts.gd"
+Settings="*res://scripts/settings.gd"
 Updater="*res://scripts/updater.gd"
 
 [display]

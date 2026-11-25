@@ -10,6 +10,9 @@ const Rules = preload("res://scripts/sim/rules.gd")
 var ok := true
 
 
+var settings_done := false
+
+
 func _init() -> void:
 	_run.call_deferred()
 
@@ -73,5 +76,90 @@ func _run() -> void:
 	t._quit_fight()
 	await _frames(6)
 	expect(not paused and current_scene.scene_file_path.ends_with("game.tscn") and current_scene.on_title, "quit goes to the title")
+	await _settings_checks()
+	expect(settings_done, "settings checks ran to the end (a script error stops them early)")
 	print("QOL PASS" if ok else "QOL FAIL")
 	quit(0 if ok else 1)
+
+
+func _shot(name: String) -> void:
+	if DisplayServer.get_name() != "headless":
+		await _frames(4)
+		root.get_viewport().get_texture().get_image().save_png(
+			ProjectSettings.globalize_path("res://docs/renders/ui/" + name))
+
+
+## QoL step 2: the settings sheet opens from the title, TEXT SIZE scales the run's text,
+## LOW GRAPHICS cuts the fight's 3D cost, and the choices persist.
+func _settings_checks() -> void:
+	var st = root.get_node_or_null("Settings")
+	expect(st != null, "Settings autoload is loaded")
+	if st == null:
+		return
+	st.values = st.DEFAULTS.duplicate()
+	var g = current_scene
+	g.show_title()
+	await _frames(2)
+	var sheet = g.SettingsSheet.open(g, g.show_title)
+	await _frames(2)
+	expect(sheet.find_child("music", true, false) != null and sheet.find_child("done", true, false) != null, "settings sheet opens from the title")
+	await _shot("8_settings.png")
+	var tb: Button = sheet.find_child("text_size", true, false)
+	tb.pressed.emit()
+	tb.pressed.emit()
+	await _frames(2)
+	expect(int(st.get_value("text_size")) == 2, "TEXT SIZE steps to HUGE")
+	expect(g._label("x", 20, Color.WHITE).get_theme_font_size("font_size") == 26, "HUGE text scales a 20 px label to 26")
+	for c in g.get_children():
+		if c is CanvasLayer and c.layer == 30:
+			c.queue_free()
+	g._new_run()
+	await _frames(3)
+	await _shot("9_district_huge_text.png")
+	st.set_value("text_size", 0)
+	var cfg := ConfigFile.new()
+	expect(cfg.load(st.PATH) == OK and int(cfg.get_value("settings", "text_size", -1)) == 0, "settings are saved to disk")
+	st.set_value("low_graphics", true)
+	g._fight_now()
+	await _frames(20)
+	var t = current_scene
+	expect(is_equal_approx(t.get_viewport().scaling_3d_scale, 0.75) and not t.moon.shadow_enabled and t.rain.amount == 500, "LOW GRAPHICS: 75% 3D, no shadows, less rain")
+	st.set_value("low_graphics", false)
+	await _frames(2)
+	expect(is_equal_approx(t.get_viewport().scaling_3d_scale, 1.0) and t.moon.shadow_enabled, "HIGH GRAPHICS comes back live")
+	t._set_paused(true)
+	await _frames(2)
+	expect(t.pause_layer.find_child("*", true, false) != null, "pause menu still builds")
+	t.SettingsSheet.open(t)
+	await _frames(2)
+	t._back()
+	await _frames(2)
+	expect(paused and t.pause_layer != null and not _sheet_open(t), "back in the fight closes the sheet, stays paused")
+	t._quit_fight()
+	await _frames(6)
+	g = current_scene
+	g.show_title()
+	g.SettingsSheet.open(g, g.show_title)
+	await _frames(2)
+	g._go_back()
+	await _frames(2)
+	expect(g.on_title and not _sheet_open(g), "back on the title closes the sheet, doesn't quit")
+	# A corrupt settings file falls back to safe values (gamma 0 would black the screen).
+	var bad := ConfigFile.new()
+	bad.set_value("settings", "gamma", "oops")
+	bad.set_value("settings", "music", [1, 2])
+	bad.set_value("settings", "low_graphics", "false")
+	bad.set_value("settings", "text_size", 9)
+	bad.save(st.PATH)
+	st.load_settings()
+	expect(st.get_value("gamma") == 1.0 and st.get_value("music") == 0.8 and st.get_value("low_graphics") == false and st.get_value("text_size") == 2, "corrupt settings file falls back safely")
+	st.values = st.DEFAULTS.duplicate()
+	st.save_settings()
+	settings_done = true
+
+
+func _sheet_open(n: Node) -> bool:
+	for c in n.get_children():
+		if c is CanvasLayer and c.has_meta("sheet_close") and not c.is_queued_for_deletion():
+			return true
+	return false
