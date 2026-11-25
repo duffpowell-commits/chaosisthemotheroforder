@@ -71,6 +71,7 @@ var dlg_done: Callable
 var dlg_portrait := ""
 var dlg_log: Array = []  # lines so far in this scene, shown as a running transcript
 var on_title := false
+var where := ""  # which screen is up, for bug reports
 
 
 func _ready() -> void:
@@ -109,6 +110,7 @@ func _ready() -> void:
 # ---------- screens ----------
 
 func show_title() -> void:
+	where = "title"
 	_clear()
 	on_title = true
 	var box := _vbox(18)
@@ -149,6 +151,7 @@ func _fight_now() -> void:
 
 
 func show_district() -> void:
+	where = "district"
 	_clear()
 	_set_backdrop(_liberation())
 	var col := _page()
@@ -206,6 +209,7 @@ func show_district() -> void:
 
 
 func show_report() -> void:
+	where = "report"
 	_clear()
 	_set_backdrop(_liberation())
 	var col := _page()
@@ -257,6 +261,7 @@ func show_report() -> void:
 ## A dialogue scene (docs/slice-spec.md §11.4): portrait, speaker, line, then
 ## either Continue or the choices. Calls on_done(vars) when the scene ends.
 func show_dialogue(node: String, on_done: Callable) -> void:
+	where = "dialogue " + node
 	dlg_runner = Dialogue.Runner.new(Story.load_nodes(), Story.context(s))
 	dlg_runner.start(node)
 	dlg_done = on_done
@@ -360,6 +365,7 @@ func _dialogue_finish_fast() -> void:
 
 
 func show_ending() -> void:
+	where = "ending"
 	_clear()
 	var e: Dictionary = Text.ENDINGS[s.ending]
 	_set_backdrop(e.grade)
@@ -501,6 +507,19 @@ func _notification(what: int) -> void:
 				_save()
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			_go_back.call_deferred()
+
+
+## For REPORT A BUG: where the run is, so a report needs no questions back.
+func bug_state() -> String:
+	var out := "screen %s" % where
+	if overlay:
+		out += " + picker"
+	if s != null:
+		out += " | week %d, heat %d, cash %d, supplies %d, parts %d, legit %d, ops %d, planned %d" % [
+			s.week, s.heat, s.cash, s.supplies, s.parts, s.legitimacy, s.operatives.size(), plan.size()]
+		if s.ending != "":
+			out += ", ending " + s.ending
+	return out
 
 
 ## Back: closes the action picker, else leaves the run for the title (saved), else quits.

@@ -69,6 +69,9 @@ static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
 		st.set_value("low_graphics", not st.get_value("low_graphics"))
 		gfx_text.call())
 	row.add_child(gfx_b)
+	var bug := _button("REPORT A BUG", func(): load("res://scripts/ui/bug_report.gd").open(parent))
+	bug.name = "report_bug"
+	col.add_child(bug)
 	var done := _button("DONE", close)
 	done.name = "done"
 	var sbd := StyleBoxFlat.new()

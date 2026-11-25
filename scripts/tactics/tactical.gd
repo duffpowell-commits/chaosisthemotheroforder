@@ -1141,6 +1141,18 @@ func _return_to_run(r: Dictionary) -> void:
 var pause_layer: CanvasLayer
 
 
+## For REPORT A BUG: the fight's state in one line.
+func bug_state() -> String:
+	if battle == null:
+		return "fight not built"
+	var out := "fight turn %d, side %s, mission %s, noise %d, alarm %s, upload %d" % [
+		battle.turn, battle.side, str(battle.mission), battle.noise, str(battle.alarm), battle.upload]
+	var us := []
+	for u in battle.units:
+		us.append("%s %s hp%d @%s%s" % [u.side, u.name, u.hp, str(u.pos), " dead" if u.dead else ""])
+	return out + " | " + "; ".join(us)
+
+
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:

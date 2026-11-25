@@ -74,6 +74,7 @@ func _run() -> void:
 	await _frames(6)
 	expect(not paused and current_scene.scene_file_path.ends_with("game.tscn") and current_scene.on_title, "quit goes to the title")
 	await _settings_checks()
+	await _bug_checks()
 	print("QOL PASS" if ok else "QOL FAIL")
 	quit(0 if ok else 1)
 
@@ -127,4 +128,45 @@ func _settings_checks() -> void:
 	await _frames(2)
 	expect(t.pause_layer.find_child("*", true, false) != null, "pause menu still builds")
 	t._quit_fight()
+	await _frames(6)
+
+
+## QoL step 3: REPORT A BUG from the settings sheet; the report carries the version and
+## the scene's state (district and fight) without the tester typing it.
+func _bug_checks() -> void:
+	var g = current_scene
+	g._new_run()
+	await _frames(2)
+	var sheet = g.SettingsSheet.open(g, g.show_title)
+	await _frames(2)
+	var rb: Button = sheet.find_child("report_bug", true, false)
+	expect(rb != null, "settings sheet has REPORT A BUG")
+	if rb == null:
+		return
+	rb.pressed.emit()
+	await _frames(2)
+	var bug: CanvasLayer = null
+	for c in g.get_children():
+		if c is CanvasLayer and c.layer == 31:
+			bug = c
+	expect(bug != null and bug.find_child("note", true, false) != null and bug.find_child("send", true, false) != null and bug.find_child("copy", true, false) != null, "bug report opens with note, send, copy")
+	if bug == null:
+		return
+	(bug.find_child("note", true, false) as TextEdit).text = "Shoot button did nothing"
+	await _shot("10_bug_report.png")
+	var BugReport = load("res://scripts/ui/bug_report.gd")
+	var txt: String = BugReport.report_text("Shoot button did nothing", self)
+	var Config = load("res://scripts/config.gd")
+	expect(txt.begins_with("Shoot button did nothing") and txt.contains(Config.version_label()) and txt.contains("week 1") and txt.contains("screen district"), "report has the note, version and run state")
+	var url: String = BugReport.issue_url(txt)
+	expect(url.contains("/issues/new?labels=bug") and not url.contains(" "), "SEND makes an encoded GitHub issue link")
+	bug.queue_free()
+	for c in g.get_children():
+		if c is CanvasLayer and c.layer == 30:
+			c.queue_free()
+	g._fight_now()
+	await _frames(20)
+	var ftxt: String = BugReport.report_text("", self)
+	expect(ftxt.contains("fight turn 1") and ftxt.contains("hp"), "fight reports carry turn and units")
+	current_scene._quit_fight()
 	await _frames(6)
