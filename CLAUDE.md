@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Chaos Is the Mother of Order
 
 > **PAUSED (Nov 7, Duff's call):** Lethemoor is the active game now (own repo). Don't start J2 here
@@ -5,6 +7,7 @@
 
 Grim Godot 4.7.2 strategy-RPG about organizing a revolution against a modern
 police state. Owner: Duff. Read this first; it is the handoff between sessions.
+Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.md (imported above).
 
 ## Where things stand
 - Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).
