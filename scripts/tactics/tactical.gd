@@ -212,7 +212,10 @@ func _new_battle(s: int) -> void:
 	rig_clips.clear()
 	rig_seen.clear()
 	cam_goal = Vector3.INF
-	selected = battle.alive_units(Battle.US)[0]
+	# A resumed fight can already be over (saved on the result screen): nobody to select,
+	# and _refresh then puts the result panel up so "Back to the week" still works.
+	var ours: Array = battle.alive_units(Battle.US)
+	selected = ours[0] if not ours.is_empty() else null
 	aimed = null
 	sneaking = false
 	tool_mode = ""
@@ -1142,8 +1145,8 @@ func _return_to_run(r: Dictionary) -> void:
 
 
 # ---------- pause (QoL step 1, Nov 25) ----------
-# Leaving the app or pressing back pauses the fight behind a menu. Quitting mid-mission
-# drops back to the title; the run's save is from the start of the week, so the week replays.
+# Leaving the app or pressing back pauses the fight behind a menu. "Save and quit" drops back
+# to the title; CONTINUE FIGHT resumes at the saved turn (QoL step 4, scripts/fight_save.gd).
 
 var pause_layer: CanvasLayer
 

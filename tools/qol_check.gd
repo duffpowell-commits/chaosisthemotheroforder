@@ -254,7 +254,21 @@ func _fight_save_checks() -> void:
 	await _shot("11_fight_resumed.png")
 	# A stale save (another run's) is ignored and removed.
 	expect(FightSave.load_for(seed_now + 1, 1).is_empty() and not FightSave.exists(), "another run's fight save is dropped")
-	t._save_fight()
+	# A fight saved after it ended (squad down on the regime's turn, then the app was killed on
+	# the result screen) resumes to its result panel, and Back to the week still works.
+	for u in t.battle.units:
+		if u.side == "us":
+			u.hp = 0
+			u.dead = true
+	t._on_end_turn()
+	await _frames(90)
+	expect(t.battle.is_over() and t.result_panel.visible and FightSave.exists(), "an ended fight is saved with its result up")
+	change_scene_to_file("res://scenes/game.tscn")
+	await _frames(5)
+	current_scene._continue_run()
+	await _frames(30)
+	t = current_scene
+	expect(t.scene_file_path.ends_with("tactical.tscn") and t.battle.is_over() and t.result_panel.visible, "resuming an ended fight shows its result, not an empty street")
 	t._return_to_run(t.battle.mission_result())
 	await _frames(10)
 	expect(not FightSave.exists(), "finishing the fight clears the save")
