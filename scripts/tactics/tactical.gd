@@ -1127,6 +1127,66 @@ func _return_to_run(r: Dictionary) -> void:
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 
+# ---------- pause (QoL step 1, Nov 25) ----------
+# Leaving the app or pressing back pauses the fight behind a menu. Quitting mid-mission
+# drops back to the title; the run's save is from the start of the week, so the week replays.
+
+var pause_layer: CanvasLayer
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:
+			_set_paused.call_deferred(true)
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			_set_paused.call_deferred(pause_layer == null)
+
+
+func _set_paused(on: bool) -> void:
+	if "--autoplay" in OS.get_cmdline_user_args() or not is_inside_tree():
+		return
+	if on and (pause_layer != null or (result_panel and result_panel.visible)):
+		return
+	if not on:
+		if pause_layer:
+			pause_layer.queue_free()
+			pause_layer = null
+		get_tree().paused = false
+		return
+	get_tree().paused = true
+	pause_layer = CanvasLayer.new()
+	pause_layer.layer = 20
+	pause_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(pause_layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.72)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_layer.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_layer.add_child(center)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 18)
+	center.add_child(box)
+	var t := _hud_label("PAUSED", 40, C_FG)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(t)
+	var resume := _hud_button("Resume", func(): _set_paused(false))
+	resume.custom_minimum_size = Vector2(360, 72)
+	box.add_child(resume)
+	var run := mission_meta.has("state")
+	var quit := _hud_button("Quit to title (this week replays)" if run else "Quit to title", _quit_fight)
+	quit.custom_minimum_size = Vector2(360, 72)
+	box.add_child(quit)
+	resume.grab_focus.call_deferred()
+
+
+func _quit_fight() -> void:
+	get_tree().paused = false
+	Engine.remove_meta("mission")
+	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+
 # ---------- input ----------
 
 func _unhandled_input(event: InputEvent) -> void:

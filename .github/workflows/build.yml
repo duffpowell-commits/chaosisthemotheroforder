@@ -41,6 +41,8 @@ jobs:
         run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tests/run_tests.gd 2>&1 | tee tests.log; grep -qE "^[0-9]+ passed, 0 failed" tests.log && ! grep -q "SCRIPT ERROR" tests.log
       - name: Run -> mission -> run flow
         run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tools/mission_flow_check.gd 2>&1 | tee flow.log; grep -q "^ALL OK" flow.log && ! grep -q "SCRIPT ERROR" flow.log
+      - name: QoL check (pause, back button, saves)
+        run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tools/qol_check.gd 2>&1 | tee qol.log; grep -q "^QOL PASS" qol.log && ! grep -q "SCRIPT ERROR" qol.log
 
   android:
     needs: test

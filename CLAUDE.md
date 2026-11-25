@@ -68,6 +68,12 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   Then **graffiti + worn** (Duff: "too boring", "more worn ... often carried"): Forge graffiti wall
   (`assets/ui/dossier/wall.png`, Foxboard job `chaos-graffiti-wall-20261125` take 0) behind a crooked stack of 3 sheets
   (`_wall_and_sheets`); `gen_dossier.py` wear pass: folds, creases, dog-ears, thumb grime; cards tilt up to 3.5° and scatter.
+- **Nov 25: QoL** (standards item 5, step by step with Duff's OK). Step 1: phone lifecycle. Leaving the app
+  saves the run + the half-made plan (`user://plan.save`, kept only for its week; `_save_plan` / `_load_plan`);
+  back closes the picker, then leaves to the title, then quits (`quit_on_go_back=false`, `_go_back`). The fight
+  pauses behind a menu on back / focus-out (`_set_paused` in tactical.gd; Quit to title replays the week).
+  Check: `tools/qol_check.gd` -> `QOL PASS` (in CI). Render `docs/renders/ui/7_paused.png`.
+  Next steps: settings sheet, bug report + version, mid-fight save.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
@@ -178,6 +184,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Mission balance: `godot --headless --path . --script tools/mission_sim.gd -- 500`
   (`-- 300 focus` for just the 3 v 4 and 5 v 4 cases; prints tension: close %, coin-flip shots)
 - Run -> mission -> run hook: `godot --headless --path . --script tools/mission_flow_check.gd`
+- QoL (pause, back, saves): `godot --headless --path . --script tools/qol_check.gd` -> `QOL PASS`
 - Tactical renders: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --capture-tactical`
   (`--capture-mission` for the Signal Box, `--capture-tools` for the four diversion tools). Fresh clone: run `godot --headless --path . --import` first.
 - UI screenshots: `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shots`
