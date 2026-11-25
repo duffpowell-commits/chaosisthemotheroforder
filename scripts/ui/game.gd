@@ -645,7 +645,7 @@ func _set_backdrop(t: float) -> void:
 
 func _make_theme() -> Theme:
 	var th := Theme.new()
-	th.default_font_size = 18
+	th.default_font_size = 22
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color("232830")
 	normal.border_color = C_LINE
@@ -661,7 +661,7 @@ func _make_theme() -> Theme:
 		th.set_stylebox(st[0], "Button", st[1])
 	th.set_color("font_color", "Button", C_FG)
 	th.set_color("font_disabled_color", "Button", C_MUTED.darkened(0.3))
-	th.set_font_size("font_size", "Button", 18)
+	th.set_font_size("font_size", "Button", 22)
 	return th
 
 

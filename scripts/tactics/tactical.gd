@@ -424,6 +424,7 @@ func _hud_button(t: String, cb: Callable) -> Button:
 	b.text = t
 	b.custom_minimum_size = Vector2(150, 64)
 	b.add_theme_font_size_override("font_size", 24)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # phone text size: long labels wrap, never clip
 	b.pressed.connect(cb)
 	return b
 
@@ -616,7 +617,7 @@ func _refresh_column() -> void:
 	shoot.disabled = c <= 0 or u.ap < 1
 	column.add_child(shoot)
 	for b in column.get_children():
-		b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+		b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 	if c > 0:
 		shoot.add_theme_font_size_override("font_size", 18)
 		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
@@ -771,7 +772,7 @@ func _tool_column(u) -> void:
 	column.add_child(_hud_button("Cancel", func(): _start_tool("")))
 	for b in column.get_children():
 		if b is Button:
-			b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+			b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 
 
 ## "+4 noise", or "+4 noise: ALARM, 3 riot police in 2" when it would trip it.

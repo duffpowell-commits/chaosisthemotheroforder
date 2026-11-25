@@ -1,7 +1,8 @@
 # Chaos Is the Mother of Order
 
-> **PAUSED (Nov 7, Duff's call):** Lethemoor is the active game now (own repo). Don't start J2 here
-> unless Duff says Chaos is back on. See `QUEUE.md`.
+> **ACTIVE again (Nov 25, Duff: "lets get all six in order"):** working the 7-item standards list
+> (APK, guardrails, 3D cast, phone UI, QoL, sound/feel, perf/size). Duff wants it step by step:
+> one step, then his OK on a card, before the next.
 
 Grim Godot 4.7.2 strategy-RPG about organizing a revolution against a modern
 police state. Owner: Duff. Read this first; it is the handoff between sessions.
@@ -47,6 +48,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   `UNIT_KEY`, `UNIT_KEY_YAW`), tactical grade keeps 60% colour (`GRADE_SAT`), tile fills thin under bodies,
   camera frames the selected unit + allies within 3 + guards within 4 (`FRAME_*_RANGE`, zoom to 0.5x). Spent 166 Meshy
   credits (balance 2,113). Renders: `docs/renders/cast/`. The street scene still uses MakeHuman crowds.
+- **Nov 25: phone-first UI** (standards item 4): title opens on **Fight now** (straight into the Signal
+  Box, `_fight_now` in game.gd), buttons 72 px / text >= 20 px (`MIN_TEXT`), HUD buttons 64 px and wrap,
+  first-move coach hint "Tap a blue tile" (`_build_coach`, seen flag in `user://coach.cfg`).
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
