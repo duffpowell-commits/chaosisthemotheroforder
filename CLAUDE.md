@@ -36,8 +36,9 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Next: **J2 = M6** (endings, saves incl. mid-fight, Android pass).
 - **Nov 25: real 3D cast** (standards audit item 3; Duff: "lets get all six in order"): Meshy models
   on one shared 24-bone skeleton replace the mannequins and the HD-2D cutouts in the fight
-  (`USE_CUTOUTS := false` in tactical.gd; the cutout code stays). You = DuffQuest's Meshy Duff (real
-  tattoos, reused, 0 credits); Mara, Kesh, Teodor made from Grok's A-pose fronts/backs; the guard is
+  (`USE_CUTOUTS := false` in tactical.gd; the cutout code stays). You = a new Chaos Duff in revolution gear
+  (olive work jacket, red armband; Duff's pick Nov 25) from his upload via Meshy image edits, hands painted
+  from the DuffQuest masters (project files chaos-art/duff-new/, README there; 67 credits); Mara, Kesh, Teodor made from Grok's A-pose fronts/backs; the guard is
   the old CPU model re-textured from guard_front.png. 9 shared clips (idle, walk, run, shoot, hit,
   death, crouch_walk, injured_walk, sneak) in `assets/characters/meshy/clips/*.res`, made by
   `tools/extract_meshy_clips.gd` from GLBs kept in project files `chaos-art/meshy/clips_src/`.
