@@ -164,16 +164,33 @@ func show_district() -> void:
 	head.add_child(_stamp("ASSIGNMENTS", C_INK, 24, -2.0))
 	head.add_child(_typed("Up to 3 jobs. Everyone else rests.", 20, C_INK_SOFT))
 	var used := plan.size()
+	# A big cell scrolls its rows and drops the street photo, so END WEEK always shows.
+	var rows_n := s.ready_operatives().size()
+	for o in s.operatives:
+		if not o.dead and o.out_weeks > 0:
+			rows_n += 1
+	var big := rows_n > 3
+	var rows := _vbox(10)
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if big:
+		var sc := ScrollContainer.new()
+		sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc.add_child(rows)
+		pcol.add_child(sc)
+	else:
+		pcol.add_child(rows)
 	for i in s.ready_operatives():
-		pcol.add_child(_operative_row(i, used))
+		rows.add_child(_operative_row(i, used))
 	for i in range(s.operatives.size()):
 		var o: Dictionary = s.operatives[i]
 		if not o.dead and o.out_weeks > 0:
-			pcol.add_child(_typed("%s: out for %d more week%s" % [o.name, o.out_weeks, "" if o.out_weeks == 1 else "s"], 20, C_INK_SOFT))
+			rows.add_child(_typed("%s: out for %d more week%s" % [o.name, o.out_weeks, "" if o.out_weeks == 1 else "s"], 20, C_INK_SOFT))
 	message = _typed("", 20, C_STAMP)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pcol.add_child(message)
-	pcol.add_child(_on_desk(_street_photo(), "street_photo", true, 1.2))
+	if not big:
+		pcol.add_child(_on_desk(_street_photo(), "street_photo", true, 1.2))
 	pcol.add_child(_ink_button("END WEEK %d  ▶" % s.week, _end_week, true))
 
 
@@ -185,9 +202,15 @@ func show_report() -> void:
 	col.add_child(head)
 	head.add_child(_stamp("WEEK %d · REPORT" % (s.week - (0 if s.is_over() else 1)), C_STAMP, 30, -2.0))
 	head.add_child(_typed("FILE 07 · RAIL YARDS CELL · WHAT THEY SAY / WHAT HAPPENED", 20, C_INK_SOFT))
+	# A busy week's report scrolls; the button forward stays on screen.
+	var rsc := ScrollContainer.new()
+	rsc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(rsc)
 	var row := _hbox(26)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(row)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rsc.add_child(row)
 	# State TV: a torn clipping, regime red masthead.
 	var tv := _paper_panel("card")
 	var tvc := _vbox(10)
@@ -838,19 +861,19 @@ func _wall_and_sheets(parent: Control) -> void:
 	wall.modulate = Color(0.7, 0.68, 0.66)
 	parent.add_child(wall)
 	# [inset x, inset y, tilt, shade]: the back sheets peek out under the top one.
-	for s in [[54.0, 24.0, 2.4, 0.72], [48.0, 18.0, -1.8, 0.84], [42.0, 12.0, -0.6, 1.0]]:
+	for sh in [[54.0, 24.0, 2.4, 0.72], [48.0, 18.0, -1.8, 0.84], [42.0, 12.0, -0.6, 1.0]]:
 		var sheet := TextureRect.new()
 		sheet.texture = load(DOSSIER % "sheet")
 		sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		sheet.stretch_mode = TextureRect.STRETCH_SCALE
 		sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
-		sheet.offset_left = s[0]
-		sheet.offset_top = s[1]
-		sheet.offset_right = -s[0]
-		sheet.offset_bottom = -s[1]
-		sheet.rotation_degrees = s[2]
-		sheet.modulate = Color(s[3], s[3] * 0.98, s[3] * 0.94)
-		sheet.flip_h = s[2] > 0.0
+		sheet.offset_left = sh[0]
+		sheet.offset_top = sh[1]
+		sheet.offset_right = -sh[0]
+		sheet.offset_bottom = -sh[1]
+		sheet.rotation_degrees = sh[2]
+		sheet.modulate = Color(sh[3], sh[3] * 0.98, sh[3] * 0.94)
+		sheet.flip_h = sh[2] > 0.0
 		sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		sheet.resized.connect(func(): sheet.pivot_offset = sheet.size / 2.0)
 		parent.add_child(sheet)
