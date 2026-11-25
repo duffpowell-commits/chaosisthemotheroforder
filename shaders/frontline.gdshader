@@ -7,6 +7,9 @@ uniform float grain_seed = 0.0;
 // Tactical map turns these down so the grid and cover stay readable (J1).
 uniform float grain_mul = 1.0;
 uniform float crush_mul = 1.0;
+// Colour kept under the regime. 0.07 on the street; the tactical map keeps more so the cast
+// (real 3D since Nov 25) still shows faces and the movement red.
+uniform float regime_sat = 0.07;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -16,7 +19,7 @@ void fragment() {
 	vec3 c = texture(screen_tex, SCREEN_UV).rgb;
 	float lum = dot(c, vec3(0.299, 0.587, 0.114));
 	// Regime: near-monochrome. Liberated: full color.
-	c = mix(vec3(lum), c, mix(0.07, 0.85, liberation));
+	c = mix(vec3(lum), c, mix(regime_sat, 0.85, liberation));
 	// Harsher contrast under the regime.
 	c = (c - 0.5) * (1.0 + (mix(1.28, 1.06, liberation) - 1.0) * crush_mul) + 0.5;
 	// Cold to warm tint.

@@ -34,6 +34,19 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (`EXTRA_GUARDS`, `GUARD_ROUTES[4]`): 3 v 4 quiet gets out 64%, airs 83%, close 83%.
   `--capture-tools` renders each tool (`docs/renders/tools_*.png`).
 - Next: **J2 = M6** (endings, saves incl. mid-fight, Android pass).
+- **Nov 25: real 3D cast** (standards audit item 3; Duff: "lets get all six in order"): Meshy models
+  on one shared 24-bone skeleton replace the mannequins and the HD-2D cutouts in the fight
+  (`USE_CUTOUTS := false` in tactical.gd; the cutout code stays). You = a new Chaos Duff in revolution gear
+  (olive work jacket, red armband; Duff's pick Nov 25) from his upload via Meshy image edits, hands painted
+  from the DuffQuest masters (project files chaos-art/duff-new/, README there; 67 credits); Mara, Kesh, Teodor made from Grok's A-pose fronts/backs; the guard is
+  the old CPU model re-textured from guard_front.png. 9 shared clips (idle, walk, run, shoot, hit,
+  death, crouch_walk, injured_walk, sneak) in `assets/characters/meshy/clips/*.res`, made by
+  `tools/extract_meshy_clips.gd` from GLBs kept in project files `chaos-art/meshy/clips_src/`.
+  `_meshy_person` (render_test.gd) builds a body; `_update_bodies` (tactical.gd) picks its clip.
+  Readability: matte materials + slight glow, a warm side key light on units only (`UNIT_LAYER`,
+  `UNIT_KEY`, `UNIT_KEY_YAW`), tactical grade keeps 60% colour (`GRADE_SAT`), tile fills thin under bodies,
+  camera frames the selected unit + allies within 3 + guards within 4 (`FRAME_*_RANGE`, zoom to 0.5x). Spent 166 Meshy
+  credits (balance 2,113). Renders: `docs/renders/cast/`. The street scene still uses MakeHuman crowds.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates

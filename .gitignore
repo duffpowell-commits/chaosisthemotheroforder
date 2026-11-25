@@ -4,3 +4,6 @@ reference/private/
 # Godot editor cache
 .godot/
 build/
+
+# Meshy clip sources (15 MB each, full mesh inside): project files chaos-art/meshy/clips_src/
+assets/characters/meshy/clips_src/
