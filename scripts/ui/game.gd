@@ -72,6 +72,7 @@ var dlg_portrait := ""
 var dlg_log: Array = []  # lines so far in this scene, shown as a running transcript
 var on_title := false
 var where := ""  # which screen is up, for bug reports
+var left_from := ""  # the run screen the player backed out of to reach the title
 
 
 func _ready() -> void:
@@ -110,6 +111,8 @@ func _ready() -> void:
 # ---------- screens ----------
 
 func show_title() -> void:
+	if where != "" and where != "title":
+		left_from = where  # Settings (and REPORT A BUG) only open from the title
 	where = "title"
 	_clear()
 	on_title = true
@@ -512,6 +515,8 @@ func _notification(what: int) -> void:
 ## For REPORT A BUG: where the run is, so a report needs no questions back.
 func bug_state() -> String:
 	var out := "screen %s" % where
+	if where == "title" and left_from != "":
+		out += " (came from %s)" % left_from
 	if overlay:
 		out += " + picker"
 	if s != null:

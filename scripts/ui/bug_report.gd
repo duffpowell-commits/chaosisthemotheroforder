@@ -34,8 +34,13 @@ static func report_text(note: String, tree: SceneTree) -> String:
 	return "\n".join(lines)
 
 
+const MAX_BODY := 6000  # GitHub's new-issue links break near 8 KB; COPY keeps the full text
+
+
 static func issue_url(text: String) -> String:
 	var title := text.split("\n")[0].left(60)
+	while text.uri_encode().length() > MAX_BODY:  # encoded length: accents/emoji triple
+		text = text.left(int(text.length() * 0.8)) + "\n(cut; the full report was copied)"
 	return "https://github.com/%s/issues/new?labels=bug&title=%s&body=%s" % [
 		Config.repo(), ("Bug: " + title).uri_encode(), text.uri_encode()]
 
@@ -80,7 +85,7 @@ static func open(parent: Node) -> CanvasLayer:
 	col.add_child(Sheet._text("What went wrong? Phone and game details are added for you.", 20, Sheet.C_INK_SOFT))
 	var note := TextEdit.new()
 	note.name = "note"
-	note.custom_minimum_size = Vector2(0, 150)
+	note.custom_minimum_size = Vector2(0, 110)
 	note.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	note.placeholder_text = "I tapped... and then..."
 	note.add_theme_font_size_override("font_size", 22)
@@ -96,14 +101,18 @@ static func open(parent: Node) -> CanvasLayer:
 	note.add_theme_color_override("font_placeholder_color", Color(Sheet.C_INK_SOFT, 0.6))
 	note.add_theme_color_override("caret_color", Sheet.C_STAMP)
 	note.add_theme_font_override("font", load("res://assets/fonts/SpecialElite-Regular.ttf"))
-	col.add_child(note)
+	# Buttons sit above the note: the phone keyboard covers the bottom half while typing.
 	var status := Sheet._text("", 20, Sheet.C_INK_SOFT)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	col.add_child(row)
+	# SEND copies first and keeps the card open: if GitHub shows a login or 404 page,
+	# the typed note is still on the clipboard.
 	var send := Sheet._button("SEND (GITHUB)", func():
-		OS.shell_open(issue_url(report_text(note.text, parent.get_tree())))
-		layer.queue_free())
+		var txt := report_text(note.text, parent.get_tree())
+		DisplayServer.clipboard_set(txt)
+		OS.shell_open(issue_url(txt))
+		status.text = "Opened GitHub. It's copied too, in case that page won't load.")
 	send.name = "send"
 	row.add_child(send)
 	var copy := Sheet._button("COPY", func():
@@ -115,5 +124,6 @@ static func open(parent: Node) -> CanvasLayer:
 	close.name = "close"
 	row.add_child(close)
 	col.add_child(status)
+	col.add_child(note)
 	note.grab_focus.call_deferred()
 	return layer
