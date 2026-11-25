@@ -12,6 +12,8 @@ const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
 const Story = preload("res://scripts/dialogue/story.gd")
 
 const SAVE_PATH := "user://run.save"
+## Smallest text on a phone screen (1280x720 canvas on a ~6" phone).
+const MIN_TEXT := 20
 
 # Palette: dark field-dossier UI, woodcut paper for the propaganda layer.
 const C_BG := Color("0e1013")
@@ -83,13 +85,25 @@ func show_title() -> void:
 	box.add_child(_spacer(12))
 	var row := _hbox(14)
 	box.add_child(row)
-	row.add_child(_button("New run", _new_run, 220))
+	# Playable in 10 s (standards/08): one tap drops you into the Signal Box fight. A run's
+	# weeks come after, from New run.
+	var fight := _button("Fight now", _fight_now, 260)
+	fight.add_theme_color_override("font_color", C_ACCENT)
+	row.add_child(fight)
 	if FileAccess.file_exists(SAVE_PATH):
 		row.add_child(_button("Continue", _continue_run, 220))
-	# M4 test entry; the Signal Box mission (M5) launches it from the run instead.
-	row.add_child(_button("Skirmish", func(): get_tree().change_scene_to_file("res://scenes/tactical.tscn"), 220))
+	row.add_child(_button("New run", _new_run, 220))
 	box.add_child(_spacer(8))
 	box.add_child(_label(Config.version_label(), 18, C_MUTED))
+
+
+## Quick launch: the Signal Box with the core four and no run behind it (the result screen
+## then returns here). Same squad the captures and autoplay use.
+func _fight_now() -> void:
+	Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": randi() % 1000, "squad": [
+		{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
+		{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
+	get_tree().change_scene_to_file("res://scenes/tactical.tscn")
 
 
 func show_district() -> void:
@@ -556,7 +570,8 @@ func _card_button(title: String, desc: String, cb: Callable) -> Button:
 func _button(text: String, cb: Callable, min_w: int) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(min_w, 56)
+	b.custom_minimum_size = Vector2(min_w, 72)   # thumb-sized on a phone (standards/06)
+	b.add_theme_font_size_override("font_size", 24)
 	b.pressed.connect(cb)
 	return b
 
@@ -564,7 +579,7 @@ func _button(text: String, cb: Callable, min_w: int) -> Button:
 func _label(text: String, font_size: int, col: Color, wrap := false) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", maxi(font_size, MIN_TEXT))
 	l.add_theme_color_override("font_color", col)
 	if wrap:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
