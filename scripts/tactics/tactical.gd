@@ -474,6 +474,8 @@ func _refresh() -> void:
 	end_btn.disabled = busy or over
 	if over and not result_panel.visible:
 		_show_result()
+	if over and coach != null and is_instance_valid(coach):
+		coach.visible = false  # no "Tap a blue tile" over a result (e.g. a resumed, finished fight)
 
 
 func _refresh_squad() -> void:
@@ -1135,8 +1137,8 @@ func _show_result() -> void:
 
 
 func _return_to_run(r: Dictionary) -> void:
-	FightSave.clear()  # the week finishes now; the run save takes over
 	if mission_meta.has("state"):
+		FightSave.clear()  # the week finishes now; the run save takes over (never on Fight now)
 		mission_meta["result"] = r
 		Engine.set_meta("mission", mission_meta)
 	else:

@@ -273,6 +273,19 @@ func _fight_save_checks() -> void:
 	await _frames(10)
 	expect(not FightSave.exists(), "finishing the fight clears the save")
 	current_scene.get_tree().paused = false
+	# Fight now (no run behind it) must never touch a run's saved fight.
+	var RS = load("res://scripts/sim/run_state.gd")
+	var keep = RS.create(5)
+	Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
+		{"name": "You", "op": 0, "is_you": true}]}})
+	change_scene_to_file("res://scenes/tactical.tscn")
+	await _frames(20)
+	t = current_scene
+	FightSave.save({"state": keep, "entries": [], "teodor_before": {}, "params": {}}, t.battle)
+	t._return_to_run(t.battle.mission_result())
+	await _frames(10)
+	expect(FightSave.exists(), "finishing Fight now keeps the run's saved fight")
+	FightSave.clear()
 	change_scene_to_file("res://scenes/game.tscn")
 	await _frames(5)
 	fight_done = true
