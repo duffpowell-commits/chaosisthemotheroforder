@@ -11,6 +11,7 @@ var ok := true
 
 
 var settings_done := false
+var bug_done := false
 
 
 func _init() -> void:
@@ -78,6 +79,8 @@ func _run() -> void:
 	expect(not paused and current_scene.scene_file_path.ends_with("game.tscn") and current_scene.on_title, "quit goes to the title")
 	await _settings_checks()
 	expect(settings_done, "settings checks ran to the end (a script error stops them early)")
+	await _bug_checks()
+	expect(bug_done, "bug report checks ran to the end")
 	print("QOL PASS" if ok else "QOL FAIL")
 	quit(0 if ok else 1)
 
@@ -163,3 +166,50 @@ func _sheet_open(n: Node) -> bool:
 		if c is CanvasLayer and c.has_meta("sheet_close") and not c.is_queued_for_deletion():
 			return true
 	return false
+
+
+## QoL step 3: REPORT A BUG from the settings sheet; the report carries the version and
+## the scene's state (district and fight) without the tester typing it.
+func _bug_checks() -> void:
+	var g = current_scene
+	g._new_run()
+	await _frames(2)
+	var sheet = g.SettingsSheet.open(g, g.show_title)
+	await _frames(2)
+	var rb: Button = sheet.find_child("report_bug", true, false)
+	expect(rb != null, "settings sheet has REPORT A BUG")
+	if rb == null:
+		return
+	rb.pressed.emit()
+	await _frames(2)
+	var bug: CanvasLayer = null
+	for c in g.get_children():
+		if c is CanvasLayer and c.layer == 31:
+			bug = c
+	expect(bug != null and bug.find_child("note", true, false) != null and bug.find_child("send", true, false) != null and bug.find_child("copy", true, false) != null, "bug report opens with note, send, copy")
+	if bug == null:
+		return
+	(bug.find_child("note", true, false) as TextEdit).text = "Shoot button did nothing"
+	await _shot("10_bug_report.png")
+	var BugReport = load("res://scripts/ui/bug_report.gd")
+	var txt: String = BugReport.report_text("Shoot button did nothing", self)
+	var Config = load("res://scripts/config.gd")
+	expect(txt.begins_with("Shoot button did nothing") and txt.contains(Config.version_label()) and txt.contains("week 1") and txt.contains("screen district"), "report has the note, version and run state")
+	var url: String = BugReport.issue_url(txt)
+	expect(url.contains("/issues/new?labels=bug") and not url.contains(" "), "SEND makes an encoded GitHub issue link")
+	expect(BugReport.issue_url(BugReport.report_text("é ".repeat(5000), self)).length() < 8000, "a huge note still makes a working link")
+	g._go_back()
+	await _frames(2)
+	expect(not is_instance_valid(bug) or bug.is_queued_for_deletion(), "back closes the bug report first")
+	expect(_sheet_open(g), "settings sheet is still under it")
+	g._go_back()
+	await _frames(2)
+	expect(not _sheet_open(g) and is_instance_valid(g), "back again closes settings")
+	expect(BugReport.report_text("", self).contains("came from district"), "from the title, the report says which run screen you left")
+	g._fight_now()
+	await _frames(20)
+	var ftxt: String = BugReport.report_text("", self)
+	expect(ftxt.contains("fight turn 1") and ftxt.contains("hp"), "fight reports carry turn and units")
+	current_scene._quit_fight()
+	await _frames(6)
+	bug_done = true

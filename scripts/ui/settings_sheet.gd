@@ -12,13 +12,17 @@ const C_STAMP := Color("9e1a14")
 const C_PAPER := Color("e9e0cc")
 
 
-## Back button: closes an open sheet the way DONE does. True if there was one.
+## Back button: closes the top open sheet (bug report, then settings) the way DONE does. True if there was one.
 static func close_open(parent: Node) -> bool:
+	var top: CanvasLayer = null
 	for c in parent.get_children():
 		if c is CanvasLayer and c.has_meta("sheet_close") and not c.is_queued_for_deletion():
-			(c.get_meta("sheet_close") as Callable).call()
-			return true
-	return false
+			if top == null or c.layer > top.layer:
+				top = c
+	if top == null:
+		return false
+	(top.get_meta("sheet_close") as Callable).call()
+	return true
 
 
 static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
@@ -79,6 +83,9 @@ static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
 		st.set_value("low_graphics", not st.get_value("low_graphics"))
 		gfx_text.call())
 	row.add_child(gfx_b)
+	var bug := _button("REPORT A BUG", func(): load("res://scripts/ui/bug_report.gd").open(parent))
+	bug.name = "report_bug"
+	col.add_child(bug)
 	var done := _button("DONE", close)
 	done.name = "done"
 	var sbd := StyleBoxFlat.new()

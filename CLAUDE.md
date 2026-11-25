@@ -78,7 +78,13 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   ready for item 6), brightness (gamma pass), TEXT SIZE NORMAL/LARGE/HUGE (`_fs` in game.gd / render_test.gd scales
   `_label`, `_button`, HUD labels; the top bar stays fixed), GRAPHICS LOW (`apply_graphics`: no shadows/glow/probe,
   rain 500, 3D at 75%). Scripts reach Settings through the root node (`--script` runs don't register autoload names).
-  Renders `docs/renders/ui/8_settings.png`, `9_district_huge_text.png`. Next: bug report + version, mid-fight save.
+  Renders `docs/renders/ui/8_settings.png`, `9_district_huge_text.png`, `8b_pick_huge_text.png` (action cards grow + chips wrap at HUGE).
+  Back closes the top sheet first (`SettingsSheet.close_open`); settings.cfg values are type-checked and clamped on load.
+  Step 3: **REPORT A BUG** (`scripts/ui/bug_report.gd`, from the settings sheet, so from the title and the fight's pause
+  menu): a typed note, then SEND (prefilled GitHub issue, label bug) or COPY (clipboard). The report adds version, build,
+  phone, screen, fps, settings and the scene's `bug_state()` (game.gd: screen/week/heat/cash...; tactical.gd: turn, side,
+  noise, upload, every unit's hp + tile). Render `docs/renders/ui/10_bug_report.png`. The version shows on the title, the
+  settings card and the bug card. Next: mid-fight save.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
