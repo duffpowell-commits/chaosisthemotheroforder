@@ -37,7 +37,8 @@ const ACTION_ICONS := {
 	"aid": "action_aid", "expose": "action_expose", "recruit": "action_recruit",
 	"scavenge": "action_scavenge", "listen": "action_listen", "lay_low": "action_lay_low",
 	"diversion": "action_diversion", "signal_box": "tool_radio_call", "rally": "res_legitimacy",
-	"seize": "res_heat",
+	"seize": "res_heat", "see_teodor": "action_see_teodor", "strike": "action_see_teodor",
+	"confess": "action_see_teodor",
 }
 const DOSSIER := "res://assets/ui/dossier/%s.png"
 const INK_SHADER := preload("res://shaders/ui_ink_stamp.gdshader")
@@ -64,6 +65,7 @@ var message: Label
 var dlg_runner
 var dlg_done: Callable
 var dlg_portrait := ""
+var dlg_log: Array = []  # lines so far in this scene, shown as a running transcript
 
 
 func _ready() -> void:
@@ -106,7 +108,7 @@ func show_title() -> void:
 	var box := _vbox(18)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	screen.add_child(box)
-	box.add_child(_label("CHAOS IS THE MOTHER OF ORDER", 44, C_FG))
+	box.add_child(_typed("CHAOS IS THE MOTHER OF ORDER", 48, C_FG))
 	box.add_child(_label("The Rail Yards  ·  District 7, Port Varga", 22, C_MUTED))
 	box.add_child(_spacer(12))
 	box.add_child(_label("Six weeks. One district. The Continuity Government is watching.", 20, C_FG, true))
@@ -115,12 +117,14 @@ func show_title() -> void:
 	box.add_child(row)
 	# Playable in 10 s (standards/08): one tap drops you into the Signal Box fight. A run's
 	# weeks come after, from New run.
-	var fight := _button("Fight now", _fight_now, 260)
-	fight.add_theme_color_override("font_color", C_ACCENT)
+	var fight := _ink_button("FIGHT NOW  ▶", _fight_now, true)
+	fight.custom_minimum_size.x = 280
 	row.add_child(fight)
-	if FileAccess.file_exists(SAVE_PATH):
-		row.add_child(_button("Continue", _continue_run, 220))
-	row.add_child(_button("New run", _new_run, 220))
+	for pair in ([["CONTINUE", _continue_run]] if FileAccess.file_exists(SAVE_PATH) else []) + [["NEW RUN", _new_run]]:
+		var b := _ink_button(pair[0], pair[1], false)
+		b.custom_minimum_size.x = 220
+		b.add_theme_color_override("font_color", C_PAPER)
+		row.add_child(b)
 	box.add_child(_spacer(8))
 	box.add_child(_label(Config.version_label(), 18, C_MUTED))
 
@@ -137,78 +141,85 @@ func _fight_now() -> void:
 func show_district() -> void:
 	_clear()
 	_set_backdrop(_liberation())
-	var col := _vbox(12)
-	screen.add_child(col)
+	var col := _page()
 	col.add_child(_top_bar())
-	var body := _hbox(16)
+	var body := _hbox(22)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(body)
-	# Left: the two zones (propaganda-layer paper cards).
-	var zones := _vbox(12)
+	# Left: the two zones as case-file cards, and Teodor's tag.
+	var zones := _vbox(14)
 	zones.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	zones.size_flags_stretch_ratio = 1.0
 	body.add_child(zones)
 	for zone in Rules.ZONES:
-		zones.add_child(_zone_card(zone))
-	zones.add_child(_teodor_line())
-	# Right: this week's plan.
-	var right := _panel(C_PANEL)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.size_flags_stretch_ratio = 1.15
-	body.add_child(right)
+		zones.add_child(_on_desk(_zone_card(zone), zone, true))
+	zones.add_child(_on_desk(_teodor_line(), "teodor_tag"))
+	# Right: this week's assignments.
 	var pcol := _vbox(10)
-	right.add_child(pcol)
-	pcol.add_child(_label("THIS WEEK", 16, C_MUTED))
-	pcol.add_child(_label("Give up to 3 operatives a job. Everyone else rests.", 17, C_FG, true))
+	pcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pcol.size_flags_stretch_ratio = 1.15
+	body.add_child(pcol)
+	var head := _hbox(12)
+	pcol.add_child(head)
+	head.add_child(_stamp("ASSIGNMENTS", C_INK, 24, -2.0))
+	head.add_child(_typed("Up to 3 jobs. Everyone else rests.", 20, C_INK_SOFT))
 	var used := plan.size()
 	for i in s.ready_operatives():
 		pcol.add_child(_operative_row(i, used))
 	for i in range(s.operatives.size()):
 		var o: Dictionary = s.operatives[i]
 		if not o.dead and o.out_weeks > 0:
-			pcol.add_child(_label("%s — out for %d more week%s" % [o.name, o.out_weeks, "" if o.out_weeks == 1 else "s"], 16, C_MUTED))
-	message = _label("", 17, C_ACCENT, true)
+			pcol.add_child(_typed("%s: out for %d more week%s" % [o.name, o.out_weeks, "" if o.out_weeks == 1 else "s"], 20, C_INK_SOFT))
+	message = _typed("", 20, C_STAMP)
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pcol.add_child(message)
-	var end := _button("End week %d" % s.week, _end_week, 0)
-	end.size_flags_vertical = Control.SIZE_SHRINK_END
-	pcol.add_child(end)
+	pcol.add_child(_on_desk(_street_photo(), "street_photo", true, 1.2))
+	pcol.add_child(_ink_button("END WEEK %d  ▶" % s.week, _end_week, true))
 
 
 func show_report() -> void:
 	_clear()
 	_set_backdrop(_liberation())
-	var col := _vbox(14)
-	screen.add_child(col)
-	col.add_child(_label("WEEK %d REPORT" % (s.week - (0 if s.is_over() else 1)), 16, C_MUTED))
-	var row := _hbox(16)
+	var col := _page()
+	var head := _hbox(16)
+	col.add_child(head)
+	head.add_child(_stamp("WEEK %d · REPORT" % (s.week - (0 if s.is_over() else 1)), C_STAMP, 30, -2.0))
+	head.add_child(_typed("FILE 07 · RAIL YARDS CELL · WHAT THEY SAY / WHAT HAPPENED", 20, C_INK_SOFT))
+	var row := _hbox(26)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(row)
-	# State TV: the woodcut propaganda layer.
-	var tv := _panel(C_PAPER, C_INK, 3)
-	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(tv)
+	# State TV: a torn clipping, regime red masthead.
+	var tv := _paper_panel("card")
 	var tvc := _vbox(10)
 	tv.add_child(tvc)
-	var slug := _panel(C_RED)
-	slug.add_child(_label("CONTINUITY NEWS 24", 20, C_PAPER))
+	var slug := _panel(C_STAMP)
+	slug.add_child(_label("CONTINUITY NEWS 24", 22, C_PAPER))
 	tvc.add_child(slug)
-	for line in Text.regime_bulletin(s):
-		tvc.add_child(_label(line, 18, C_INK, true))
-	# Pirate radio: what actually happened.
-	var radio := _panel(Color("0a0703"), C_ACCENT, 2)
-	radio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(radio)
+	var bulletin := Text.regime_bulletin(s)
+	# The lead story goes on the studio screen of the woodcut TV set.
+	# The woodcut TV set, live from the studio; the bulletin reads out under it.
+	var live := CenterContainer.new()
+	live.add_child(_stamp("● LIVE · DISTRICT 7", C_STAMP, 22, -3.0))
+	tvc.add_child(_framed("res://assets/ui/woodcut/report_frame_cn24.png", Rect2(0.205, 0.30, 0.59, 0.45), live))
+	for line in bulletin:
+		tvc.add_child(_label(line, 20, C_INK, true))
+	row.add_child(_on_desk(tv, "report_tv", true))
+	# Pirate radio: what actually happened, typed on a manila sheet.
+	var radio := _paper_panel("manila")
 	var rc := _vbox(10)
 	radio.add_child(rc)
-	rc.add_child(_label("UNBROKEN RADIO · what really happened", 18, C_ACCENT))
+	rc.add_child(_stamp("UNBROKEN RADIO", C_STAMP, 24, -3.0))
+	var onair := CenterContainer.new()
+	onair.add_child(_stamp("● ON AIR", C_STAMP, 22, -4.0))
+	rc.add_child(_framed("res://assets/ui/woodcut/report_frame_unbroken.png", Rect2(0.334, 0.276, 0.36, 0.42), onair))
+	rc.add_child(_typed("what really happened", 20, C_INK_SOFT))
 	if s.report.is_empty():
-		rc.add_child(_label("A quiet week. Nobody moved.", 18, C_FG, true))
+		rc.add_child(_typed("A quiet week. Nobody moved.", 22, C_INK, true))
 	for line in s.report:
-		rc.add_child(_label("— " + line, 18, C_FG, true))
-	col.add_child(_button("See the ending" if s.is_over() else "Plan week %d" % s.week,
-		show_ending if s.is_over() else _start_planning, 0))
-
-
+		rc.add_child(_typed("— " + line, 22, C_INK, true))
+	row.add_child(_on_desk(radio, "report_radio", true))
+	col.add_child(_ink_button("SEE THE ENDING  ▶" if s.is_over() else "PLAN WEEK %d  ▶" % s.week,
+		show_ending if s.is_over() else _start_planning, true))
 ## A dialogue scene (docs/slice-spec.md §11.4): portrait, speaker, line, then
 ## either Continue or the choices. Calls on_done(vars) when the scene ends.
 func show_dialogue(node: String, on_done: Callable) -> void:
@@ -216,6 +227,7 @@ func show_dialogue(node: String, on_done: Callable) -> void:
 	dlg_runner.start(node)
 	dlg_done = on_done
 	dlg_portrait = ""
+	dlg_log.clear()
 	_dialogue_step()
 
 
@@ -226,52 +238,79 @@ func _dialogue_step() -> void:
 		return
 	_clear()
 	_set_backdrop(_liberation())
-	var col := _vbox(14)
-	screen.add_child(col)
+	var col := _page()
 	var speaker: String = ev.get("speaker", "")
 	if Story.PORTRAITS.has(speaker):
-		dlg_portrait = Story.PORTRAITS[speaker]
-	var row := _hbox(18)
+		dlg_portrait = _portrait_for(speaker)
+	var row := _hbox(26)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(row)
+	# Left: the subject's photo taped to the file, name typed under it.
 	if dlg_portrait != "" and ResourceLoader.exists(dlg_portrait):
-		var frame := _panel(C_PANEL, C_LINE, 2)
-		frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var pic := TextureRect.new()
-		pic.texture = load(dlg_portrait)
-		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		pic.custom_minimum_size = Vector2(300, 300)
-		frame.add_child(pic)
-		row.add_child(frame)
-	var talk := _panel(C_PANEL, C_LINE, 2)
-	talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var left := _vbox(6)
+		left.add_child(_polaroid(load(dlg_portrait), Vector2(270, 270), -2.5))
+		var who := dlg_portrait.get_file().get_slice("_", 0).to_upper()
+		left.add_child(_typed("SUBJECT: " + who, 20, C_INK_SOFT))
+		left.add_child(_spacer(10))
+		var me := _hbox(10)
+		me.add_child(_polaroid(load(OP_FACES["You"]), Vector2(110, 110), 3.0))
+		me.add_child(_typed("AGENT:\nYOU", 20, C_INK_SOFT))
+		left.add_child(me)
+		row.add_child(left)
+	# Right: the transcript card.
+	var talk := _paper_panel("card")
 	talk.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.add_child(talk)
 	var tc := _vbox(12)
 	talk.add_child(tc)
+	row.add_child(_on_desk(talk, "transcript", true))
+	tc.add_child(_typed("TRANSCRIPT · WEEK %d" % s.week, 20, C_INK_SOFT))
+	# Earlier lines of the scene stay on the card, faded, newest last.
+	var keep := 4 if ev.type == "line" else 2
+	for old in dlg_log.slice(maxi(0, dlg_log.size() - keep)):
+		var who_old: String = old.speaker
+		var t_old: String = old.text if who_old == "" else Text.SPEAKERS.get(who_old, who_old.capitalize()).to_upper() + ": " + old.text
+		var lo := _typed(t_old, 20, Color(C_INK_SOFT, 0.75), true)
+		tc.add_child(lo)
 	if ev.type == "line":
+		dlg_log.append({"speaker": speaker, "text": ev.text})
 		if speaker == "":
-			tc.add_child(_label(ev.text, 22, C_MUTED, true))
+			tc.add_child(_typed(ev.text, 22, C_INK, true))
 		else:
-			tc.add_child(_label(Text.SPEAKERS.get(speaker, speaker.capitalize()), 18, C_ACCENT))
-			tc.add_child(_label(ev.text, 24, C_FG, true))
-		var go := _button("Continue", _dialogue_step, 0)
-		go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tc.add_child(_typed(Text.SPEAKERS.get(speaker, speaker.capitalize()).to_upper() + ":", 22, C_STAMP))
+			tc.add_child(_label(ev.text, 26, C_INK, true))
+		var go := _ink_button("CONTINUE  ▶", _dialogue_step, true)
+		go.size_flags_horizontal = Control.SIZE_SHRINK_END
+		go.custom_minimum_size = Vector2(300, 72)
 		col.add_child(go)
 	else:
-		tc.add_child(_label("What do you say?", 18, C_ACCENT))
+		tc.add_child(_typed("WHAT DO YOU SAY?", 22, C_STAMP))
 		for o in ev.options:
-			var b := _button(o.text, func():
+			var b := _button("▶  " + o.text, func():
 				dlg_runner.choose(o.index)
 				_dialogue_step(), 0)
 			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			b.custom_minimum_size = Vector2(0, 64)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_paper_button(b, "manila")
 			tc.add_child(b)
 
 
+## The painted portrait that fits the moment: Teodor's face follows where he
+## stands with you; cold (regime) light while the district is cold, warm once it turns.
+func _portrait_for(speaker: String) -> String:
+	var tone := "warm" if _liberation() >= 0.35 else "cold"
+	var mood := ""
+	match speaker:
+		"TEODOR":
+			var t: Dictionary = s.teodor
+			mood = "betrayed" if t.state == "gone" else ("resolved" if t.state == "ally" and t.path == "trust" else "guarded")
+		"MARA":
+			mood = "worried" if s.heat >= 5 else "calm"
+		"KESH":
+			mood = "scared" if s.heat >= 5 else "suspicious"
+	var path := "res://assets/portraits/%s_%s_%s.png" % [speaker.to_lower(), mood, tone]
+	return path if ResourceLoader.exists(path) else Story.PORTRAITS[speaker]
 ## Skips to the end of the scenes on screen, taking the first choice each time (screenshots only).
 func _dialogue_finish_fast() -> void:
 	while dlg_runner != null:
@@ -293,13 +332,17 @@ func show_ending() -> void:
 	var box := _vbox(16)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	screen.add_child(box)
-	box.add_child(_label(e.title.to_upper(), 46, C_FG))
+	box.add_child(_stamp("CASE CLOSED", C_STAMP, 26, -4.0))
+	box.add_child(_typed(e.title.to_upper(), 48, C_FG))
 	box.add_child(_label(e.text, 21, C_FG, true))
 	box.add_child(_spacer(6))
 	box.add_child(_label("Week %d  ·  Legitimacy %d  ·  Kills %d  ·  Broadcast %s  ·  Teodor: %s" % [
 		mini(s.week, RunState.MAX_WEEKS), s.legitimacy, s.kills, "aired" if s.broadcast_aired else "never aired",
 		_teodor_status()], 17, C_MUTED, true))
-	box.add_child(_button("New run", _new_run, 240))
+	var again := _ink_button("NEW RUN  ▶", _new_run, true)
+	again.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	again.custom_minimum_size.x = 280
+	box.add_child(again)
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 
@@ -441,24 +484,9 @@ func _pick_action(op: int) -> void:
 	conf.modulate = Color(1, 1, 1, 0.55)
 	head.add_child(conf)
 	# Cancel as a red ink "close file" stamp you tap.
-	var cancel := _button("✕  CLOSE", _close_overlay, 0)
+	var cancel := _ink_button("✕  CLOSE", _close_overlay, false)
 	cancel.custom_minimum_size = Vector2(170, 64)
 	cancel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	cancel.add_theme_font_override("font", TYPE_FONT)
-	cancel.add_theme_font_size_override("font_size", 26)
-	for st in ["normal", "hover", "pressed", "focus"]:
-		var csb := StyleBoxFlat.new()
-		csb.bg_color = Color(C_STAMP, 0.18 if st == "pressed" else 0.0)
-		csb.border_color = C_STAMP
-		csb.set_border_width_all(3)
-		csb.set_corner_radius_all(4)
-		cancel.add_theme_stylebox_override(st, csb)
-	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		cancel.add_theme_color_override(k, C_STAMP)
-	var cm := ShaderMaterial.new()
-	cm.shader = INK_SHADER
-	cm.set_shader_parameter("ink", load(DOSSIER % "ink_noise"))
-	cancel.material = cm
 	head.add_child(cancel)
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -761,11 +789,15 @@ func _ledger_box() -> VBoxContainer:
 ## Lays a card on the desk: a soft shadow under it, a paper clip on top, and a
 ## small crooked tilt that's the same every time for the same action. The holder
 ## takes the grid slot because containers reset a child's rotation.
-func _on_desk(card: Button, key: String) -> Control:
+func _on_desk(card: Control, key: String, fill_v := false, max_tilt := 2.0) -> Control:
 	var holder := Control.new()
-	holder.custom_minimum_size = card.custom_minimum_size
+	holder.custom_minimum_size = card.get_combined_minimum_size()
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var tilt := (float(absi(key.hash()) % 100) / 100.0 - 0.5) * 4.0
+	if fill_v:
+		holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Panels size from their content: keep the slot as big as the card wants.
+	card.minimum_size_changed.connect(func(): holder.custom_minimum_size = card.get_combined_minimum_size())
+	var tilt := (float(absi(key.hash()) % 100) / 100.0 - 0.5) * 2.0 * max_tilt
 	var shadow := Panel.new()
 	var ssb := StyleBoxFlat.new()
 	ssb.bg_color = Color(0.1, 0.07, 0.04, 0.32)
@@ -797,8 +829,171 @@ func _on_desk(card: Button, key: String) -> Control:
 		"staple":
 			f.position = Vector2(12, 8)
 			f.rotation_degrees = -20.0 + float(hsh % 12)
-	card.add_child(f)
+	# On the holder, not the card: a container card would stretch it to fill.
+	holder.add_child(f)
 	return holder
+
+
+## A full-screen dossier page: the desk, the torn sheet, and a column inside it.
+## Used by the planner, report and dialogue screens (Duff, Nov 25: "Dossier look everywhere").
+func _page() -> VBoxContainer:
+	for side in ["left", "right", "top", "bottom"]:
+		screen.add_theme_constant_override("margin_" + side, 0)
+	var page := Control.new()
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	screen.add_child(page)
+	var desk := TextureRect.new()
+	desk.texture = load(DOSSIER % "desk")
+	desk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	desk.stretch_mode = TextureRect.STRETCH_SCALE
+	desk.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.add_child(desk)
+	var sheet := TextureRect.new()
+	sheet.texture = load(DOSSIER % "sheet")
+	sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sheet.stretch_mode = TextureRect.STRETCH_SCALE
+	sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sheet.offset_left = 10
+	sheet.offset_top = 6
+	sheet.offset_right = -10
+	sheet.offset_bottom = -6
+	page.add_child(sheet)
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 34)
+	margin.add_theme_constant_override("margin_right", 34)
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_bottom", 18)
+	page.add_child(margin)
+	var col := _vbox(14)
+	margin.add_child(col)
+	return col
+
+
+## A surveillance print of the Rail Yards pinned to the file: the street render,
+## regime fading into liberated as the district turns (the old full-screen backdrop).
+func _street_photo() -> Control:
+	var frame := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("f4f1ea")
+	sb.set_content_margin_all(7)
+	sb.content_margin_bottom = 4
+	frame.add_theme_stylebox_override("panel", sb)
+	var v := _vbox(2)
+	frame.add_child(v)
+	var photo := Control.new()
+	photo.custom_minimum_size = Vector2(0, 110)
+	photo.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	photo.clip_contents = true
+	v.add_child(photo)
+	var lib := _liberation()
+	for pair in [["res://assets/ui/backdrop_regime.png", 1.0], ["res://assets/ui/backdrop_liberated.png", lib]]:
+		var t := TextureRect.new()
+		t.texture = load(pair[0])
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.modulate.a = pair[1]
+		photo.add_child(t)
+	v.add_child(_typed("RAIL YARDS · SURVEILLANCE · WK %d" % s.week, 20, C_INK_SOFT))
+	return frame
+
+
+## A woodcut frame with something written into its blank screen (the TV studio or
+## the phone in the report). `screen` is the blank area as fractions of the image.
+func _framed(tex_path: String, screen: Rect2, inner: Control) -> AspectRatioContainer:
+	var tex: Texture2D = load(tex_path)
+	var arc := AspectRatioContainer.new()
+	arc.ratio = float(tex.get_width()) / tex.get_height()
+	arc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	arc.custom_minimum_size = Vector2(0, 250)
+	var box := Control.new()
+	arc.add_child(box)
+	var t := TextureRect.new()
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.add_child(t)
+	var m := MarginContainer.new()
+	m.anchor_left = screen.position.x
+	m.anchor_top = screen.position.y
+	m.anchor_right = screen.end.x
+	m.anchor_bottom = screen.end.y
+	m.clip_contents = true
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 6)
+	box.add_child(m)
+	m.add_child(inner)
+	return arc
+
+
+## Typewriter text (Special Elite), never under MIN_TEXT.
+func _typed(text: String, size: int, col: Color, wrap := false) -> Label:
+	var l := _label(text, size, col, wrap)
+	l.add_theme_font_override("font", TYPE_FONT)
+	return l
+
+
+## A sheet of card or manila paper to put content on (pair with _on_desk for the tilt).
+func _paper_panel(kind: String) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxTexture.new()
+	sb.texture = load(DOSSIER % kind)
+	sb.set_texture_margin_all(14)
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 18
+	sb.content_margin_bottom = 14
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+
+## Restyles a Button as paper (card or manila) with ink text.
+func _paper_button(b: Button, kind: String) -> void:
+	var tex: Texture2D = load(DOSSIER % kind)
+	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb := StyleBoxTexture.new()
+		sb.texture = tex
+		sb.set_texture_margin_all(10)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+		sb.modulate_color = Color(0.86, 0.84, 0.8) if st == "pressed" else (Color(0.8, 0.78, 0.74, 0.7) if st == "disabled" else (Color(1, 0.97, 0.93) if st in ["hover", "focus"] else Color.WHITE))
+		b.add_theme_stylebox_override(st, sb)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, C_INK)
+	b.add_theme_color_override("font_disabled_color", C_INK_SOFT)
+	b.add_theme_font_override("font", TYPE_FONT)
+
+
+## An ink-stamp button in typewriter caps: outlined red (filled = red ink pad with
+## paper letters, for the screen's main action).
+func _ink_button(text: String, cb: Callable, filled: bool) -> Button:
+	var b := _button(text, cb, 0)
+	b.custom_minimum_size = Vector2(0, 72)
+	b.add_theme_font_override("font", TYPE_FONT)
+	b.add_theme_font_size_override("font_size", 28 if filled else 26)
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var sb := StyleBoxFlat.new()
+		var a := 1.0 if filled else 0.0
+		if st == "pressed":
+			a = 0.8 if filled else 0.18
+		sb.bg_color = Color(C_STAMP, a)
+		sb.border_color = C_STAMP.darkened(0.2) if filled else C_STAMP
+		sb.set_border_width_all(3)
+		sb.set_corner_radius_all(4)
+		b.add_theme_stylebox_override(st, sb)
+	var fg := C_PAPER if filled else C_STAMP
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, fg)
+	if not filled:  # blotchy ink only on outline stamps; a filled pad stays readable
+		var m := ShaderMaterial.new()
+		m.shader = INK_SHADER
+		m.set_shader_parameter("ink", load(DOSSIER % "ink_noise"))
+		b.material = m
+	return b
 
 
 func _round_mat() -> ShaderMaterial:
@@ -851,36 +1046,60 @@ func _commit(entry: Dictionary, choice: String) -> void:
 # ---------- widgets ----------
 
 func _top_bar() -> Control:
-	var bar := _panel(C_PANEL)
-	var row := _hbox(26)
-	bar.add_child(row)
-	row.add_child(_stat("WEEK", "%d / %d" % [s.week, RunState.MAX_WEEKS]))
-	var heat_col := C_GOOD if s.heat < 3 else (C_ACCENT if s.heat < 7 else C_RED)
-	row.add_child(_stat("HEAT", "%d · %s" % [s.heat, Text.heat_label(s.heat)], heat_col))
-	row.add_child(_stat("CASH", str(s.cash)))
-	row.add_child(_stat("SUPPLIES", str(s.supplies)))
-	row.add_child(_stat("PARTS", str(s.parts)))
-	row.add_child(_stat("LEGITIMACY", str(s.legitimacy)))
-	return bar
+	# Case-file header: week stamp + file line, then the cell's resources as
+	# typed tags with their woodcut icons; heat on label-maker tape.
+	var row := _hbox(18)
+	row.add_child(_stamp("WEEK %d / %d" % [s.week, RunState.MAX_WEEKS], C_STAMP, 30, -2.0))
+	var file := _typed("FILE 07 · RAIL YARDS CELL", 20, C_INK_SOFT)
+	file.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(file)
+	var heat_kind := "good" if s.heat < 3 else "heat"
+	row.add_child(_chip("HEAT %d · %s" % [s.heat, Text.heat_label(s.heat)], heat_kind, "res_heat"))
+	for st in [["res_cash", "CASH", s.cash], ["res_supplies", "SUPPLIES", s.supplies],
+			["res_parts", "PARTS", s.parts], ["res_legitimacy", "LEGIT.", s.legitimacy]]:
+		var h := _hbox(5)
+		var ic := TextureRect.new()
+		ic.texture = load(ACTION_ICON % st[0])
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.custom_minimum_size = Vector2(30, 30)
+		ic.material = _round_mat()
+		h.add_child(ic)
+		h.add_child(_typed("%s %d" % [st[1], st[2]], 20, C_INK))
+		row.add_child(h)
+	return row
 
 
 func _zone_card(zone: String) -> Control:
 	var r := Rules.reading(s, zone)
-	var card := _panel(C_PAPER, C_INK, 3)
-	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var col := _vbox(6)
+	var card := _paper_panel("card")
+	var col := _vbox(4)
 	card.add_child(col)
-	col.add_child(_label(Text.ZONE_NAMES[zone].to_upper(), 22, C_INK))
-	col.add_child(_label("Mood: %s" % r.label, 20, C_INK))
-	var cert := _label("Intel: %s" % r.certainty, 16, C_RED if r.certainty == "Rumor" else C_INK)
-	col.add_child(cert)
+	var top := _hbox(10)
+	col.add_child(top)
+	var name_l := _typed(Text.ZONE_NAMES[zone].to_upper(), 26, C_INK)
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(name_l)
+	top.add_child(_stamp(r.certainty.to_upper(), C_STAMP if r.certainty == "Rumor" else C_INK, 20, 4.0))
+	col.add_child(_label("Mood: %s" % r.label, 22, C_INK))
 	var eyes := "unknown (Listen to find out)" if int(r.attention) < 0 else ("●".repeat(int(r.attention)) if int(r.attention) > 0 else "none")
-	col.add_child(_label("Regime eyes: %s" % eyes, 16, C_INK))
+	col.add_child(_label("Regime eyes: %s" % eyes, 20, C_INK_SOFT))
 	return card
 
 
 func _teodor_line() -> Control:
-	return _label("Teodor, dock foreman: %s" % _teodor_status(), 17, C_MUTED, true)
+	var tag := _paper_panel("manila")
+	var h := _hbox(12)
+	tag.add_child(h)
+	var face := TextureRect.new()
+	face.texture = load(_portrait_for("TEODOR"))
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	face.custom_minimum_size = Vector2(52, 52)
+	h.add_child(face)
+	var l := _typed("TEODOR, dock foreman: %s" % _teodor_status(), 20, C_INK, true)
+	h.add_child(l)
+	return tag
 
 
 func _teodor_status() -> String:
@@ -898,9 +1117,18 @@ func _teodor_status() -> String:
 
 func _operative_row(i: int, used: int) -> Control:
 	var o: Dictionary = s.operatives[i]
-	var row := _hbox(10)
-	var name_lbl := _label(o.name, 19, C_FG)
-	name_lbl.custom_minimum_size = Vector2(110, 0)
+	var row := _hbox(12)
+	var face: String = OP_FACES.get(o.name, "")
+	var pic := TextureRect.new()
+	pic.texture = load(face if face != "" else ACTION_ICON % "res_people")
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.custom_minimum_size = Vector2(56, 56)
+	if face == "":
+		pic.material = _round_mat()
+	row.add_child(pic)
+	var name_lbl := _typed(o.name.to_upper(), 22, C_INK)
+	name_lbl.custom_minimum_size = Vector2(96, 0)
 	row.add_child(name_lbl)
 	if plan.has(i):
 		var e: Dictionary = plan[i]
@@ -913,12 +1141,24 @@ func _operative_row(i: int, used: int) -> Control:
 					txt += " · " + c.title
 		var b := _button(txt, func(): _pick_action(i), 0)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_paper_button(b, "card")
+		var ic: String = ACTION_ICONS.get(e.action, "")
+		if ic != "":
+			b.icon = load(ACTION_ICON % ic)
+			b.expand_icon = false
+			b.add_theme_constant_override("icon_max_width", 40)
 		row.add_child(b)
-		row.add_child(_button("✕", func(): plan.erase(i); show_district(), 56))
+		var x := _ink_button("✕", func(): plan.erase(i); show_district(), false)
+		x.custom_minimum_size = Vector2(64, 64)
+		row.add_child(x)
 	else:
-		var b := _button("Assign a job" if used < 3 else "Resting", func(): _pick_action(i), 0)
+		var b := _button("Assign a job  ▶" if used < 3 else "Resting", func(): _pick_action(i), 0)
 		b.disabled = used >= 3
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_paper_button(b, "manila")
 		row.add_child(b)
 	return row
 
@@ -1024,6 +1264,8 @@ func _spacer(h: int) -> Control:
 
 func _clear() -> void:
 	_close_overlay()
+	for side in ["left", "right", "top", "bottom"]:
+		screen.add_theme_constant_override("margin_" + side, 20)
 	for c in screen.get_children():
 		screen.remove_child(c)
 		c.queue_free()
