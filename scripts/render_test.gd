@@ -620,6 +620,32 @@ func _build_camera() -> void:
 	cam.current = true
 
 
+## LOW GRAPHICS (Settings, QoL step 2): no shadows, glow or live reflections, a tenth of
+## the rain, 3D drawn at 75% and scaled up. Off = everything back as built.
+func apply_graphics() -> void:
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	var low: bool = st != null and st.get_value("low_graphics")
+	if moon:
+		moon.shadow_enabled = not low
+	if searchlight:
+		searchlight.shadow_enabled = not low
+	for i in lamps.size():
+		lamps[i].shadow_enabled = (not low) and i < 3
+	if env:
+		env.glow_enabled = not low
+	for p in find_children("*", "ReflectionProbe", true, false):
+		p.visible = not low
+	if rain:
+		rain.amount = 500 if low else 5000
+	get_viewport().scaling_3d_scale = 0.75 if low else 1.0
+
+
+## A font size scaled by the TEXT SIZE setting (plain size when Settings isn't loaded, e.g. tests).
+func _fs(size: int) -> int:
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	return st.fs(size) if st else size
+
+
 func _build_grade_and_ui() -> void:
 	var post := CanvasLayer.new()
 	post.layer = 1

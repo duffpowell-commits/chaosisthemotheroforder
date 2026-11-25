@@ -73,7 +73,12 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   back closes the picker, then leaves to the title, then quits (`quit_on_go_back=false`, `_go_back`). The fight
   pauses behind a menu on back / focus-out (`_set_paused` in tactical.gd; Quit to title replays the week).
   Check: `tools/qol_check.gd` -> `QOL PASS` (in CI). Render `docs/renders/ui/7_paused.png`.
-  Next steps: settings sheet, bug report + version, mid-fight save.
+  Step 2: **settings** (`scripts/settings.gd` autoload, `user://settings.cfg`; `scripts/ui/settings_sheet.gd`, a manila
+  card from the title's SETTINGS button and the fight's pause menu): music + SFX (buses in `default_bus_layout.tres`,
+  ready for item 6), brightness (gamma pass), TEXT SIZE NORMAL/LARGE/HUGE (`_fs` in game.gd / render_test.gd scales
+  `_label`, `_button`, HUD labels; the top bar stays fixed), GRAPHICS LOW (`apply_graphics`: no shadows/glow/probe,
+  rain 500, 3D at 75%). Scripts reach Settings through the root node (`--script` runs don't register autoload names).
+  Renders `docs/renders/ui/8_settings.png`, `9_district_huge_text.png`. Next: bug report + version, mid-fight save.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates

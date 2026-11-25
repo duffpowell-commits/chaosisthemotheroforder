@@ -10,6 +10,7 @@ const Policies = preload("res://scripts/sim/policies.gd")
 const Text = preload("res://scripts/ui/text.gd")
 const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
 const Story = preload("res://scripts/dialogue/story.gd")
+const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 
 const SAVE_PATH := "user://run.save"
 ## The week's half-made plan, saved when the app loses focus or the back button leaves
@@ -130,6 +131,10 @@ func show_title() -> void:
 		b.custom_minimum_size.x = 220
 		b.add_theme_color_override("font_color", C_PAPER)
 		row.add_child(b)
+	var gear := _ink_button("SETTINGS", func(): SettingsSheet.open(self, show_title), false)
+	gear.custom_minimum_size.x = 220
+	gear.add_theme_color_override("font_color", C_PAPER)
+	row.add_child(gear)
 	box.add_child(_spacer(8))
 	box.add_child(_label(Config.version_label(), 18, C_MUTED))
 
@@ -167,7 +172,8 @@ func show_district() -> void:
 	var head := _hbox(12)
 	pcol.add_child(head)
 	head.add_child(_stamp("ASSIGNMENTS", C_INK, 24, -2.0))
-	head.add_child(_typed("Up to 3 jobs. Everyone else rests.", 20, C_INK_SOFT))
+	var hint := _typed("Up to 3 jobs. Everyone else rests.", 20, C_INK_SOFT, true)
+	head.add_child(hint)
 	var used := plan.size()
 	# A big cell scrolls its rows and drops the street photo, so END WEEK always shows.
 	var rows_n := s.ready_operatives().size()
@@ -1146,8 +1152,11 @@ func _top_bar() -> Control:
 		ic.custom_minimum_size = Vector2(30, 30)
 		ic.material = _round_mat()
 		h.add_child(ic)
-		h.add_child(_typed("%s %d" % [st[1], st[2]], 20, C_INK))
+		var v := _typed("%s %d" % [st[1], st[2]], 20, C_INK)
+		v.add_theme_font_size_override("font_size", 20)  # the strip stays one line at any TEXT SIZE
+		h.add_child(v)
 		row.add_child(h)
+	file.add_theme_font_size_override("font_size", 20)
 	return row
 
 
@@ -1298,15 +1307,21 @@ func _button(text: String, cb: Callable, min_w: int) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(min_w, 72)   # thumb-sized on a phone (standards/06)
-	b.add_theme_font_size_override("font_size", 24)
+	b.add_theme_font_size_override("font_size", _fs(24))
 	b.pressed.connect(cb)
 	return b
+
+
+## A font size scaled by the TEXT SIZE setting (plain size when Settings isn't loaded, e.g. tests).
+func _fs(size: int) -> int:
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	return st.fs(size) if st else size
 
 
 func _label(text: String, font_size: int, col: Color, wrap := false) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", maxi(font_size, MIN_TEXT))
+	l.add_theme_font_size_override("font_size", _fs(maxi(font_size, MIN_TEXT)))
 	l.add_theme_color_override("font_color", col)
 	if wrap:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

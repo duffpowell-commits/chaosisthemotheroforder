@@ -11,6 +11,7 @@ extends "res://scripts/render_test.gd"
 ## `-- --capture-mission` saves mission renders, both to docs/renders/.
 
 const Battle = preload("res://scripts/tactics/battle.gd")
+const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -114,6 +115,12 @@ func _ready() -> void:
 	key.light_color = Color(1.0, 0.88, 0.74)
 	key.rotation = cam.rotation + Vector3(0, deg_to_rad(UNIT_KEY_YAW), 0)
 	add_child(key)
+	apply_graphics()
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	if st:
+		st.changed.connect(func(k: String):
+			if k == "low_graphics":
+				apply_graphics())
 	var args := OS.get_cmdline_user_args()
 	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
@@ -413,7 +420,7 @@ func _panel_style() -> StyleBoxFlat:
 func _hud_label(t: String, size: int, c: Color) -> Label:
 	var l := Label.new()
 	l.text = t
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", _fs(size))
 	l.add_theme_color_override("font_color", c)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
@@ -423,7 +430,7 @@ func _hud_button(t: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = t
 	b.custom_minimum_size = Vector2(150, 64)
-	b.add_theme_font_size_override("font_size", 24)
+	b.add_theme_font_size_override("font_size", _fs(24))
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # phone text size: long labels wrap, never clip
 	b.pressed.connect(cb)
 	return b
@@ -1174,6 +1181,9 @@ func _set_paused(on: bool) -> void:
 	var resume := _hud_button("Resume", func(): _set_paused(false))
 	resume.custom_minimum_size = Vector2(360, 72)
 	box.add_child(resume)
+	var settings := _hud_button("Settings", func(): SettingsSheet.open(self))
+	settings.custom_minimum_size = Vector2(360, 72)
+	box.add_child(settings)
 	var run := mission_meta.has("state")
 	var quit := _hud_button("Quit to title (this week replays)" if run else "Quit to title", _quit_fight)
 	quit.custom_minimum_size = Vector2(360, 72)
