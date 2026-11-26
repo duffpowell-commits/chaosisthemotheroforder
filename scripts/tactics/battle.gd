@@ -149,7 +149,7 @@ var smokes: Array = []      # [[centre: Vector2i, regime turns left: int]]
 var dark := 0               # turns the floodlit half stays dark
 var lights_used := false
 var radio_used := false
-var white_flag := false     # WHITE_FLAG for missions (mission_sim "nowf" turns it off)
+var white_flag := WHITE_FLAG  # missions only; fight saves from before it resume with it on (mission_sim "nowf" turns it off)
 var prisoners := 0          # guards who surrendered
 var fled := 0               # guards who broke and ran
 
@@ -568,10 +568,11 @@ func _fire(u: Unit, target: Unit, c: int) -> bool:
 		target.hp -= 1
 		log.append("%s %s %s (%d%%)%s" % [u.name, _verb(u, "hits"), target.name, c, ", down" if target.hp <= 0 else ""])
 		if target.side == REGIME and target.hp > 0:
-			_shake(target, 1)
-		if target.hp <= 0 and mission:
+			_shake(target, 1)   # may break him; a surrender sets hp 0 but isn't a kill (fresh-eyes, Nov 26)
+		if target.hp <= 0 and mission and not target.surrendered:
 			if target.side == REGIME:
 				kills += 1
+				_unflee(target)
 				_shake_near(target.pos, 1)
 			else:
 				target.bleed = BLEED_TURNS
@@ -605,6 +606,7 @@ func subdue(u: Unit, target: Unit) -> bool:
 	u.ap -= 1
 	target.hp = 0
 	target.subdued = true
+	_unflee(target)
 	log.append("%s %s %s" % [u.name, _verb(u, "subdues"), target.name])
 	_shake_near(target.pos, 1)
 	add_noise(NOISE_SUBDUE, target.pos)
@@ -717,6 +719,8 @@ func persuade(u: Unit, target: Unit) -> bool:
 		target.route = []
 		target.flash = 1
 		defections += 1
+		_unflee(target)
+		target.nerve = NERVE   # steady again, on our side
 		log.append("%s lowers his rifle and joins you (%d%%)" % [target.name, c])
 		_shake_near(target.pos, 1)
 		return true
@@ -1033,6 +1037,12 @@ func _shake(g: Unit, n: int) -> void:
 		g.state = RETREAT
 		fled += 1
 		log.append("%s breaks and runs" % g.name)
+
+
+## A runner who is downed, subdued or talked over before he gets away counts as that, not as "ran".
+func _unflee(g: Unit) -> void:
+	if g.nerve <= 0 and not g.surrendered and fled > 0:
+		fled -= 1
 
 
 func _shake_near(at: Vector2i, n: int) -> void:

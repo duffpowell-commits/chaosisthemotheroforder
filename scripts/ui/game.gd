@@ -1495,12 +1495,14 @@ func _take_shots() -> void:
 	_dialogue_finish_fast()
 	await _snap(dir + "/5_report.png")
 	# White Flag (Nov 26): the Prisoners row after a Signal Box where two guards gave up.
-	var keep: Array[String] = s.report.duplicate()
+	var keep: Dictionary = s.to_dict()
+	var keep_report: Array[String] = s.report.duplicate()
 	Rules.apply_mission(s, {"op": 0, "action": "signal_box", "zone": "", "choice": ""}, {"aired": true, "kills": 0,
 		"defections": 0, "dead": [], "hurt": [], "out": ["You"], "prisoners": 2})
 	show_report()
 	await _snap("res://docs/renders/white_flag/5_report_prisoners.png")
-	s.report = keep
+	s = RunState.from_dict(keep)
+	s.report = keep_report
 	while not s.is_over():
 		Rules.resolve_week(s, Policies.careful_plan(s))
 	show_ending()

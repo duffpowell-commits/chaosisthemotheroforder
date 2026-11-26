@@ -1091,6 +1091,30 @@ func test_white_flag_nerve_breaks_guards() -> void:
 	check(r.units.any(func(u): return u.surrendered) and r.units.any(func(u): return u.nerve <= 0 and not u.surrendered), "save keeps who surrendered and who ran")
 	var res: Dictionary = b.mission_result()
 	check(res.prisoners == 1 and res.fled == 1, "the result carries them to the run")
+	# Through a real shot (fresh-eyes, Nov 26): a hit that breaks him with You close is a surrender,
+	# not a kill, and doesn't shake his partners as if he'd gone down.
+	var f = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 5, "squad": sq})
+	var fy = f.alive_units(Battle.US)[0]
+	var fg = f.alive_units(Battle.REGIME)[0]
+	for dy in range(0, 3):
+		f.set_tile(fg.pos + Vector2i(0, dy), Battle.FLOOR)
+	fy.pos = fg.pos + Vector2i(0, 2)
+	f.alive_units(Battle.US)[1].pos = Vector2i(0, Battle.H - 1)
+	fg.nerve = 1
+	var partners: Array = f.alive_units(Battle.REGIME).filter(func(x): return x != fg and f._cheb(x.pos, fg.pos) <= Battle.PARTNER_RANGE)
+	var before: Array = partners.map(func(x): return x.nerve)
+	check(f._fire(fy, fg, 100), "control: the shot hits")
+	check(fg.surrendered and f.prisoners == 1 and f.kills == 0, "shot into surrender: a prisoner, not a kill")
+	check(partners.map(func(x): return x.nerve) == before, "his partners keep their nerve")
+	# A runner shot down before he gets away is a kill, not "ran" too.
+	var rg = f.alive_units(Battle.REGIME)[0]
+	rg.nerve = 1
+	rg.hp = 1
+	fy.pos = Vector2i(0, Battle.H - 1)
+	f._shake(rg, 1)
+	check(rg.state == Battle.RETREAT and f.fled == 1, "control: he runs")
+	f._fire(fy, rg, 100)
+	check(f.kills == 1 and f.fled == 0, "shot down while running: a kill, not a runner")
 
 
 func test_white_flag_prisoners_report_row() -> void:
