@@ -136,7 +136,7 @@ func _ready() -> void:
 			if k == "low_graphics":
 				apply_graphics())
 	var args := OS.get_cmdline_user_args()
-	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args or "--capture-white-flag" in args or "--capture-8-5" in args) and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args or "--capture-white-flag" in args or "--capture-8-5" in args or "--capture-fox" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -169,6 +169,8 @@ func _ready() -> void:
 		_capture_white_flag()
 	elif "--capture-8-5" in args:
 		_capture_8_5()
+	elif "--capture-fox" in args:
+		_capture_fox()
 	elif "--capture-rig" in args:
 		_capture_rig(_arg_after(args, "--out", "/tmp/rig"))
 	elif "--capture-sprite-sizes" in args:
@@ -234,6 +236,14 @@ func _new_battle(s: int) -> void:
 		resumed_over = battle.is_over()  # its fight_end is logged already; no fight_start for a resume either
 	else:
 		battle = Battle.create_mission(mission_meta.params)
+		# Mascot cameo: rare (Battle.FOX_CHANCE), but a player's first ever mission fight always has the fox.
+		# Marked in coach.cfg as soon as it is forced, so it is forced once, found or not. Renders/autoplay skip it.
+		if battle.fox.x < 0 and not _fox_forced_before() and not _scripted_run():
+			battle.place_fox(FOX_FIRST_WALL)
+			var cfg := ConfigFile.new()
+			cfg.load(COACH_FILE)
+			cfg.set_value("tips", "fox_forced", true)
+			cfg.save(COACH_FILE)
 		PlayStats.log_event("fight_start", {"kind": "run" if mission_meta.has("state") else "fight now",
 			"guards": int(mission_meta.params.get("guards", 0)), "squad": mission_meta.params.get("squad", []).size()})
 	unit_nodes.clear()
@@ -293,6 +303,44 @@ func _build_cover() -> void:
 					_build_signal_box(w)
 				Battle.JUNCTION:
 					_build_junction(w)
+	_build_fox()
+
+
+## The studio fox (docs/MASCOT.md), sprayed on the south face of a 2-wide container block.
+## The texture is the paint cut out of the wall (alpha), so the white stencil shows on dark steel too.
+const FOX_FIRST_WALL := 1    # Battle.FOX_WALLS index forced on a player's first fight: mid-yard, in view
+const FOX_SIZE := Vector2(1.45, 2.15)
+
+func _fox_forced_before() -> bool:
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	return cfg.get_value("tips", "fox_forced", false) or cfg.get_value("tips", "fox", false)
+
+
+## Captures and autoplay keep the dice-rolled fox only, so older renders stay reproducible.
+func _scripted_run() -> bool:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--capture") or a == "--autoplay" or a == "--shots":
+			return true
+	return false
+
+
+func _build_fox() -> void:
+	if battle == null or battle.fox.x < 0:
+		return
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load("res://assets/props/fox_graffiti.png")
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.roughness = 0.8
+	var q := MeshInstance3D.new()
+	var pm := QuadMesh.new()
+	pm.size = FOX_SIZE
+	q.mesh = pm
+	q.material_override = m
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	q.position = to_world(battle.fox) + Vector3(0.5, 1.2, 0.515)
+	q.name = "FoxGraffiti"
+	world_root.add_child(q)
 
 
 ## The signal box: a grey relay cabinet with a lit screen facing the yard and
@@ -1490,6 +1538,8 @@ func _move_selected(p: Vector2i, sneak: bool) -> void:
 	var ok: bool = battle.sneak(selected, p) if sneak else battle.move(selected, p)
 	if not ok:
 		return
+	if battle.fox_found and not _tip_seen("fox") and "--autoplay" not in OS.get_cmdline_user_args():
+		_show_tip("fox")
 	_coach_done()
 	sneak_walk = sneak
 	sneaking = false
@@ -2451,6 +2501,7 @@ const TIPS := {
 	"waver": "Wavering: he's close to switching sides. Get You within 3 and Persuade.",
 	"alarm": "ALARM: more guards are coming. Finish the upload or get out.",
 	"nerve": "◆ = nerve. Hits and fallen partners drain it; at none he runs or gives up.",
+	"fox": "A three-eyed fox, sprayed on the steel. Somebody in this yard is on your side.",
 }
 var tip_seen := {}
 var tip_until := 0
@@ -2526,4 +2577,33 @@ func _capture_8_5() -> void:
 	_show_regime_turn(["Guard 2 spots Mara (4 tiles, in the open) and shouts", "Guard 3 hears something",
 		"Guard 2 takes aim but holds fire", "Guard 3 is alerted: the shout"])
 	await _shot("8_5/4_regime_turn")
+	get_tree().quit()
+
+
+## Mascot cameo render: docs/renders/fox/ (the fox on its wall, then You finding it + the tip).
+func _capture_fox() -> void:
+	DirAccess.make_dir_recursive_absolute("res://docs/renders/fox")
+	var old := world_root.get_node_or_null("FoxGraffiti")
+	if old:
+		old.free()
+	battle.place_fox(FOX_FIRST_WALL)
+	_build_fox()
+	await _wait(20)
+	var you = battle.alive_units(Battle.US)[0]
+	you.pos = battle.fox + Vector2i(0, 2)
+	unit_nodes[you].position = to_world(you.pos) + Vector3(0, _ground(you.pos), 0)
+	selected = you
+	cam_goal = Vector3.INF
+	_frame_camera()
+	_refresh()
+	await _wait(30)
+	await _shot("fox/1_fox_on_the_wall")
+	you.pos = battle.fox + Vector2i(1, 1)
+	unit_nodes[you].position = to_world(you.pos) + Vector3(0, _ground(you.pos), 0)
+	battle.check_fox(you)
+	tip_seen = {"fox": false}
+	_show_tip("fox")
+	_refresh()
+	await _wait(10)
+	await _shot("fox/2_found_tip")
 	get_tree().quit()

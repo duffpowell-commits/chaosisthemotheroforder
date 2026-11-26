@@ -3,6 +3,13 @@
 Design decisions and idea intake, newest first. Build progress lives in `tasks/todo.md`
 and the CLAUDE.md handoff; this is the why behind them.
 
+## 2026-11-26: the fox on the wall (studio mascot cameo)
+- **Duff:** "For chaos, we'll make the mascot graffiti on the wall." First Forge take (red ring for a third eye) he sent
+  back; he kept the redo with a real red third eye (dark mask, no earrings; earrings too small to read in-game anyway).
+- **Built:** the fox is sprayed on a container in 35% of Signal Box fights, always in a player's first. Walking up to it
+  logs a line and a one-time tip ("Somebody in this yard is on your side"). Flavour only, so the 60-70% target is untouched.
+- **Why not the bin-noise idea:** Duff picked graffiti; a gameplay nudge can be added later if he wants one.
+
 ## 2026-11-26: the 8.5 pass (first-timer review 5.5, veteran 6.0)
 - **Duff's rule:** before more rounds get built, plan to an 8.5 first-time-player review, OK it once, build it in one
   pass. He tapped "Build all 7", then said to skip the mock reviews and just build the fixes.

@@ -71,6 +71,10 @@ const NERVE := 3
 const SURRENDER_RANGE := 3
 const PARTNER_RANGE := 4
 const EXTRA_GUARDS := 1    # J1.5 rebalance: the depot posts one more guard than the run's count
+## Studio mascot cameo (docs/MASCOT.md; Duff kept the art Nov 26): a three-eyed fox sprayed on the
+## south face of one container block. Rare, flavour only: it never changes a shot, a sight line or noise.
+const FOX_CHANCE := 35       # % of Signal Box fights the fox is on a wall
+const FOX_WALLS := [Vector2i(2, 9), Vector2i(9, 7), Vector2i(6, 12), Vector2i(1, 4), Vector2i(2, 1)]  # left tile of a 2-wide block
 const JUNCTION := 5         # the floodlight junction box: blocks movement, not sight
 const JUNCTION_POS := Vector2i(0, 8)
 const SMOKE_CHARGES := 1
@@ -157,6 +161,8 @@ var radio_used := false
 var white_flag := WHITE_FLAG  # missions only; fight saves from before it resume with it on (mission_sim "nowf" turns it off)
 var prisoners := 0          # guards who surrendered
 var fled := 0               # guards who broke and ran
+var fox := Vector2i(-1, -1)  # left tile of the container block the fox is sprayed on (-1 = none this fight)
+var fox_found := false
 var fresh: Array = []       # 8.5 pass: guards on patrol when this regime turn began; they don't shoot it
 
 
@@ -253,8 +259,30 @@ static func create_mission(params: Dictionary) -> RefCounted:
 		g.route = GUARD_ROUTES[i]
 		g.wavering = i == waver
 	b.white_flag = WHITE_FLAG
+	# Its own RNG off the seed, so the fox never shifts the fight's dice.
+	var fr := RandomNumberGenerator.new()
+	fr.seed = int(params.get("seed", 1)) * 7919 + 17
+	if fr.randi_range(1, 100) <= FOX_CHANCE:
+		b.place_fox(fr.randi_range(0, FOX_WALLS.size() - 1))
 	b._mark_calm()
 	return b
+
+
+## Puts the fox on FOX_WALLS[i] (tactical.gd forces it the first time a player ever fights).
+func place_fox(i: int) -> void:
+	fox = FOX_WALLS[clampi(i, 0, FOX_WALLS.size() - 1)]
+	fox_found = false
+
+
+## True once, the first time one of ours stands right in front of the fox (the row south of it).
+func check_fox(u) -> bool:
+	if fox.x < 0 or fox_found or u.side != US:
+		return false
+	if u.pos.y == fox.y + 1 and u.pos.x >= fox.x - 1 and u.pos.x <= fox.x + 2:
+		fox_found = true
+		log.append("Someone sprayed a three-eyed fox on the container. It watches %s go by." % u.name)
+		return true
+	return false
 
 
 ## Mid-fight save (scripts/fight_save.gd): every script variable of the Battle and its Units,
@@ -549,6 +577,7 @@ func move(u: Unit, dest: Vector2i) -> bool:
 	u.hidden = false
 	if u.side == REGIME:
 		_trigger_overwatch(u)
+	check_fox(u)
 	return true
 
 
@@ -597,6 +626,7 @@ func sneak(u: Unit, dest: Vector2i) -> bool:
 	u.ap = 0
 	u.pos = dest
 	u.hidden = true
+	check_fox(u)
 	return true
 
 
