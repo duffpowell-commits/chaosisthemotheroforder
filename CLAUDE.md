@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Chaos Is the Mother of Order
 
 > **ACTIVE again (Nov 25, Duff: "lets get all six in order"):** working the 7-item standards list
@@ -6,6 +8,7 @@
 
 Grim Godot 4.7.2 strategy-RPG about organizing a revolution against a modern
 police state. Owner: Duff. Read this first; it is the handoff between sessions.
+Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.md (imported above).
 
 ## Where things stand
 - Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).

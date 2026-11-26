@@ -5,5 +5,7 @@ reference/private/
 .godot/
 build/
 
+# Push guard state (tools/test.sh)
+.claude/state/
 # Meshy clip sources (15 MB each, full mesh inside): project files chaos-art/meshy/clips_src/
 assets/characters/meshy/clips_src/
