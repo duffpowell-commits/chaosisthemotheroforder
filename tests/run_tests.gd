@@ -1147,3 +1147,15 @@ func test_white_flag_prisoners_report_row() -> void:
 	var u = RunState.create(12)
 	Rules.apply_mission(u, act("signal_box", 0), {"aired": true, "kills": 0, "defections": 0, "dead": [], "hurt": [], "out": ["You"]})
 	check(not u.report.any(func(l): return l.begins_with("Prisoners")), "no prisoners, no row")
+
+
+func test_web_build_turns_sideways_in_portrait() -> void:
+	# Nov 26: iPhone in-app browsers and rotation lock never turn the page, so the web build turns the
+	# game sideways itself. The preset's head include must carry web/portrait_rotate.js unchanged.
+	var cfg := ConfigFile.new()
+	check(cfg.load("res://export_presets.cfg") == OK, "export presets load")
+	var head: String = cfg.get_value("preset.0.options", "html/head_include", "")
+	var js := FileAccess.get_file_as_string("res://web/portrait_rotate.js")
+	check(js.length() > 500, "the rotate script exists")
+	check(head.contains(js), "the Web preset's head include is web/portrait_rotate.js, unchanged")
+	check(cfg.get_value("preset.0.options", "html/canvas_resize_policy", -1) == 2, "canvas follows the window (the script swaps its size)")

@@ -48,6 +48,50 @@ jobs:
       - name: Sound check (each event plays its clip)
         run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tools/sound_check.gd 2>&1 | tee sound.log; grep -q "^SOUND PASS" sound.log && ! grep -q "SCRIPT ERROR" sound.log
 
+  web:
+    # Web playtest link (iPhone Safari, Messenger's browser): https://duffpowell-commits.github.io/chaosisthemotheroforder/
+    # On main, force-pushes build/web as the only commit on gh-pages (same as Lethemoor). Threads are
+    # off in the Web preset, so Pages needs no COOP/COEP headers. The preset's head include turns the
+    # game sideways when the phone is upright (web/portrait_rotate.js).
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot + web export template
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip
+          unzip -q godot.zip && sudo mv Godot_v${GODOT_VERSION}_linux.x86_64 /usr/local/bin/godot
+          curl -sSL -o tpl.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION/-/.}
+          unzip -q -j tpl.tpz "templates/web_nothreads_*" "templates/version.txt" -d ~/.local/share/godot/export_templates/${GODOT_VERSION/-/.}
+      - name: Stamp build number
+        run: |
+          echo "${GITHUB_SHA::7} $(date -u +%Y-%m-%d) #${{ github.run_number }}" > build.txt
+          echo "${{ github.run_number }}" > build_code.txt
+          echo "$GITHUB_REPOSITORY" > repo.txt
+      - name: Import
+        run: timeout 300 godot --headless --path . --import || true
+      - name: Export Web
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html 2>&1 | tee web.log
+          test -f build/web/index.pck && test -f build/web/index.wasm
+          grep -q "__chaosFixed" build/web/index.html
+          ls -la build/web
+      - name: Publish web build to GitHub Pages (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd build/web
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "web build ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+
   android:
     needs: test
     runs-on: ubuntu-latest
