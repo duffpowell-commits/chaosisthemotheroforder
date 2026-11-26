@@ -6,16 +6,26 @@
 // (tests/run_tests.gd checks). Why (Nov 26, 2026): DuffQuest's "turn sideways" note didn't help
 // testers stuck in Messenger's browser.
 (function () {
-  var realW = Object.getOwnPropertyDescriptor(Window.prototype, "innerWidth") || null;
-  var realH = Object.getOwnPropertyDescriptor(Window.prototype, "innerHeight") || null;
+  // Some browsers keep innerWidth on window itself, others on Window.prototype: take whichever exists.
+  function desc(n) { return Object.getOwnPropertyDescriptor(window, n) || Object.getOwnPropertyDescriptor(Window.prototype, n) || null; }
+  var realW = desc("innerWidth"), realH = desc("innerHeight");
+  if (realW && !realW.get) realW = null;
+  if (realH && !realH.get) realH = null;
   function rw() { return realW ? realW.get.call(window) : document.documentElement.clientWidth; }
   function rh() { return realH ? realH.get.call(window) : document.documentElement.clientHeight; }
-  function sideways() { return rh() > rw(); }
+  var swapped = false;
+  function sideways() { return swapped && rh() > rw(); }
   // Godot sizes its canvas from innerWidth/innerHeight (canvas_resize_policy 2): swap them.
+  var gw = function () { return sideways() ? rh() : rw(); };
+  var gh = function () { return sideways() ? rw() : rh(); };
   try {
-    Object.defineProperty(window, "innerWidth", { configurable: true, get: function () { return sideways() ? rh() : rw(); } });
-    Object.defineProperty(window, "innerHeight", { configurable: true, get: function () { return sideways() ? rw() : rh(); } });
-  } catch (e) {}
+    Object.defineProperty(window, "innerWidth", { configurable: true, get: gw });
+    Object.defineProperty(window, "innerHeight", { configurable: true, get: gh });
+    // If the browser ignored the swap, don't rotate: a letterboxed game beats one with misplaced taps.
+    var dw = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    var dh = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    swapped = !!(dw && dw.get === gw && dh && dh.get === gh);
+  } catch (e) { swapped = false; }
   function canvas() { return document.getElementById("canvas"); }
   function place() {
     var c = canvas();
