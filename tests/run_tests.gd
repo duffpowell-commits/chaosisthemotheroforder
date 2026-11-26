@@ -1009,6 +1009,8 @@ func test_opening_shot_catches_guards_off_guard() -> void:
 	you.pos = g.pos + Vector2i(0, 3)
 	while b.tile(you.pos) != Battle.FLOOR or b.unit_at(you.pos) != you and b.unit_at(you.pos) != null:
 		you.pos += Vector2i(1, 0)
+	var could_fire: bool = b.alive_units(Battle.REGIME).any(func(x): return x.alive() and b.alive_units(Battle.US).any(func(o): return b.chance(x, o) >= Battle.AI_MIN_SHOT))
+	check(could_fire, "control: some guard has a shot at us, so holding fire is the rule's doing")
 	b.shoot(you, g)
 	check(not b.goes_loud(), "after the shot every guard is alert")
 	var hp_before: int = b.alive_units(Battle.US).reduce(func(a, u): return a + u.hp, 0)

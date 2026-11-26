@@ -961,7 +961,7 @@ func end_turn() -> void:
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
 	# Caught off guard: whoever your turn startled out of a patrol spends this turn diving for cover.
-	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled)
+	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled and g.busy == 0)
 	if stunned > 0:
 		stunned -= 1
 		log.append("Every guard stares at the screens")

@@ -656,6 +656,7 @@ func _refresh_column() -> void:
 			label = "No line of sight"
 	if u.ap < 1:
 		label = "Shoot (no AP left)"
+		loud_warn = false
 	elif aimed == null:
 		label = "Shoot: tap a guard"
 	var shoot := _hud_button(label, _on_shoot)
