@@ -92,6 +92,14 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   seed + week (stale ones are deleted). `_return_to_run` (run fights only) and New run clear it. Fight now is never saved. The pause menu also has "Quit and replan the
   week" (Duff's pick Nov 26, `_replan_week`): drops the fight save, so Continue replays the week from planning; render `12_pause_replan.png`. Renders
   `11_title_continue_fight.png`, `11_fight_resumed.png`. QoL (item 5) is done; next is item 6 (sound/feel).
+- **Nov 26: sound, step 1** (standards item 6, Duff: "Start sound"): real CC0 recordings (OpenGameArt; logged in
+  `assets/audio/SOURCES.md`, a rule test checks every .ogg has a row) cut and levelled by `tools/real_audio.py`
+  (ffmpeg + numpy; loudness per clip in its `LOUD` table, yard slap baked in because web has no bus effects).
+  Autoload `Audio` (`scripts/audio.gd`): `Sfx.fx/music/bed` static helpers (preload it; `--script` runs don't
+  register autoload names), takes `name_0..N` picked at random, every BaseButton clicks on press. Fight: cold music +
+  rain bed, pistol (ours) / rifle (theirs), grunt on a hit, boots per tile (quieter sneaking, theirs on their turn),
+  alarm once when it trips, smoke/flash/lights/radio/upload, typewriter key on End turn. Desk: EmptyCity bed,
+  paper on each new screen. Check: `tools/sound_check.gd` -> `SOUND PASS` (in CI). Next: step 2 (feel), card first.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
@@ -203,6 +211,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   (`-- 300 focus` for just the 3 v 4 and 5 v 4 cases; prints tension: close %, coin-flip shots)
 - Run -> mission -> run hook: `godot --headless --path . --script tools/mission_flow_check.gd`
 - QoL (pause, back, saves): `godot --headless --path . --script tools/qol_check.gd` -> `QOL PASS`
+- Sound (each event plays its clip): `godot --headless --path . --script tools/sound_check.gd` -> `SOUND PASS`
+  Rebuild the clips: `python3 tools/real_audio.py` (downloads CC0 sources to `~/.cache/chaos_audio`).
 - Tactical renders: `xvfb-run -a godot --path . --rendering-driver opengl3 res://scenes/tactical.tscn -- --capture-tactical`
   (`--capture-mission` for the Signal Box, `--capture-tools` for the four diversion tools). Fresh clone: run `godot --headless --path . --import` first.
 - UI screenshots: `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shots`

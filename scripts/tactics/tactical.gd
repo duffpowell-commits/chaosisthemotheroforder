@@ -13,6 +13,7 @@ extends "res://scripts/render_test.gd"
 const Battle = preload("res://scripts/tactics/battle.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 const FightSave = preload("res://scripts/fight_save.gd")
+const Sfx = preload("res://scripts/audio.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -71,6 +72,7 @@ var selected = null
 var aimed = null
 var sneaking := false
 var busy := false
+var alarm_heard := true   # the alarm sounds once, when it trips (a resumed alarmed fight stays quiet)
 var world_root: Node3D
 ## Camera follow (J1 review): the fight drifts north and ended up tiny at the
 ## top of the screen. The camera keeps its angle but slides to the squad and
@@ -130,6 +132,9 @@ func _ready() -> void:
 	if Engine.has_meta("mission"):
 		mission_meta = Engine.get_meta("mission")
 	_new_battle(seed_value)
+	alarm_heard = battle.alarm
+	Sfx.music("music_fight")
+	Sfx.bed("rain_loop")
 	_save_fight()  # first checkpoint: leaving now resumes here, not a replayed week
 	if "--capture-tactical" in args:
 		_capture_tactical()
@@ -448,6 +453,9 @@ func _hud_button(t: String, cb: Callable) -> Button:
 # ---------- state -> screen ----------
 
 func _refresh() -> void:
+	if battle and battle.alarm and not alarm_heard:
+		alarm_heard = true
+		Sfx.fx("alarm")
 	var over: bool = battle.is_over()
 	var who := "Your move" if battle.side == Battle.US else "Regime move"
 	if battle.mission:
@@ -816,18 +824,24 @@ func _confirm_tool() -> void:
 	match mode:
 		"smoke":
 			if battle.smoke(u, at):
+				Sfx.fx("smoke")
 				_pop_at(at, "SMOKE", C_SMOKE)
 		"flash":
 			var hit: Array = battle.flash_targets(at)
 			if battle.flashbang(u, at):
+				Sfx.fx("flash")
 				_pop_at(at, "FLASH", Color(1, 1, 0.85))
 				for g in hit:
 					_pop(g, "STUNNED", C_FG)
 		"lights":
 			if battle.lights_out(u):
+				Sfx.fx("lights")
 				_pop(u, "LIGHTS OUT", C_FG)
 		"radio":
+			var tried: bool = battle.can_radio(u)
 			var ok: bool = battle.radio(u)
+			if tried:
+				Sfx.fx("static", -4.0)
 			_pop(u, "THEY BUY IT" if ok else "BLOWN", C_GOOD if ok else C_RED)
 	_refresh()
 
@@ -1327,6 +1341,7 @@ func _move_selected(p: Vector2i, sneak: bool) -> void:
 	var n: Node3D = unit_nodes[selected]
 	var tw := create_tween()
 	for step in path:
+		tw.tween_callback(Sfx.fx.bind("step", -9.0 if sneak else 0.0))  # sneaking is quieter
 		tw.tween_property(n, "position", to_world(step) + Vector3(0, _ground(step), 0), 0.2 if sneak else 0.12)
 	await tw.finished
 	busy = false
@@ -1366,7 +1381,8 @@ func _on_overwatch() -> void:
 
 
 func _on_upload() -> void:
-	battle.do_upload(selected)
+	if battle.do_upload(selected):
+		Sfx.fx("static")
 	_refresh()
 
 
@@ -1386,6 +1402,9 @@ func _on_leave() -> void:
 
 func _flash(from, to, hit: bool) -> void:
 	_rig_play(from, "shoot", to)
+	Sfx.fx("guard_shot" if from.side == Battle.REGIME else "shot")
+	if hit:
+		get_tree().create_timer(0.18, false).timeout.connect(Sfx.fx.bind("hurt"))
 	_body_shoot(from, to)
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
 	var light := OmniLight3D.new()
@@ -1418,6 +1437,7 @@ func _pop(at, text: String, col: Color) -> void:
 
 
 func _on_end_turn() -> void:
+	Sfx.fx("type")
 	busy = true
 	aimed = null
 	sneaking = false
@@ -1431,6 +1451,7 @@ func _on_end_turn() -> void:
 	var tw := create_tween().set_parallel(true)
 	for u in battle.units:
 		if u.side == Battle.REGIME and before.has(u) and before[u] != u.pos:
+			tw.tween_callback(Sfx.fx.bind("step", -6.0))  # their boots on the gravel, as they set off
 			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
 	tw.tween_interval(0.5)
 	await tw.finished
