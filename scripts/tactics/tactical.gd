@@ -639,6 +639,7 @@ func _refresh_column() -> void:
 			column.add_child(_hud_button("Overwatch", _on_overwatch))
 	var c := 0
 	var label := "Shoot"
+	var loud_warn := false
 	if aimed != null:
 		var pv: Dictionary = battle.shot_preview(u, aimed)
 		c = pv.chance
@@ -646,10 +647,16 @@ func _refresh_column() -> void:
 			label = "Shoot %d%%\n%s" % [c, "downs him" if pv.result == "down" else "wounds him"]
 			if pv.noise > 0:
 				label += " · ALARM" if battle.trips_alarm(pv.noise) else " · +%d noise" % pv.noise
+			var ours: int = battle.alive_units(Battle.US).size()
+			var theirs: int = battle.alive_units(Battle.REGIME).size()
+			if battle.goes_loud() and ours < theirs:
+				label += "\nGOES LOUD · %d vs %d" % [ours, theirs]
+				loud_warn = true
 		else:
 			label = "No line of sight"
 	if u.ap < 1:
 		label = "Shoot (no AP left)"
+		loud_warn = false
 	elif aimed == null:
 		label = "Shoot: tap a guard"
 	var shoot := _hud_button(label, _on_shoot)
@@ -659,7 +666,9 @@ func _refresh_column() -> void:
 		b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 	if c > 0:
 		shoot.add_theme_font_size_override("font_size", 18)
-		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
+		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 96 if loud_warn else 70)
+		if loud_warn:
+			shoot.add_theme_color_override("font_color", C_RED)
 
 
 ## Tool targeting overlay: valid targets faint, the chosen 3x3 strong; lights

@@ -123,6 +123,14 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   with the screen the player was on (where people quit). Nothing leaves the phone (no collector yet); the summary rides
   on REPORT A BUG (`stats:` line). Call `PlayStats.log_event` (preload; `--script` runs don't register autoload names).
   Checked in `tools/qol_check.gd` and rule test `test_play_stats_summary`.
+- **Nov 26: loud-play fix** (mock IGN: the loud Signal Box route aired ~1%; Duff: "Ship + do the loud-play fix"). The sim
+  showed 3 v 4 loud is a squad-size wall (3 operatives vs 5 guards, all down by turn 4): range falloff, slower or smaller
+  reinforcements barely moved it and pushed quiet survival to ~89%. Built: **caught off guard** (`Battle.CAUGHT_OFF_GUARD`):
+  your opening shot startles every patrolling guard (`Unit.startled`); each spends his next regime turn diving for cover
+  (`_dive_for_cover`), no return fire. Subdues, shouts and other noise don't count. Shoot button warns in red when a shot goes
+  loud and you're outnumbered ("GOES LOUD · 3 vs 5", `Battle.goes_loud`). Sim (300 runs): quiet 3 v 4 nobody out 34%
+  (survival 66%, in Duff's 60-70%), loud 5 v 4 airs 60% (was 49%), loud 3 v 4 still ~0% (warned). Rule test
+  `test_opening_shot_catches_guards_off_guard`. Render `docs/renders/loud/1_goes_loud_warning.png`.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates

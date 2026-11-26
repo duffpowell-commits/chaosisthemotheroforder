@@ -996,3 +996,37 @@ func test_play_stats_summary() -> void:
 	if keep != "":
 		FileAccess.open(st.EVENTS, FileAccess.WRITE).store_string(keep)
 	st.free()
+
+
+func test_opening_shot_catches_guards_off_guard() -> void:
+	# Loud-play fix (Nov 26): the guards your opening shot wakes dive for cover on their next turn
+	# instead of shooting back. Noise that isn't gunfire (a subdue, a shout) doesn't startle them.
+	var sq := [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}, {"name": "Kesh", "op": 2, "is_you": false}]
+	var b = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 3, "squad": sq})
+	check(b.goes_loud(), "guards on patrol: a shot now goes loud")
+	var you = b.alive_units(Battle.US)[0]
+	var g = b.alive_units(Battle.REGIME)[0]
+	you.pos = g.pos + Vector2i(0, 3)
+	while b.tile(you.pos) != Battle.FLOOR or b.unit_at(you.pos) != you and b.unit_at(you.pos) != null:
+		you.pos += Vector2i(1, 0)
+	var could_fire: bool = b.alive_units(Battle.REGIME).any(func(x): return x.alive() and b.alive_units(Battle.US).any(func(o): return b.chance(x, o) >= Battle.AI_MIN_SHOT))
+	check(could_fire, "control: some guard has a shot at us, so holding fire is the rule's doing")
+	b.shoot(you, g)
+	check(not b.goes_loud(), "after the shot every guard is alert")
+	var hp_before: int = b.alive_units(Battle.US).reduce(func(a, u): return a + u.hp, 0)
+	var n: int = b.log.size()
+	b.end_turn()
+	var after: Array = b.log.slice(n)
+	check(after.any(func(l): return l.contains("caught off guard")), "startled guards dive for cover")
+	check(not after.any(func(l): return l.contains(" fires")), "and none of them shoots back that turn")
+	check(b.alive_units(Battle.US).reduce(func(a, u): return a + u.hp, 0) == hp_before, "no one of ours is hit on that turn")
+	# The next regime turn they fight normally.
+	var k: int = b.log.size()
+	b.end_turn()
+	check(not b.log.slice(k).any(func(l): return l.contains("caught off guard")), "caught off guard only once")
+	# Noise alone (no shot) wakes guards without startling them.
+	var c = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 3, "squad": sq})
+	c.add_noise(3, c.alive_units(Battle.REGIME)[0].pos)
+	var m: int = c.log.size()
+	c.end_turn()
+	check(not c.log.slice(m).any(func(l): return l.contains("caught off guard")), "noise without gunfire doesn't catch anyone off guard")
