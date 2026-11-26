@@ -958,3 +958,15 @@ func test_audio_clips_listed_and_present() -> void:
 	for clip in Sfx.NAMES:
 		var found := FileAccess.file_exists("res://assets/audio/%s.ogg" % clip) or FileAccess.file_exists("res://assets/audio/%s_0.ogg" % clip)
 		check(found, "clip on disk: " + clip)
+
+
+func test_textures_ship_lossy() -> void:
+	# Item 7 (Nov 26): lossless textures made the APK 242 MB. tools/texture_policy.py sets these lossy;
+	# a new texture dropped in without running it fails here.
+	for dir in ["res://assets/characters/meshy", "res://assets/characters/rigged", "res://assets/portraits",
+			"res://assets/ui/dossier", "res://assets/polyhaven/textures/road"]:
+		for f in DirAccess.get_files_at(dir):
+			if f.ends_with(".png.import") or f.ends_with(".jpg.import"):
+				var txt := FileAccess.get_file_as_string(dir + "/" + f)
+				if txt.contains('importer="texture"'):
+					check(txt.contains("compress/mode=1"), "lossy import: %s/%s (run tools/texture_policy.py)" % [dir, f])

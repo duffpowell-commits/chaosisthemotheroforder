@@ -106,7 +106,14 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   muzzle smoke (CPUParticles3D), flashbang white-out, lights-out dip to black, three red edge beats when the alarm trips
   (canvas layer 2, under the HUD, ~2 beats a second). Losing one of ours lands hardest. Settings: SHAKE (shake + screen flashes) and BUZZ,
   both on by default. Checked in `tools/sound_check.gd`. Renders `docs/renders/feel/` (effects shown at peak: the
-  sandbox runs ~600 ms a frame, so a timed capture misses them). Item 6 done once merged; next is item 7 (perf/size/stats).
+  sandbox runs ~600 ms a frame, so a timed capture misses them). Merged PR #24; item 6 done.
+- **Nov 26: perf/size, step 1** (item 7, Duff: "Ship + start item 7"): the dev APK was 242 MB, 205 MB of it textures
+  imported lossless. `tools/texture_policy.py` sets lossy WebP by folder (body maps capped 1024 px; Duff's colour map
+  keeps 2048 for the tattoos); CI runs `--check` and a rule test fails on a lossless body/portrait/UI texture. Unused art
+  is out of both exports (assets/art, full-size woodcut icons, posters/stamps, 2D cutout sprites except the `display/`
+  ones the code loads, painted backdrops). Shipped assets ~40 MB (est. APK ~70 MB). Before/after: `docs/renders/perf/`
+  (no visible change). Settings got FPS (counter top-left, green 55+, amber 30+, red under). **New art: run
+  `python3 tools/texture_policy.py` before committing**; new folders need a POLICY row. The export excludes `civilian_*`, `operative_*`, `kesh/*`, `teodor/*` whole, `display/` copies too (nothing loads them yet): a new cutout for one of them must narrow that pattern or it won't ship.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
