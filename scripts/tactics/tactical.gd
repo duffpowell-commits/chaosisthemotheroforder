@@ -1228,11 +1228,25 @@ func _set_paused(on: bool) -> void:
 	var quit := _hud_button("Save and quit to title" if run else "Quit to title", _quit_fight)
 	quit.custom_minimum_size = Vector2(360, 72)
 	box.add_child(quit)
+	if run:
+		# Duff's pick (Nov 26): keep the old way out too. Drops the saved fight; Continue then
+		# replays the week from its plan (the run save is from before the week resolved).
+		var replan := _hud_button("Quit and replan the week", _replan_week)
+		replan.name = "replan"
+		replan.custom_minimum_size = Vector2(360, 72)
+		box.add_child(replan)
 	resume.grab_focus.call_deferred()
 
 
 func _quit_fight() -> void:
 	_save_fight()  # Continue on the title picks the fight up at this turn
+	get_tree().paused = false
+	Engine.remove_meta("mission")
+	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+
+func _replan_week() -> void:
+	FightSave.clear()
 	get_tree().paused = false
 	Engine.remove_meta("mission")
 	get_tree().change_scene_to_file("res://scenes/game.tscn")

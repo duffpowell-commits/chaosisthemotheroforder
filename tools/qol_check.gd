@@ -273,6 +273,31 @@ func _fight_save_checks() -> void:
 	await _frames(10)
 	expect(not FightSave.exists(), "finishing the fight clears the save")
 	current_scene.get_tree().paused = false
+	# "Quit and replan the week" (Duff, Nov 26): drops the saved fight; Continue replays the week.
+	change_scene_to_file("res://scenes/game.tscn")
+	await _frames(5)
+	g = current_scene
+	g._new_run()
+	await _frames(2)
+	var week_was: int = g.s.week
+	Engine.set_meta("mission", {"state": g.s, "entries": [], "teodor_before": g.s.teodor.duplicate(true),
+		"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [{"name": "You", "op": 0, "is_you": true}]}})
+	change_scene_to_file("res://scenes/tactical.tscn")
+	await _frames(20)
+	t = current_scene
+	t._set_paused(true)
+	await _frames(2)
+	var rp: Button = t.pause_layer.find_child("replan", true, false)
+	expect(rp != null and FightSave.exists(), "a run fight's pause menu offers Quit and replan the week")
+	await _shot("12_pause_replan.png")
+	if rp != null:
+		rp.pressed.emit()
+	await _frames(6)
+	g = current_scene
+	expect(not paused and not FightSave.exists() and g.on_title and _has_button(g, "CONTINUE"), "replan drops the saved fight; the title says CONTINUE")
+	g._continue_run()
+	await _frames(3)
+	expect(current_scene == g and g.where == "district" and g.s.week == week_was, "Continue replays the week from planning")
 	# Fight now (no run behind it) must never touch a run's saved fight.
 	var RS = load("res://scripts/sim/run_state.gd")
 	var keep = RS.create(5)
