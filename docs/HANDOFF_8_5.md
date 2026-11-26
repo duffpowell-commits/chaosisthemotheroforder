@@ -49,6 +49,10 @@ Duff paused Chaos briefly, then said to build all the fixes with no mock reviews
    - Smoke/flash valid tiles are brighter.
 - Renders: `docs/renders/8_5/` (`res://scenes/tactical.tscn -- --capture-8-5`).
 
+## After the 8.5 pass (Nov 26)
+- Web load fix for iPhone (PR #33): pack 43 MB, commit-named files.
+- Mascot cameo: fox graffiti on a yard container (docs/MASCOT.md "This game").
+
 ## Known leftovers (small)
 - Threat-odds % labels can sit under the bottom bar.
 - A tip line can overlap guard tags at the top.

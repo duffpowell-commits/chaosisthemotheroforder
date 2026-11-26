@@ -1191,3 +1191,33 @@ func test_first_contact_and_hidden_targets() -> void:
 	check(b._can_target(g, mara) == (not far and b.line_of_sight(g.pos, mara.pos)), "alerted guard: sneaker targetable only within %d" % Battle.SEARCH_SIGHT)
 	mara.hidden = false
 	check(b._can_target(g, mara), "a unit in the open can always be aimed at")
+
+
+func test_fox_cameo() -> void:
+	# Studio mascot (docs/MASCOT.md, Duff kept the art Nov 26): a three-eyed fox on a container in
+	# some Signal Box fights. Rare, on the south face of a real container, never touches the dice.
+	var sq := [{"name": "You", "op": 0, "is_you": true}]
+	var with_fox := 0
+	for s in range(1, 401):
+		var b = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": s, "squad": sq})
+		if b.fox.x >= 0:
+			with_fox += 1
+			check(b.tile(b.fox) == Battle.FULL and b.tile(b.fox + Vector2i(1, 0)) == Battle.FULL, "fox is on a 2-wide container")
+			check(b.tile(b.fox + Vector2i(0, 1)) == Battle.FLOOR and b.tile(b.fox + Vector2i(1, 1)) == Battle.FLOOR, "the fox's face looks onto open ground")
+	check(with_fox > 400 * (Battle.FOX_CHANCE - 10) / 100 and with_fox < 400 * (Battle.FOX_CHANCE + 10) / 100,
+		"fox shows in about FOX_CHANCE%% of fights (%d of 400)" % with_fox)
+	# Its own RNG: the fight's dice are the same whether or not the fox turned up.
+	var b2 = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 7, "squad": sq})
+	var plain = Battle.create_skirmish(7)
+	plain.rng.randi_range(0, 4)  # create_mission's one draw: which guard wavers
+	check(b2.rng.state == plain.rng.state, "the fox draws from its own RNG")
+	for i in range(Battle.FOX_WALLS.size()):
+		b2.place_fox(i)
+		check(b2.tile(b2.fox) == Battle.FULL and b2.tile(b2.fox + Vector2i(1, 0)) == Battle.FULL and b2.tile(b2.fox + Vector2i(0, 1)) == Battle.FLOOR, "FOX_WALLS[%d] is a container facing open ground" % i)
+	b2.place_fox(1)
+	var you = b2.alive_units(Battle.US)[0]
+	you.pos = b2.fox + Vector2i(0, 1)
+	check(b2.check_fox(you), "standing in front of the fox finds it")
+	check(not b2.check_fox(you), "only once a fight")
+	var b3 = Battle.from_dict(b2.to_dict())
+	check(b3.fox == b2.fox and b3.fox_found, "a fight save keeps the fox")

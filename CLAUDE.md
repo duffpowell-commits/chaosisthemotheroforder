@@ -13,6 +13,8 @@ Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.
 ## Where things stand
 - **Studio mascot (Duff, Nov 26): the three-eyed fox is in every game as a rare cameo, not a pal**: a small event
   that matters but never ruins a run. Duff OKs the fox art on a card before it's built. Rule + this game's idea: `docs/MASCOT.md`.
+  Built Nov 26: fox graffiti on a yard container in 35% of Signal Box fights (always the first one), found = log + tip,
+  flavour only (`Battle.FOX_*`, `_build_fox`, `test_fox_cameo`, `docs/renders/fox/`).
 - Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).
 - Look: `docs/style-guide.md` (palette, readability rules). Check renders against it.
 - Current work: the vertical slice, `docs/slice-spec.md`. Progress: `tasks/todo.md`.

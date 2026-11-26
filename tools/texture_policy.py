@@ -31,6 +31,7 @@ POLICY = [
     ("assets/ui/backdrop_*", 0.85, 0),
     ("assets/ui/dossier/*", 0.85, 0),
     ("assets/ui/woodcut/*", 0.9, 0),
+    ("assets/props/*", 0.85, 512),
 ]
 SKIP_EXT = (".hdr", ".exr")   # HDR skies keep their own import
 
