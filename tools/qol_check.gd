@@ -273,18 +273,22 @@ func _fight_save_checks() -> void:
 	await _frames(10)
 	expect(not FightSave.exists(), "finishing the fight clears the save")
 	current_scene.get_tree().paused = false
-	# "Quit and replan the week" (Duff, Nov 26): drops the saved fight; Continue replays the week.
+	# "Quit and replan the week" (Duff, Nov 26): drops the saved fight; Continue replays the week
+	# from planning with the same plan, and the diversion isn't paid twice.
 	change_scene_to_file("res://scenes/game.tscn")
 	await _frames(5)
 	g = current_scene
 	g._new_run()
-	await _frames(2)
-	var week_was: int = g.s.week
-	Engine.set_meta("mission", {"state": g.s, "entries": [], "teodor_before": g.s.teodor.duplicate(true),
-		"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [{"name": "You", "op": 0, "is_you": true}]}})
-	change_scene_to_file("res://scenes/tactical.tscn")
-	await _frames(20)
+	g.s.week = 2
+	g.s.cash = 6
+	g._save()
+	var ready: Array = g.s.ready_operatives()
+	g.plan = {ready[0]: {"action": "signal_box", "op": ready[0], "zone": "", "choice": ""},
+		ready[1]: {"action": "diversion", "op": ready[1], "zone": "dorms", "choice": ""}}
+	g._resolve(g.plan.values())  # the real launch path, no focus-out while planning
+	await _frames(25)
 	t = current_scene
+	expect(t.scene_file_path.ends_with("tactical.tscn") and t.mission_meta.state.cash == 5, "a week with a diversion launches the Signal Box (cash 6 -> 5)")
 	t._set_paused(true)
 	await _frames(2)
 	var rp: Button = t.pause_layer.find_child("replan", true, false)
@@ -297,7 +301,8 @@ func _fight_save_checks() -> void:
 	expect(not paused and not FightSave.exists() and g.on_title and _has_button(g, "CONTINUE"), "replan drops the saved fight; the title says CONTINUE")
 	g._continue_run()
 	await _frames(3)
-	expect(current_scene == g and g.where == "district" and g.s.week == week_was, "Continue replays the week from planning")
+	expect(g.where == "district" and g.s.week == 2 and g.s.cash == 6, "Continue replays week 2 from planning, diversion not paid")
+	expect(g.plan.size() == 2 and g.plan.values().any(func(e): return e.action == "signal_box"), "the week's plan comes back")
 	# Fight now (no run behind it) must never touch a run's saved fight.
 	var RS = load("res://scripts/sim/run_state.gd")
 	var keep = RS.create(5)

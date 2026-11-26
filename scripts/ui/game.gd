@@ -447,6 +447,7 @@ func _resolve(entries: Array) -> void:
 		if not s.is_over():
 			Engine.set_meta("mission", {"state": s, "entries": entries, "teodor_before": before,
 				"params": Rules.mission_params(s, entries)})
+			_save_plan()  # "Quit and replan the week" brings this plan back, not an older half of it
 			get_tree().change_scene_to_file("res://scenes/tactical.tscn")
 			return
 	else:
