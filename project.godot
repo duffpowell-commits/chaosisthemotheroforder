@@ -13,6 +13,7 @@ config/quit_on_go_back=false
 
 Fonts="*res://scripts/fonts.gd"
 Settings="*res://scripts/settings.gd"
+Audio="*res://scripts/audio.gd"
 Updater="*res://scripts/updater.gd"
 
 [display]

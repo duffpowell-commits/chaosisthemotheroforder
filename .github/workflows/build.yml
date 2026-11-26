@@ -43,6 +43,8 @@ jobs:
         run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tools/mission_flow_check.gd 2>&1 | tee flow.log; grep -q "^ALL OK" flow.log && ! grep -q "SCRIPT ERROR" flow.log
       - name: QoL check (pause, back button, saves)
         run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tools/qol_check.gd 2>&1 | tee qol.log; grep -q "^QOL PASS" qol.log && ! grep -q "SCRIPT ERROR" qol.log
+      - name: Sound check (each event plays its clip)
+        run: XDG_DATA_HOME=$(mktemp -d) timeout 300 godot --headless --path . --script tools/sound_check.gd 2>&1 | tee sound.log; grep -q "^SOUND PASS" sound.log && ! grep -q "SCRIPT ERROR" sound.log
 
   android:
     needs: test

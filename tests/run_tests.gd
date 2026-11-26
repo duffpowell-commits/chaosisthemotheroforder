@@ -946,3 +946,15 @@ func test_mission_save_round_trip() -> void:
 		b.end_turn()
 		c.end_turn()
 	check(var_to_str(c.to_dict()) == var_to_str(b.to_dict()), "the regime plays on the same after a load")
+
+
+func test_audio_clips_listed_and_present() -> void:
+	# Sound item 6: every clip the game asks for exists, and every .ogg has a SOURCES.md row (CC0 log).
+	var Sfx = load("res://scripts/audio.gd")
+	var src := FileAccess.get_file_as_string("res://assets/audio/SOURCES.md")
+	for f in DirAccess.get_files_at("res://assets/audio"):
+		if f.ends_with(".ogg"):
+			check(src.contains(f), "SOURCES.md lists " + f)
+	for clip in Sfx.NAMES:
+		var found := FileAccess.file_exists("res://assets/audio/%s.ogg" % clip) or FileAccess.file_exists("res://assets/audio/%s_0.ogg" % clip)
+		check(found, "clip on disk: " + clip)

@@ -11,6 +11,7 @@ const Text = preload("res://scripts/ui/text.gd")
 const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
 const Story = preload("res://scripts/dialogue/story.gd")
 const FightSave = preload("res://scripts/fight_save.gd")
+const Sfx = preload("res://scripts/audio.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 
 const SAVE_PATH := "user://run.save"
@@ -78,6 +79,8 @@ var left_from := ""  # the run screen the player backed out of to reach the titl
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	Sfx.music("music_dossier")
+	Sfx.bed("")  # the fight's rain stops at the desk
 	var tf: FontFile = TYPE_FONT  # typewriter has no ▼ ✕: borrow the symbols font
 	if not tf.fallbacks.has(SYMBOLS_FONT):
 		tf.fallbacks = [SYMBOLS_FONT]
@@ -156,6 +159,7 @@ func _fight_now() -> void:
 
 func show_district() -> void:
 	where = "district"
+	Sfx.fx("paper")
 	_clear()
 	_set_backdrop(_liberation())
 	var col := _page()
@@ -214,6 +218,7 @@ func show_district() -> void:
 
 func show_report() -> void:
 	where = "report"
+	Sfx.fx("paper")
 	_clear()
 	_set_backdrop(_liberation())
 	var col := _page()
@@ -370,6 +375,7 @@ func _dialogue_finish_fast() -> void:
 
 func show_ending() -> void:
 	where = "ending"
+	Sfx.fx("paper")
 	_clear()
 	var e: Dictionary = Text.ENDINGS[s.ending]
 	_set_backdrop(e.grade)
