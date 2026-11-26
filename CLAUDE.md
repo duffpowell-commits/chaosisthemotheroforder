@@ -11,6 +11,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).
 - Look: `docs/style-guide.md` (palette, readability rules). Check renders against it.
 - Current work: the vertical slice, `docs/slice-spec.md`. Progress: `tasks/todo.md`.
+- Decision/idea log: `docs/log.md` (newest first). Nov 25: **White Flag** (surrender + prisoner
+  choices) folded in as notes only, `docs/white-flag-notes.md`; build after the standards list.
 - `QUEUE.md`: this is the one active game; parked ideas (Lethemoor, Echo Company) live there. Don't build them here.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
   M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays
