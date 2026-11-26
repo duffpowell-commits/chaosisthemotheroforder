@@ -10,6 +10,7 @@ const Policies = preload("res://scripts/sim/policies.gd")
 const Text = preload("res://scripts/ui/text.gd")
 const Dialogue = preload("res://scripts/dialogue/dialogue.gd")
 const Story = preload("res://scripts/dialogue/story.gd")
+const FightSave = preload("res://scripts/fight_save.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 
 const SAVE_PATH := "user://run.save"
@@ -131,9 +132,9 @@ func show_title() -> void:
 	var fight := _ink_button("FIGHT NOW  ▶", _fight_now, true)
 	fight.custom_minimum_size.x = 280
 	row.add_child(fight)
-	for pair in ([["CONTINUE", _continue_run]] if FileAccess.file_exists(SAVE_PATH) else []) + [["NEW RUN", _new_run]]:
+	for pair in ([["CONTINUE FIGHT" if FightSave.exists() else "CONTINUE", _continue_run]] if FileAccess.file_exists(SAVE_PATH) else []) + [["NEW RUN", _new_run]]:
 		var b := _ink_button(pair[0], pair[1], false)
-		b.custom_minimum_size.x = 220
+		b.custom_minimum_size.x = 270 if pair[0] == "CONTINUE FIGHT" else 220
 		b.add_theme_color_override("font_color", C_PAPER)
 		row.add_child(b)
 	var gear := _ink_button("SETTINGS", func(): SettingsSheet.open(self, show_title), false)
@@ -396,6 +397,7 @@ func _new_run() -> void:
 	s = RunState.create(int(Time.get_unix_time_from_system()) % 1000000)
 	Rules.start_week(s)
 	plan.clear()
+	FightSave.clear()
 	_save()
 	show_district()
 
@@ -407,6 +409,14 @@ func _continue_run() -> void:
 		_new_run()
 		return
 	s = RunState.from_dict(_fix_ints(d))
+	# Left mid-fight: straight back into the Signal Box at the saved turn (QoL step 4).
+	var fight := FightSave.load_for(s.run_seed, s.week)
+	if not fight.is_empty() and not s.is_over():
+		var at = RunState.from_dict(_fix_ints(fight.run))
+		Engine.set_meta("mission", {"state": at, "entries": fight.entries,
+			"teodor_before": fight.teodor_before, "params": fight.params, "resume": fight.battle})
+		get_tree().change_scene_to_file("res://scenes/tactical.tscn")
+		return
 	_load_plan()
 	if s.is_over():
 		show_ending()
@@ -437,6 +447,7 @@ func _resolve(entries: Array) -> void:
 		if not s.is_over():
 			Engine.set_meta("mission", {"state": s, "entries": entries, "teodor_before": before,
 				"params": Rules.mission_params(s, entries)})
+			_save_plan()  # "Quit and replan the week" brings this plan back, not an older half of it
 			get_tree().change_scene_to_file("res://scenes/tactical.tscn")
 			return
 	else:

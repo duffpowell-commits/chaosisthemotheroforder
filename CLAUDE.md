@@ -71,7 +71,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 - **Nov 25: QoL** (standards item 5, step by step with Duff's OK). Step 1: phone lifecycle. Leaving the app
   saves the run + the half-made plan (`user://plan.save`, kept only for its week; `_save_plan` / `_load_plan`);
   back closes the picker, then leaves to the title, then quits (`quit_on_go_back=false`, `_go_back`). The fight
-  pauses behind a menu on back / focus-out (`_set_paused` in tactical.gd; Quit to title replays the week).
+  pauses behind a menu on back / focus-out (`_set_paused` in tactical.gd).
   Check: `tools/qol_check.gd` -> `QOL PASS` (in CI). Render `docs/renders/ui/7_paused.png`.
   Step 2: **settings** (`scripts/settings.gd` autoload, `user://settings.cfg`; `scripts/ui/settings_sheet.gd`, a manila
   card from the title's SETTINGS button and the fight's pause menu): music + SFX (buses in `default_bus_layout.tres`,
@@ -84,7 +84,14 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   menu): a typed note, then SEND (prefilled GitHub issue, label bug) or COPY (clipboard). The report adds version, build,
   phone, screen, fps, settings and the scene's `bug_state()` (game.gd: screen/week/heat/cash...; tactical.gd: turn, side,
   noise, upload, every unit's hp + tile). Render `docs/renders/ui/10_bug_report.png`. The version shows on the title, the
-  settings card and the bug card. Next: mid-fight save.
+  settings card and the bug card.
+  Step 4: **mid-fight save** (`scripts/fight_save.gd`, `user://fight.save`, store_var): a run's Signal Box fight saves as it
+  starts, at the start of each of your turns, on focus-out (immediately, not deferred), on pause and on "Save and quit to
+  title". `Battle.to_dict/from_dict` copy every script var + the RNG seed/state, so the regime plays on identically (rule test
+  `test_mission_save_round_trip`). The title shows CONTINUE FIGHT; `_continue_run` resumes when the save matches the run's
+  seed + week (stale ones are deleted). `_return_to_run` (run fights only) and New run clear it. Fight now is never saved. The pause menu also has "Quit and replan the
+  week" (Duff's pick Nov 26, `_replan_week`): drops the fight save, so Continue replays the week from planning; render `12_pause_replan.png`. Renders
+  `11_title_continue_fight.png`, `11_fight_resumed.png`. QoL (item 5) is done; next is item 6 (sound/feel).
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates

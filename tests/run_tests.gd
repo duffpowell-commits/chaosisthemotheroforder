@@ -928,3 +928,21 @@ func test_log_grammar_for_you() -> void:
 	b.overwatch(mara)
 	check(b.log.has("You start the upload"), "You start: %s" % [b.log])
 	check(b.log.has("Mara is on overwatch"), "Mara is")
+
+
+func test_mission_save_round_trip() -> void:
+	# QoL step 4: a fight saved mid-way plays on exactly as the original would (same RNG).
+	var b = Battle.create_mission({"guards": 5, "legitimacy": 1, "seed": 9,
+		"squad": [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}]})
+	b.add_noise(3, b.units[0].pos)
+	b.end_turn()
+	b.units[1].hp = 1
+	var d: Dictionary = b.to_dict()
+	var bytes := var_to_bytes(d)  # what store_var writes
+	var c = Battle.from_dict(bytes_to_var(bytes))
+	check(var_to_str(c.to_dict()) == var_to_str(d), "a saved fight loads back identical")
+	check(c.log is Array and c.log.size() == b.log.size() and c.units[1].hp == 1 and c.turn == b.turn, "log, hp and turn survive")
+	for i in 3:
+		b.end_turn()
+		c.end_turn()
+	check(var_to_str(c.to_dict()) == var_to_str(b.to_dict()), "the regime plays on the same after a load")

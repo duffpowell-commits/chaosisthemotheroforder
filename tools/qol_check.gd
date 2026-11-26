@@ -12,6 +12,7 @@ var ok := true
 
 var settings_done := false
 var bug_done := false
+var fight_done := false
 
 
 func _init() -> void:
@@ -81,6 +82,8 @@ func _run() -> void:
 	expect(settings_done, "settings checks ran to the end (a script error stops them early)")
 	await _bug_checks()
 	expect(bug_done, "bug report checks ran to the end")
+	await _fight_save_checks()
+	expect(fight_done, "mid-fight save checks ran to the end")
 	print("QOL PASS" if ok else "QOL FAIL")
 	quit(0 if ok else 1)
 
@@ -213,3 +216,113 @@ func _bug_checks() -> void:
 	current_scene._quit_fight()
 	await _frames(6)
 	bug_done = true
+
+
+## QoL step 4: a run's fight saves at each of your turns and on quit; Continue drops you back
+## into it at that turn; finishing the fight or starting a new run clears it.
+func _fight_save_checks() -> void:
+	var FightSave = load("res://scripts/fight_save.gd")
+	var g = current_scene
+	g._new_run()
+	await _frames(2)
+	expect(not FightSave.exists(), "a new run has no saved fight")
+	var seed_now: int = g.s.run_seed
+	Engine.set_meta("mission", {"state": g.s, "entries": [], "teodor_before": g.s.teodor.duplicate(true),
+		"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
+			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}]}})
+	change_scene_to_file("res://scenes/tactical.tscn")
+	await _frames(20)
+	var t = current_scene
+	expect(FightSave.exists(), "the fight saves as it starts")
+	t._on_end_turn()
+	await _frames(90)
+	t.battle.units[0].hp = 1
+	var want := var_to_str(t.battle.to_dict())
+	expect(t.battle.turn == 2, "played into turn 2")
+	t._set_paused(true)
+	await _frames(2)
+	expect(t.pause_layer.find_child("*", true, false) != null, "pause menu builds")
+	t._quit_fight()
+	await _frames(6)
+	g = current_scene
+	expect(g.on_title and _has_button(g, "CONTINUE FIGHT"), "the title offers CONTINUE FIGHT")
+	await _shot("11_title_continue_fight.png")
+	g._continue_run()
+	await _frames(30)
+	t = current_scene
+	expect(t.scene_file_path.ends_with("tactical.tscn") and var_to_str(t.battle.to_dict()) == want, "Continue resumes the fight at the saved turn, hurt unit and all")
+	await _shot("11_fight_resumed.png")
+	# A stale save (another run's) is ignored and removed.
+	expect(FightSave.load_for(seed_now + 1, 1).is_empty() and not FightSave.exists(), "another run's fight save is dropped")
+	# A fight saved after it ended (squad down on the regime's turn, then the app was killed on
+	# the result screen) resumes to its result panel, and Back to the week still works.
+	for u in t.battle.units:
+		if u.side == "us":
+			u.hp = 0
+			u.dead = true
+	t._on_end_turn()
+	await _frames(90)
+	expect(t.battle.is_over() and t.result_panel.visible and FightSave.exists(), "an ended fight is saved with its result up")
+	change_scene_to_file("res://scenes/game.tscn")
+	await _frames(5)
+	current_scene._continue_run()
+	await _frames(30)
+	t = current_scene
+	expect(t.scene_file_path.ends_with("tactical.tscn") and t.battle.is_over() and t.result_panel.visible, "resuming an ended fight shows its result, not an empty street")
+	t._return_to_run(t.battle.mission_result())
+	await _frames(10)
+	expect(not FightSave.exists(), "finishing the fight clears the save")
+	current_scene.get_tree().paused = false
+	# "Quit and replan the week" (Duff, Nov 26): drops the saved fight; Continue replays the week
+	# from planning with the same plan, and the diversion isn't paid twice.
+	change_scene_to_file("res://scenes/game.tscn")
+	await _frames(5)
+	g = current_scene
+	g._new_run()
+	g.s.week = 2
+	g.s.cash = 6
+	g._save()
+	var ready: Array = g.s.ready_operatives()
+	g.plan = {ready[0]: {"action": "signal_box", "op": ready[0], "zone": "", "choice": ""},
+		ready[1]: {"action": "diversion", "op": ready[1], "zone": "dorms", "choice": ""}}
+	g._resolve(g.plan.values())  # the real launch path, no focus-out while planning
+	await _frames(25)
+	t = current_scene
+	expect(t.scene_file_path.ends_with("tactical.tscn") and t.mission_meta.state.cash == 5, "a week with a diversion launches the Signal Box (cash 6 -> 5)")
+	t._set_paused(true)
+	await _frames(2)
+	var rp: Button = t.pause_layer.find_child("replan", true, false)
+	expect(rp != null and FightSave.exists(), "a run fight's pause menu offers Quit and replan the week")
+	await _shot("12_pause_replan.png")
+	if rp != null:
+		rp.pressed.emit()
+	await _frames(6)
+	g = current_scene
+	expect(not paused and not FightSave.exists() and g.on_title and _has_button(g, "CONTINUE"), "replan drops the saved fight; the title says CONTINUE")
+	g._continue_run()
+	await _frames(3)
+	expect(g.where == "district" and g.s.week == 2 and g.s.cash == 6, "Continue replays week 2 from planning, diversion not paid")
+	expect(g.plan.size() == 2 and g.plan.values().any(func(e): return e.action == "signal_box"), "the week's plan comes back")
+	# Fight now (no run behind it) must never touch a run's saved fight.
+	var RS = load("res://scripts/sim/run_state.gd")
+	var keep = RS.create(5)
+	Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
+		{"name": "You", "op": 0, "is_you": true}]}})
+	change_scene_to_file("res://scenes/tactical.tscn")
+	await _frames(20)
+	t = current_scene
+	FightSave.save({"state": keep, "entries": [], "teodor_before": {}, "params": {}}, t.battle)
+	t._return_to_run(t.battle.mission_result())
+	await _frames(10)
+	expect(FightSave.exists(), "finishing Fight now keeps the run's saved fight")
+	FightSave.clear()
+	change_scene_to_file("res://scenes/game.tscn")
+	await _frames(5)
+	fight_done = true
+
+
+func _has_button(n: Node, text: String) -> bool:
+	for b in n.find_children("*", "Button", true, false):
+		if b.text == text:
+			return true
+	return false
