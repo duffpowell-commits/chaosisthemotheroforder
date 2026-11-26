@@ -1115,6 +1115,21 @@ func test_white_flag_nerve_breaks_guards() -> void:
 	check(rg.state == Battle.RETREAT and f.fled == 1, "control: he runs")
 	f._fire(fy, rg, 100)
 	check(f.kills == 1 and f.fled == 0, "shot down while running: a kill, not a runner")
+	# A runner flashbanged (state back to ALERT) still runs once the stun wears off, never shoots.
+	var k = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 5, "squad": sq})
+	var ky = k.alive_units(Battle.US)[0]
+	var kg = k.alive_units(Battle.REGIME)[0]
+	ky.pos = Vector2i(0, Battle.H - 1)
+	k.alive_units(Battle.US)[1].pos = Vector2i(1, Battle.H - 1)
+	kg.nerve = 1
+	k._shake(kg, 1)
+	check(kg.state == Battle.RETREAT, "control: he runs")
+	kg.state = Battle.ALERT   # what a flashbang, a fake radio call or a failed persuade do
+	kg.stun = 0
+	var kn: int = k.log.size()
+	k.end_turn()
+	check(kg.state == Battle.RETREAT, "a broken guard goes back to running")
+	check(not k.log.slice(kn).any(func(l): return l.begins_with(kg.name) and (l.contains(" hits ") or l.contains(" misses "))), "and doesn't shoot")
 
 
 func test_white_flag_prisoners_report_row() -> void:

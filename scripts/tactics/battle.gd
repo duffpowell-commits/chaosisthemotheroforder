@@ -988,7 +988,7 @@ func end_turn() -> void:
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
 	# Caught off guard: whoever your turn startled out of a patrol spends this turn diving for cover.
-	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled and g.busy == 0)
+	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled and g.busy == 0 and g.nerve > 0)
 	if stunned > 0:
 		stunned -= 1
 		log.append("Every guard stares at the screens")
@@ -1102,6 +1102,10 @@ func _dive_for_cover(g: Unit) -> void:
 
 func act_unit(u: Unit) -> void:
 	if not u.alive():
+		return
+	if u.side == REGIME and mission and white_flag and u.nerve <= 0:
+		u.state = RETREAT   # broken: whatever flashed, radioed or shouted at him, he keeps running (fresh-eyes)
+		_retreat(u)
 		return
 	if u.side == REGIME and u.busy > 0:
 		_chase_radio(u)
