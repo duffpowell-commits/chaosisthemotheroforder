@@ -131,7 +131,7 @@ func _ready() -> void:
 			if k == "low_graphics":
 				apply_graphics())
 	var args := OS.get_cmdline_user_args()
-	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args or "--capture-white-flag" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -148,6 +148,8 @@ func _ready() -> void:
 		_capture_mission()
 	elif "--capture-tools" in args:
 		_capture_tools()
+	elif "--capture-white-flag" in args:
+		_capture_white_flag()
 	elif "--capture-rig" in args:
 		_capture_rig(_arg_after(args, "--out", "/tmp/rig"))
 	elif "--capture-sprite-sizes" in args:
@@ -537,6 +539,8 @@ func _refresh_units() -> void:
 				n.rotation.x = deg_to_rad(-88)  # downed (the Meshy cast plays its death clip instead)
 			if u.side == Battle.US and u.downed():
 				unit_tags[u] = ["%s %s" % [u.name, "stable" if u.stabilized else "bleeding"], C_FG if u.stabilized else C_RED, "%s +" % u.name.left(1)]
+			elif u.surrendered:
+				unit_tags[u] = ["⚐ hands up", C_FG, "⚐"]  # White Flag: a prisoner, not a body
 			continue
 		var text := ""
 		var col := C_FG
@@ -553,7 +557,11 @@ func _refresh_units() -> void:
 			text = _pips(u.hp, "♥")
 			if u.wavering:
 				text = "Wavering " + text
-			if u.stun > 0:
+			if battle.white_flag and battle.mission:
+				text += " " + _nerve_pips(u)
+			if u.nerve <= 0:
+				text += " running"
+			elif u.stun > 0:
 				text += " stunned"
 			elif u.busy > 0:
 				text += " on a fake call"
@@ -645,6 +653,9 @@ func _refresh_column() -> void:
 		c = pv.chance
 		if c > 0:
 			label = "Shoot %d%%\n%s" % [c, "downs him" if pv.result == "down" else "wounds him"]
+			var breaks: int = battle.breaks_on_hit(aimed)
+			if breaks > 0:
+				label += " · he breaks" if pv.result != "down" else " · %d break%s" % [breaks, "" if breaks == 1 else "s"]
 			if pv.noise > 0:
 				label += " · ALARM" if battle.trips_alarm(pv.noise) else " · +%d noise" % pv.noise
 			var ours: int = battle.alive_units(Battle.US).size()
@@ -1126,6 +1137,11 @@ func _short_tag(u) -> String:
 	return t + (" ◎" if u.overwatch else "")
 
 
+## White Flag nerve: filled diamonds left of NERVE ("◆◆◇" = one drained). Breaks at none.
+static func _nerve_pips(u) -> String:
+	return "◆".repeat(maxi(u.nerve, 0)) + "◇".repeat(maxi(Battle.NERVE - maxi(u.nerve, 0), 0))
+
+
 static func _pips(n: int, ch: String) -> String:
 	return ch.repeat(maxi(n, 0))
 
@@ -1162,7 +1178,7 @@ func _show_result() -> void:
 	if not resumed_over:
 		PlayStats.log_event("fight_end", {"kind": "run" if mission_meta.has("state") else "fight now", "aired": r.aired,
 			"out": r.out.size(), "hurt": r.hurt.size(), "dead": r.dead.size(), "kills": r.kills, "turns": battle.turn,
-			"noise": battle.noise, "alarm": battle.alarm})
+			"noise": battle.noise, "alarm": battle.alarm, "surrendered": r.prisoners, "fled": r.fled})
 	var lines: Array[String] = []
 	lines.append("The footage aired." if r.aired else "The screens stayed on the regime's channel.")
 	if not r.out.is_empty():
@@ -1178,6 +1194,10 @@ func _show_result() -> void:
 		counts.append("%d subdued" % r.subdued)
 	if r.defections > 0:
 		counts.append("%d came over" % r.defections)
+	if r.prisoners > 0:
+		counts.append("%d surrendered" % r.prisoners)
+	if r.fled > 0:
+		counts.append("%d ran" % r.fled)
 	if not counts.is_empty():
 		lines.append(", ".join(counts) + ".")
 	result_label.text = "\n".join(lines)
@@ -1654,6 +1674,38 @@ func _capture_tools() -> void:
 	get_tree().quit()
 
 
+## White Flag step 1 (Nov 26): nerve pips, the "he breaks" preview, a surrender and a guard
+## running. Saved as docs/renders/white_flag/*.png.
+func _capture_white_flag() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://docs/renders/white_flag"))
+	var you = battle.units[0]
+	var mara = battle.units[1]
+	var guards: Array = battle.alive_units(Battle.REGIME)
+	var g = guards[1]
+	await _shot("white_flag/1_nerve_pips")
+	# Shaken: his partner went down, then a flashbang. One more hit and he breaks.
+	g.nerve = 1
+	var spot: Vector2i = g.pos + Vector2i(0, 3)
+	for dy in range(1, 4):
+		battle.set_tile(g.pos + Vector2i(0, dy), Battle.FLOOR)
+	_place(you, spot)
+	_place(mara, spot + Vector2i(-2, 0))
+	you.ap = 2
+	_select(you)
+	aimed = g
+	_refresh()
+	await _shot("white_flag/2_breaks_preview")
+	# He breaks with You right there: hands up. Another guard, shaken and alone, runs.
+	aimed = null
+	battle._shake(g, 1)
+	var h = guards[3]
+	h.nerve = 1
+	battle._shake(h, 1)
+	_refresh()
+	await _shot("white_flag/3_surrender")
+	get_tree().quit()
+
+
 func _place(u, p: Vector2i) -> void:
 	u.pos = p
 	unit_nodes[u].position = to_world(p) + Vector3(0, _ground(p), 0)
@@ -2118,14 +2170,16 @@ func _update_bodies() -> void:
 		var moving: bool = (feet - seen[0]).length_squared() > 0.0005 * 0.0005
 		var body: Node3D = n.get_node("Body")
 		var want := "c/idle"
-		if not u.alive():
+		if u.surrendered:
+			want = "c/crouch_walk"   # White Flag: kneels, hands down (no hands-up clip yet)
+		elif not u.alive():
 			want = "c/death"
 		elif u.hp < seen[1]:
 			want = "c/hit"
 		elif body_shot_until.get(u, 0) > now:
 			want = "c/shoot"
 		elif moving:
-			want = "c/sneak" if sneak_walk and u == selected else ("c/injured_walk" if u.hp <= 1 else "c/walk")
+			want = "c/sneak" if sneak_walk and u == selected else ("c/run" if u.nerve <= 0 else ("c/injured_walk" if u.hp <= 1 else "c/walk"))
 			var d: Vector3 = feet - seen[0]
 			n.rotation.y = atan2(d.x, d.z) + PI
 		elif ap.current_animation in ["c/hit"] and ap.is_playing():

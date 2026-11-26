@@ -16,8 +16,10 @@ extends SceneTree
 ## squad member nearest the junction box), Radio from the box before the
 ## upload, Smoke on the run home once spotted, Flash when 2+ guards bunch.
 ## `-- 300 focus notools` runs the bots without them, for before/after.
+## White Flag (Nov 26): guards break (surrender or run); `nowf` turns it off for before/after.
 
 static var use_tools := true
+static var white_flag := true
 
 const Battle = preload("res://scripts/tactics/battle.gd")
 
@@ -35,6 +37,7 @@ func _init() -> void:
 	var n := int(args[0]) if args.size() > 0 else 500
 	var focus := "focus" in args
 	use_tools = not "notools" in args
+	white_flag = not "nowf" in args
 	for size in [3, 5]:
 		for guards in ([4] if focus else [2, 4, 6]):
 			for loud in [false, true]:
@@ -51,12 +54,16 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 	var dead := 0
 	var defections := 0
 	var turns := 0
+	var prisoners := 0
+	var fled := 0
 	var close := 0
 	var flips := 0
 	var tools_used := {"smoke": 0, "lights": 0, "radio": 0, "flash": 0}
 	for i in range(n):
 		var b = play({"guards": guards, "legitimacy": 1, "squad": SQUAD.slice(0, size), "seed": i + 1}, loud)
 		var r: Dictionary = b.mission_result()
+		prisoners += int(r.prisoners)
+		fled += int(r.fled)
 		if r.aired:
 			aired += 1
 			if r.kills == 0:
@@ -90,6 +97,8 @@ func _report(guards: int, size: int, loud: bool, n: int) -> void:
 		size, guards, "loud " if loud else "quiet", 100 * aired / n, 100 * clean / n, 100 * wiped / n,
 		100 * alarms / n, float(kills) / n, float(dead) / n, float(defections) / n, float(turns) / n,
 		100 * close / n, float(flips) / n])
+	if white_flag:
+		print("    white flag per mission: surrendered %.2f, fled %.2f" % [float(prisoners) / n, float(fled) / n])
 	if use_tools:
 		print("    tools used per 100 missions: smoke %d, lights %d, radio %d (calls), flash %d" % [
 			100 * tools_used.smoke / n, 100 * tools_used.lights / n, 100 * tools_used.radio / n / 2, 100 * tools_used.flash / n])
@@ -104,6 +113,7 @@ static func _chance_re() -> RegEx:
 
 static func play(params: Dictionary, loud: bool) -> RefCounted:
 	var b = Battle.create_mission(params)
+	b.white_flag = white_flag
 	while not b.is_over():
 		for u in b.alive_units(Battle.US):
 			act(b, u, loud)

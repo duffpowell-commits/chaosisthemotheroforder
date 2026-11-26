@@ -56,6 +56,15 @@ const BROADCAST_STUN := 1   # regime turns the guards lose watching the footage 
 ## Loud-play fix (Nov 26): your opening shot catches patrolling guards off guard. Each one it wakes spends
 ## his next turn diving for cover instead of shooting back (XCOM-style). Subdues, shouts and other noise don't.
 const CAUGHT_OFF_GUARD := true
+# White Flag step 1 (Nov 26, Duff: "Build it (lights don't drain)"): guards have nerve. A hit, a
+# partner within PARTNER_RANGE going down / subdued / coming over, a flashbang and the broadcast
+# each drain 1. At 0 he breaks: surrenders if one of yours is within SURRENDER_RANGE and in sight,
+# else runs north and stops shooting. Lights out drains nothing (it hits nearly every guard at
+# once and pushed quiet 3 v 4 survival to 87%; without it it stays 66%, in Duff's 60-70%).
+const WHITE_FLAG := true
+const NERVE := 3
+const SURRENDER_RANGE := 3
+const PARTNER_RANGE := 4
 const EXTRA_GUARDS := 1    # J1.5 rebalance: the depot posts one more guard than the run's count
 const JUNCTION := 5         # the floodlight junction box: blocks movement, not sight
 const JUNCTION_POS := Vector2i(0, 8)
@@ -99,6 +108,8 @@ class Unit:
 	var bleed := 0           # your turns left before a downed squadmate dies
 	var stabilized := false
 	var dead := false
+	var nerve := NERVE       # White Flag: at 0 he breaks (runs, or surrenders if you're close)
+	var surrendered := false # hands up: out of the fight, a prisoner (hp 0, not a kill)
 	var calm := false        # was on patrol when your turn began (CAUGHT_OFF_GUARD)
 	var startled := false    # woken by your gunfire this turn: dives for cover next regime turn
 	# Diversion tools (J1.5)
@@ -138,6 +149,9 @@ var smokes: Array = []      # [[centre: Vector2i, regime turns left: int]]
 var dark := 0               # turns the floodlit half stays dark
 var lights_used := false
 var radio_used := false
+var white_flag := WHITE_FLAG  # missions only; fight saves from before it resume with it on (mission_sim "nowf" turns it off)
+var prisoners := 0          # guards who surrendered
+var fled := 0               # guards who broke and ran
 
 
 # ---------- setup ----------
@@ -232,6 +246,7 @@ static func create_mission(params: Dictionary) -> RefCounted:
 		var g = b.add_unit("Guard %d" % (i + 1), REGIME, GUARD_ROUTES[i][0])
 		g.route = GUARD_ROUTES[i]
 		g.wavering = i == waver
+	b.white_flag = WHITE_FLAG
 	b._mark_calm()
 	return b
 
@@ -552,9 +567,13 @@ func _fire(u: Unit, target: Unit, c: int) -> bool:
 	if hit:
 		target.hp -= 1
 		log.append("%s %s %s (%d%%)%s" % [u.name, _verb(u, "hits"), target.name, c, ", down" if target.hp <= 0 else ""])
-		if target.hp <= 0 and mission:
+		if target.side == REGIME and target.hp > 0:
+			_shake(target, 1)   # may break him; a surrender sets hp 0 but isn't a kill (fresh-eyes, Nov 26)
+		if target.hp <= 0 and mission and not target.surrendered:
 			if target.side == REGIME:
 				kills += 1
+				_unflee(target)
+				_shake_near(target.pos, 1)
 			else:
 				target.bleed = BLEED_TURNS
 	else:
@@ -587,7 +606,9 @@ func subdue(u: Unit, target: Unit) -> bool:
 	u.ap -= 1
 	target.hp = 0
 	target.subdued = true
+	_unflee(target)
 	log.append("%s %s %s" % [u.name, _verb(u, "subdues"), target.name])
+	_shake_near(target.pos, 1)
 	add_noise(NOISE_SUBDUE, target.pos)
 	return true
 
@@ -635,6 +656,8 @@ func do_upload(u: Unit) -> bool:
 	log.append("The footage is on every screen in the district")
 	alert_all("the broadcast")
 	stunned = BROADCAST_STUN
+	for g in alive_units(REGIME):
+		_shake(g, 1)
 	return true
 
 
@@ -696,7 +719,10 @@ func persuade(u: Unit, target: Unit) -> bool:
 		target.route = []
 		target.flash = 1
 		defections += 1
+		_unflee(target)
+		target.nerve = NERVE   # steady again, on our side
 		log.append("%s lowers his rifle and joins you (%d%%)" % [target.name, c])
+		_shake_near(target.pos, 1)
 		return true
 	target.state = ALERT
 	log.append("%s won't listen (%d%%)" % [target.name, c])
@@ -845,6 +871,7 @@ func flashbang(u: Unit, at: Vector2i) -> bool:
 		g.stun = FLASH_STUN
 		g.state = ALERT
 		log.append("%s is stunned" % g.name)
+		_shake(g, 1)
 	add_noise(NOISE_FLASH, at)
 	return true
 
@@ -925,7 +952,7 @@ func mission_result() -> Dictionary:
 			hurt.append(u.name)
 	return {"aired": upload >= UPLOAD_TURNS, "kills": kills, "defections": defections,
 		"subdued": subdued, "dead": dead, "hurt": hurt, "out": out,
-		"you_dead": dead.has(_you_name())}
+		"you_dead": dead.has(_you_name()), "prisoners": prisoners, "fled": fled}
 
 
 ## "You" takes the plain verb: "You hit", "Mara hits".
@@ -961,7 +988,7 @@ func end_turn() -> void:
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
 	# Caught off guard: whoever your turn startled out of a patrol spends this turn diving for cover.
-	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled and g.busy == 0)
+	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled and g.busy == 0 and g.nerve > 0)
 	if stunned > 0:
 		stunned -= 1
 		log.append("Every guard stares at the screens")
@@ -994,6 +1021,57 @@ func end_turn() -> void:
 	turn += 1
 
 
+## White Flag: drain a guard's nerve; at 0 he breaks.
+func _shake(g: Unit, n: int) -> void:
+	if not white_flag or not mission or g.side != REGIME or not g.alive() or g.nerve <= 0:
+		return
+	g.nerve -= n
+	if g.nerve > 0:
+		return
+	if _would_surrender(g):
+		g.surrendered = true
+		g.hp = 0
+		prisoners += 1
+		log.append("%s drops his rifle and puts his hands up" % g.name)
+	else:
+		g.state = RETREAT
+		fled += 1
+		log.append("%s breaks and runs" % g.name)
+
+
+## A runner who is downed, subdued or talked over before he gets away counts as that, not as "ran".
+func _unflee(g: Unit) -> void:
+	if g.nerve <= 0 and not g.surrendered and fled > 0:
+		fled -= 1
+
+
+func _shake_near(at: Vector2i, n: int) -> void:
+	for g in alive_units(REGIME):
+		if _cheb(g.pos, at) <= PARTNER_RANGE:
+			_shake(g, n)
+
+
+## One of yours close enough, and in sight, to take his surrender.
+func _would_surrender(g: Unit) -> bool:
+	for e in alive_units(US):
+		if _cheb(e.pos, g.pos) <= SURRENDER_RANGE and line_of_sight(e.pos, g.pos):
+			return true
+	return false
+
+
+## For the Shoot preview: how many guards a hit would break (him, or his partners if it downs him).
+func breaks_on_hit(target: Unit) -> int:
+	if not white_flag or not mission or target.side != REGIME:
+		return 0
+	if target.hp > 1:
+		return 1 if target.nerve == 1 else 0
+	var n := 0
+	for g in alive_units(REGIME):
+		if g != target and g.nerve == 1 and _cheb(g.pos, target.pos) <= PARTNER_RANGE:
+			n += 1
+	return n
+
+
 ## Would a shot now go loud on guards still on patrol? (The shoot button warns when you're outnumbered.)
 func goes_loud() -> bool:
 	return mission and alive_units(REGIME).any(func(g): return g.state == PATROL)
@@ -1024,6 +1102,10 @@ func _dive_for_cover(g: Unit) -> void:
 
 func act_unit(u: Unit) -> void:
 	if not u.alive():
+		return
+	if u.side == REGIME and mission and white_flag and u.nerve <= 0:
+		u.state = RETREAT   # broken: whatever flashed, radioed or shouted at him, he keeps running (fresh-eyes)
+		_retreat(u)
 		return
 	if u.side == REGIME and u.busy > 0:
 		_chase_radio(u)
@@ -1113,7 +1195,7 @@ func _retreat(u: Unit) -> void:
 			break
 		if not u.alive():
 			return
-		if u.ap > 0 and u.pos.y > 0:
+		if u.ap > 0 and u.pos.y > 0 and u.nerve > 0:
 			var t := _best_target(u)
 			if t != null and chance(u, t) >= 40:
 				shoot(u, t)

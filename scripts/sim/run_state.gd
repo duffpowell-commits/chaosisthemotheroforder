@@ -38,6 +38,8 @@ var strike_weeks := 0          # weeks of strike effect left
 var diversion_zone := ""       # zone the regime was pulled toward this week
 var broadcast_aired := false
 var kills := 0
+var prisoners := 0             # White Flag: guards held after surrendering (choices come later)
+var surrenders := 0            # guards who gave up, all run (its own stat, not "got out")
 var ending := ""               # empty until the run ends
 var report: Array[String] = []  # this week's report lines
 
@@ -76,6 +78,7 @@ func to_dict() -> Dictionary:
 		"zones": zones.duplicate(true), "teodor": teodor.duplicate(true),
 		"strike_weeks": strike_weeks, "diversion_zone": diversion_zone,
 		"broadcast_aired": broadcast_aired, "kills": kills, "ending": ending,
+		"prisoners": prisoners, "surrenders": surrenders,
 		"rng_state": rng.state,
 	}
 
@@ -85,6 +88,8 @@ static func from_dict(d: Dictionary) -> RefCounted:
 	for key in ["run_seed", "week", "cash", "supplies", "parts", "legitimacy", "heat", "heat_gained",
 			"strike_weeks", "diversion_zone", "broadcast_aired", "kills", "ending"]:
 		s.set(key, d[key])
+	s.prisoners = int(d.get("prisoners", 0))   # saves from before White Flag have none
+	s.surrenders = int(d.get("surrenders", 0))
 	s.operatives = d.operatives.duplicate(true)
 	s.zones = d.zones.duplicate(true)
 	s.teodor = d.teodor.duplicate(true)
