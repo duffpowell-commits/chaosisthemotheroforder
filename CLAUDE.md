@@ -14,8 +14,14 @@ Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.
 - Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).
 - Look: `docs/style-guide.md` (palette, readability rules). Check renders against it.
 - Current work: the vertical slice, `docs/slice-spec.md`. Progress: `tasks/todo.md`.
-- Decision/idea log: `docs/log.md` (newest first). Nov 25: **White Flag** (surrender + prisoner
-  choices) folded in as notes only, `docs/white-flag-notes.md`; build after the standards list.
+- Decision/idea log: `docs/log.md` (newest first). **White Flag** (surrender + prisoner choices, `docs/white-flag-notes.md`):
+  step 1 built Nov 26 (Duff: "Build it (lights don't drain)"). Signal Box guards have nerve (`Battle.NERVE` 3, pips ◆◆◇ on
+  their tags). A hit, a partner within 4 going down/subdued/coming over, a flashbang or the broadcast drains 1; lights out
+  drains nothing (it pushed quiet survival to 87%). At 0 he breaks: surrenders ("⚐ hands up", kneels, not a kill) if one of
+  yours is within 3 and in sight, else runs north and stops shooting. Shoot preview says "he breaks". Run keeps
+  `prisoners`/`surrenders` (own stat, not "got out"); report header stamps PRISONERS · N HELD + a report line.
+  Sim (300): quiet 3 v 4 nobody out 34% (unchanged), loud 5 v 4 airs 62%. `mission_sim -- 300 focus nowf` = before.
+  Renders `docs/renders/white_flag/` (`-- --capture-white-flag`). Next steps: holding slot in the plan, the five choices.
 - `QUEUE.md`: this is the one active game; parked ideas (Lethemoor, Echo Company) live there. Don't build them here.
 - Done: M1 rules + simulator, M2 map/planner/report, M3 dialogue runner + Teodor,
   M4 tactical core, **M5 Signal Box mission** (plan the op in week 2+ and it plays

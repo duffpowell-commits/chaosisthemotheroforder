@@ -403,6 +403,13 @@ static func apply_mission(s: RunState, p: Dictionary, r: Dictionary) -> void:
 		s.report.append("The signal box op failed. The screens stayed on the regime's channel.")
 	if defections > 0:
 		s.report.append("A depot guard came over to you. He won't be the last.")
+	var gave_up := int(r.get("prisoners", 0))
+	if gave_up > 0:
+		s.prisoners += gave_up
+		s.surrenders += gave_up
+	if s.prisoners > 0:
+		s.report.append("Prisoners: %d held%s." % [s.prisoners,
+			" (%d gave up at the depot this week)" % gave_up if gave_up > 0 else ""])
 	for o in s.operatives:
 		if o.dead:
 			continue

@@ -1,4 +1,4 @@
-# White Flag: surrender + prisoners (notes, not built)
+# White Flag: surrender + prisoners (step 1 built Nov 26; the rest is notes)
 
 Duff, Nov 25, 2026: fold this into Chaos instead of a new game. **Notes only.** Nothing is
 built; it waits its turn behind the standards list (items 1-7). It fleshes out the
@@ -30,6 +30,11 @@ resolved." Chaos already wants both, and the Ledger is the right place for the c
 
 - Tune it so the dirty options win missions ~10-20% more often (the Ledger rule).
 - A recruit who defects takes his helmet off on screen: the one camera beat (Helmets).
+
+## Built so far
+- **Step 1 (Nov 26):** nerve + break (surrender or run) in the Signal Box, prisoners counted on the run and
+  stamped on the report. Lights out drains no nerve (Duff's pick: with it, quiet 3 v 4 survival went 66% -> 87%).
+  Numbers and code: CLAUDE.md "Decision/idea log" line. No prisoner choices or holding slot yet.
 
 ## Duff's answers (Nov 26, 2026, tapped on cards)
 - **Where prisoners live: a holding slot in the weekly plan** that eats cash, so holding them
