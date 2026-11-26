@@ -3,6 +3,10 @@
 For any coding AI picking this up. Read AGENTS.md and CLAUDE.md first (rules, guards, commands).
 Duff paused Chaos briefly, then said to build all the fixes with no mock reviews.
 
+## Studio mascot (Duff, Nov 26)
+- **The three-eyed fox is in every game as a rare cameo, not a pal**: a small event
+  that matters but never ruins a run. Duff OKs the fox art on a card before it's built. Rule + this game's idea: `docs/MASCOT.md`.
+
 ## Where things stand
 - Live: web https://duffpowell-commits.github.io/chaosisthemotheroforder/ (Pages from `gh-pages`, published by CI's
   `web` job on every push to main). APK: Releases -> `dev`.

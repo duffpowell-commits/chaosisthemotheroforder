@@ -11,6 +11,8 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
 Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.md (imported above).
 
 ## Where things stand
+- **Studio mascot (Duff, Nov 26): the three-eyed fox is in every game as a rare cameo, not a pal**: a small event
+  that matters but never ruins a run. Duff OKs the fox art on a card before it's built. Rule + this game's idea: `docs/MASCOT.md`.
 - Design: `docs/design.md` (pillars, "XCOM meets Advance Wars" combat feel, open questions).
 - Look: `docs/style-guide.md` (palette, readability rules). Check renders against it.
 - Current work: the vertical slice, `docs/slice-spec.md`. Progress: `tasks/todo.md`.
