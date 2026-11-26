@@ -12,6 +12,9 @@ The jam plan below is on hold, not cut.
 - J5: itch page + upload (Dec 21–27)
 
 ## IDEAS (parked, don't build)
+- 2026-11-25: **White Flag**: guards break and surrender, and every prisoner is a moral
+  choice with a Ledger stamp (feed / interrogate / recruit / release / execute). Duff: fold
+  it into Chaos, notes only for now. `docs/white-flag-notes.md`. Comes after the standards list.
 - 2026-11-06: **Lethemoor: The Last Lantern**, gothic tactics-horror roguelite for Android.
   Fully designed and locked (Stages 1–4, v1 scope and kill criteria) in the design doc:
   https://claude.ai/artifact/6S3KvEG9LYLggwKtko4cs8. Start in January after the jam ships,

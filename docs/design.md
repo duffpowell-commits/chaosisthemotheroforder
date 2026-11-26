@@ -152,7 +152,8 @@ From **Advance Wars** (clarity):
 - **Presentation:** FF-style dramatic camera on top of the grid (swoops on
   big moments, close-ups on abilities, anime cut-ins on defections). No ATB.
 - **Noise meter:** loud actions raise the alarm; at the cap, reinforcements arrive.
-- **Enemies can surrender or defect mid-mission.**
+- **Enemies can surrender or defect mid-mission.** Fleshed out as "White Flag"
+  (nerve breaks, prisoner choices as Ledger stamps): `docs/white-flag-notes.md` (Duff, Nov 25; notes only).
 - Mission types: rescues, extractions, broadcast hijacks, sabotage, protests
   (defend the crowd, spot the provocateur), and assassinations (rare, costly).
 
