@@ -10,8 +10,12 @@ Duff paused Chaos briefly, then said to build all the fixes with no mock reviews
 ## Where things stand
 - Live: web https://duffpowell-commits.github.io/chaosisthemotheroforder/ (Pages from `gh-pages`, published by CI's
   `web` job on every push to main). APK: Releases -> `dev`.
-- Branch `claude/chaos-8-5` holds the 8.5 pass. It merges once CI is green and the fresh-eyes check passes. If this
-  file is on main, it has merged.
+- Checked 2026-11-26 20:00 UTC: main `3073806`, **build 62 live** (`version.json` on the `dev` release).
+  On main: the 8.5 pass (PR #32), the iPhone web load fix (#33), the mascot rule (#34), the fox graffiti cameo (#35).
+  Nothing is mid-build. Open PRs: only #9 (Nov 16 "Beauty test", Grok sprites on the Mobile renderer: old, not
+  current work; leave it for Duff to close).
+- White Flag: step 1 is live; every further step needs Duff's OK first (he asked for step by step). Keep quiet
+  survival at 60-70% in `tools/mission_sim.gd`.
 - Latest reviews (Nov 26, before this pass): first-timer 5.5/10, veteran 6.0/10. Duff cancelled the replay review.
 - Duff's standing bar: plan to an 8.5 first-time-player review, OK it once, build it in one pass.
 
@@ -71,3 +75,7 @@ Duff paused Chaos briefly, then said to build all the fixes with no mock reviews
   docs/renders/ui/*.png; revert those unless they're meant to change). Sound: same with `tools/sound_check.gd`.
 - Balance: `godot --headless --path . --script tools/mission_sim.gd -- 300 focus` (~4 min).
 - Commit and push in separate calls. PRs need CI green plus a `FRESH-EYES REVIEW: PASS` review on the head commit.
+
+## Log (newest first)
+- 2026-11-26 20:00 UTC Claude: handoff refresh (no code): state checked against main, old PR #9 noted, this log added.
+- 2026-11-26 Claude: fox graffiti cameo merged (#35); web pack 65 -> 43 MB (#33); 8.5 pass merged (#32).
