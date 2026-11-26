@@ -158,20 +158,12 @@ Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.
   Decision gate Dec 10.
 
 ## First thing next session
-- **Web test build: https://chaos-mother-of-order.netlify.app** (Netlify site
-  `chaos-mother-of-order`, id 3c710a52-dcc9-4f1a-9f24-003c3ad2c09c, live URL public,
-  previews behind team login). Redeploy: export, add `build/web/netlify.toml`
-  (`publish = "."`, empty command), then the Netlify connector's deploy-site with that
-  site id gives an `npx @netlify/mcp` command to run in `build/web`. Netlify's free-tier
-  badge covers part of End turn (theirs, injected; itch won't have it).
-  Duff: open it on the phone. Does it load, and is it 30 fps?
-  **Netlify credits ran out (Nov 7)**: the 4th deploy was "skipped due to account credit
-  usage exceeded" (3 uploads of the 130 MB build used the free allowance). The live site
-  has J1.5 but NOT the survival retune (5th guard still in the NE corner there). Don't
-  redeploy to Netlify until the credits reset or Duff upgrades; shrink the build first
-  (J5 item) and/or move testing to an itch draft page.
-- Web build is 90 MB pck + 38 MB wasm. Shrink it before J5 (1K textures on the rigs and
-  Polyhaven props, drop unused assets). Phones on data will hate 128 MB.
+- **Web test link (Nov 26): https://duffpowell-commits.github.io/chaosisthemotheroforder/** (GitHub Pages, published by
+  CI's `web` job on every push to main, like Lethemoor). Plays in iPhone Safari and in-app browsers (Messenger): when the
+  phone is upright the game turns itself sideways (`web/portrait_rotate.js`, inlined as the Web preset's head include;
+  a rule test keeps them equal). It swaps innerWidth/innerHeight for Godot, rotates the canvas 90° and maps every touch
+  back. Renders `docs/renders/web/` (iPhone-size Chromium: title, a fight after tapping Fight now and End turn, landscape).
+  The old Netlify site (chaos-mother-of-order.netlify.app) is stale and out of credits; don't use it.
 - J1 design review leftovers for Duff / J1.5: move range is blue and so are regime rings
   (style guide sets both; change move to teal/white?). Both sides are pale mannequins, so
   faction rests on the ring (darker regime body tint?). Nits: grain still visible on the
