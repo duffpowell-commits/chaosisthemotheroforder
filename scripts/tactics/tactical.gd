@@ -236,9 +236,14 @@ func _new_battle(s: int) -> void:
 		resumed_over = battle.is_over()  # its fight_end is logged already; no fight_start for a resume either
 	else:
 		battle = Battle.create_mission(mission_meta.params)
-		# Mascot cameo: rare (Battle.FOX_CHANCE), but a player's first ever fight always has the fox.
-		if battle.fox.x < 0 and not _tip_seen("fox") and "--autoplay" not in OS.get_cmdline_user_args():
+		# Mascot cameo: rare (Battle.FOX_CHANCE), but a player's first ever mission fight always has the fox.
+		# Marked in coach.cfg as soon as it is forced, so it is forced once, found or not. Renders/autoplay skip it.
+		if battle.fox.x < 0 and not _fox_forced_before() and not _scripted_run():
 			battle.place_fox(FOX_FIRST_WALL)
+			var cfg := ConfigFile.new()
+			cfg.load(COACH_FILE)
+			cfg.set_value("tips", "fox_forced", true)
+			cfg.save(COACH_FILE)
 		PlayStats.log_event("fight_start", {"kind": "run" if mission_meta.has("state") else "fight now",
 			"guards": int(mission_meta.params.get("guards", 0)), "squad": mission_meta.params.get("squad", []).size()})
 	unit_nodes.clear()
@@ -305,6 +310,20 @@ func _build_cover() -> void:
 ## The texture is the paint cut out of the wall (alpha), so the white stencil shows on dark steel too.
 const FOX_FIRST_WALL := 1    # Battle.FOX_WALLS index forced on a player's first fight: mid-yard, in view
 const FOX_SIZE := Vector2(1.45, 2.15)
+
+func _fox_forced_before() -> bool:
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	return cfg.get_value("tips", "fox_forced", false) or cfg.get_value("tips", "fox", false)
+
+
+## Captures and autoplay keep the dice-rolled fox only, so older renders stay reproducible.
+func _scripted_run() -> bool:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--capture") or a == "--autoplay" or a == "--shots":
+			return true
+	return false
+
 
 func _build_fox() -> void:
 	if battle == null or battle.fox.x < 0:
