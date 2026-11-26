@@ -18,10 +18,14 @@ const DEFAULTS := {
 	"low_graphics": false, # fight: no shadows, glow, reflections; less rain; 75% 3D resolution
 	"shake": true,         # fight: camera shake + screen flashes (off if it makes you sick)
 	"haptics": true,       # fight: phone buzz on hits and the alarm
+	"show_fps": false,     # a small FPS counter top-left on every screen (item 7: Duff reads it on his phone)
 }
 
 var values := DEFAULTS.duplicate()
 var _gamma_layer: CanvasLayer
+var _fps_layer: CanvasLayer
+var _fps_label: Label
+var _fps_t := 0.0
 var _gamma_rect: ColorRect
 
 
@@ -29,6 +33,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	load_settings()
 	_make_gamma_layer()
+	_make_fps_layer()
 	apply_all()
 
 
@@ -90,6 +95,8 @@ func apply_all() -> void:
 	if _gamma_layer != null:
 		_gamma_layer.visible = absf(g - 1.0) > 0.01
 		(_gamma_rect.material as ShaderMaterial).set_shader_parameter("gamma", g)
+	if _fps_layer != null:
+		_fps_layer.visible = bool(get_value("show_fps"))
 
 
 func _set_bus(bus: String, v: float) -> void:
@@ -122,3 +129,32 @@ void fragment() {
 	m.shader = sh
 	_gamma_rect.material = m
 	_gamma_layer.add_child(_gamma_rect)
+
+
+## FPS counter (item 7, step 1): off by default; SHOW FPS in Settings. Top-left, under the top bar's
+## text line, on every screen; updates twice a second so it costs nothing.
+func _make_fps_layer() -> void:
+	_fps_layer = CanvasLayer.new()
+	_fps_layer.layer = 126
+	add_child(_fps_layer)
+	_fps_label = Label.new()
+	_fps_label.name = "fps"
+	_fps_label.position = Vector2(8, 74)
+	_fps_label.add_theme_font_size_override("font_size", 20)
+	_fps_label.add_theme_color_override("font_color", Color(0.55, 1.0, 0.55))
+	_fps_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_fps_label.add_theme_constant_override("outline_size", 6)
+	_fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fps_layer.add_child(_fps_label)
+	_fps_layer.visible = bool(get_value("show_fps"))
+
+
+func _process(delta: float) -> void:
+	if _fps_layer == null or not _fps_layer.visible:
+		return
+	_fps_t += delta
+	if _fps_t >= 0.5:
+		_fps_t = 0.0
+		var fps := Engine.get_frames_per_second()
+		_fps_label.text = "%d FPS" % fps
+		_fps_label.add_theme_color_override("font_color", Color(0.55, 1.0, 0.55) if fps >= 55 else (Color(1.0, 0.85, 0.3) if fps >= 30 else Color(1.0, 0.4, 0.35)))

@@ -87,7 +87,7 @@ static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 14)
 	col.add_child(row2)
-	for pair in [["shake", "SHAKE"], ["haptics", "BUZZ"]]:
+	for pair in [["shake", "SHAKE"], ["haptics", "BUZZ"], ["show_fps", "FPS"]]:
 		var key: String = pair[0]
 		var b := _button("", Callable())
 		b.name = key
