@@ -14,6 +14,7 @@ const Battle = preload("res://scripts/tactics/battle.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 const FightSave = preload("res://scripts/fight_save.gd")
 const Sfx = preload("res://scripts/audio.gd")
+const Feel = preload("res://scripts/tactics/feel.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -72,6 +73,7 @@ var selected = null
 var aimed = null
 var sneaking := false
 var busy := false
+var feel: Feel   # shake, hit-stop, buzz, flashes (scripts/tactics/feel.gd)
 var alarm_heard := true   # the alarm sounds once, when it trips (a resumed alarmed fight stays quiet)
 var world_root: Node3D
 ## Camera follow (J1 review): the fight drifts north and ended up tiny at the
@@ -103,6 +105,9 @@ func _ready() -> void:
 	_build_tactical_camera()
 	_build_grade_only()
 	_build_hud()
+	feel = Feel.new()
+	add_child(feel)
+	feel.setup(cam, self)
 	_apply(0.0)
 	env.fog_density = 0.012  # keep the far end of the grid readable
 	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
@@ -456,6 +461,9 @@ func _refresh() -> void:
 	if battle and battle.alarm and not alarm_heard:
 		alarm_heard = true
 		Sfx.fx("alarm")
+		feel.alarm_pulse()
+		feel.shake(0.45)
+		feel.buzz(180)
 	var over: bool = battle.is_over()
 	var who := "Your move" if battle.side == Battle.US else "Regime move"
 	if battle.mission:
@@ -825,17 +833,22 @@ func _confirm_tool() -> void:
 		"smoke":
 			if battle.smoke(u, at):
 				Sfx.fx("smoke")
+				feel.shake(0.2)
 				_pop_at(at, "SMOKE", C_SMOKE)
 		"flash":
 			var hit: Array = battle.flash_targets(at)
 			if battle.flashbang(u, at):
 				Sfx.fx("flash")
+				feel.screen_flash(Color(1, 1, 0.95, 0.7), 0.5)
+				feel.shake(0.6)
+				feel.buzz(90)
 				_pop_at(at, "FLASH", Color(1, 1, 0.85))
 				for g in hit:
 					_pop(g, "STUNNED", C_FG)
 		"lights":
 			if battle.lights_out(u):
 				Sfx.fx("lights")
+				feel.screen_flash(Color(0, 0, 0, 0.55), 0.7)
 				_pop(u, "LIGHTS OUT", C_FG)
 		"radio":
 			var tried: bool = battle.can_radio(u)
@@ -1405,6 +1418,16 @@ func _flash(from, to, hit: bool) -> void:
 	Sfx.fx("guard_shot" if from.side == Battle.REGIME else "shot")
 	if hit:
 		get_tree().create_timer(0.18, false).timeout.connect(Sfx.fx.bind("hurt"))
+	# Feel: a hit lands (hit-stop, shake, buzz); losing one of ours lands hardest.
+	feel.muzzle_smoke(world_root, to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0))
+	if hit:
+		var down: bool = not to.alive()
+		var ours: bool = to.side == Battle.US
+		feel.hit_stop(Feel.STOP_DOWN if down else Feel.STOP_HIT)
+		feel.shake((0.75 if down else 0.45) if ours else (0.5 if down else 0.3))
+		feel.buzz((160 if down else 70) if ours else 30)
+	else:
+		feel.shake(0.12)
 	_body_shoot(from, to)
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
 	var light := OmniLight3D.new()

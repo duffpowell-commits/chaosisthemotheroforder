@@ -99,7 +99,14 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   register autoload names), takes `name_0..N` picked at random, every BaseButton clicks on press. Fight: cold music +
   rain bed, pistol (ours) / rifle (theirs), grunt on a hit, boots per tile (quieter sneaking, theirs on their turn),
   alarm once when it trips, smoke/flash/lights/radio/upload, typewriter key on End turn. Desk: EmptyCity bed,
-  paper on each new screen. Check: `tools/sound_check.gd` -> `SOUND PASS` (in CI). Next: step 2 (feel), card first.
+  paper on each new screen. Check: `tools/sound_check.gd` -> `SOUND PASS` (in CI). Merged PR #23.
+- **Nov 26: feel, step 2** (item 6, Duff: "Ship + do step 2"): `scripts/tactics/feel.gd` (tactical.gd's `feel`): camera
+  shake (trauma² on `cam.h_offset/v_offset`, so it never fights the framing tweens), hit-stop (`Engine.time_scale` 0.05
+  for 60 ms, 140 ms when someone goes down; real-time timer, reset on exit), phone buzz (`Input.vibrate_handheld`),
+  muzzle smoke (CPUParticles3D), flashbang white-out, lights-out dip to black, three red edge beats when the alarm trips
+  (canvas layer 2, under the HUD). Losing one of ours lands hardest. Settings: SHAKE (shake + screen flashes) and BUZZ,
+  both on by default. Checked in `tools/sound_check.gd`. Renders `docs/renders/feel/` (effects shown at peak: the
+  sandbox runs ~600 ms a frame, so a timed capture misses them). Item 6 done once merged; next is item 7 (perf/size/stats).
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
