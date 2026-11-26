@@ -210,6 +210,7 @@ func _new_battle(s: int) -> void:
 		# Continue from the title: the fight as it stood at the last save (QoL step 4).
 		battle = Battle.from_dict(mission_meta.resume)
 		mission_meta.erase("resume")
+		resumed_over = battle.is_over()  # its fight_end is logged already; no fight_start for a resume either
 	else:
 		battle = Battle.create_mission(mission_meta.params)
 		PlayStats.log_event("fight_start", {"kind": "run" if mission_meta.has("state") else "fight now",
@@ -1134,6 +1135,9 @@ func _face(u) -> void:
 
 # ---------- the end ----------
 
+var resumed_over := false
+
+
 func _show_result() -> void:
 	for c in result_buttons.get_children():
 		c.queue_free()
@@ -1146,9 +1150,10 @@ func _show_result() -> void:
 		result_panel.visible = true
 		return
 	var r: Dictionary = battle.mission_result()
-	PlayStats.log_event("fight_end", {"kind": "run" if mission_meta.has("state") else "fight now", "aired": r.aired,
-		"out": r.out.size(), "hurt": r.hurt.size(), "dead": r.dead.size(), "kills": r.kills, "turns": battle.turn,
-		"noise": battle.noise, "alarm": battle.alarm})
+	if not resumed_over:
+		PlayStats.log_event("fight_end", {"kind": "run" if mission_meta.has("state") else "fight now", "aired": r.aired,
+			"out": r.out.size(), "hurt": r.hurt.size(), "dead": r.dead.size(), "kills": r.kills, "turns": battle.turn,
+			"noise": battle.noise, "alarm": battle.alarm})
 	var lines: Array[String] = []
 	lines.append("The footage aired." if r.aired else "The screens stayed on the regime's channel.")
 	if not r.out.is_empty():

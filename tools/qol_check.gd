@@ -220,8 +220,8 @@ func _bug_checks() -> void:
 		stn._mark_running(stn.where_now())
 		stn._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 		var evs: Array = stn.events()
-		var names := evs.map(func(e): return e.e)
-		expect(names.has("run_start") and evs.any(func(e): return e.e == "fight_start" and e.p.get("kind") == "fight now"), "stats log runs and fights")
+		var names := evs.slice(-6).map(func(e): return e.e)   # this check's own events: run_start ... fight_start, left
+		expect(names.has("run_start") and names.has("fight_start") and evs[-2].e == "fight_start" and evs[-2].p.get("kind") == "fight now", "stats log runs and fights (%s)" % str(names))
 		expect(evs[-1].e == "left" and str(evs[-1].p.at).begins_with("fight turn"), "leaving logs the screen (%s)" % str(evs[-1]))
 		stn._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
 		expect(stn.events()[-1].e == "left" and stn.events().size() == evs.size(), "pause right after focus-out doesn't log twice")

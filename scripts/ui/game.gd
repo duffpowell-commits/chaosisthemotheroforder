@@ -474,7 +474,9 @@ func _after_mission(m: Dictionary) -> void:
 func _after_resolve(entries: Array, before: Dictionary) -> void:
 	plan.clear()
 	_save()
-	PlayStats.log_event("week_done", {"week": s.week - 1, "heat": s.heat, "cash": s.cash,
+	# Rules moves to the next week unless the run ended mid-week (week six's end does move it on).
+	var done_week: int = s.week - 1 if (not s.is_over() or s.ending == "window_closes") else s.week
+	PlayStats.log_event("week_done", {"week": done_week, "heat": s.heat, "cash": s.cash,
 		"legitimacy": s.legitimacy, "ops": s.operatives.size(), "actions": entries.map(func(e): return e.action)})
 	var beats := Story.post_beats(before, s.teodor, entries).map(func(n): return {"node": n})
 	_play_scenes(beats, [], show_report)

@@ -66,11 +66,22 @@ func _process(dt: float) -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
-			if FileAccess.file_exists(RUN_FLAG):   # once per leave (focus-out and pause both fire)
-				event("left", {"at": where_now()})
-				DirAccess.remove_absolute(ProjectSettings.globalize_path(RUN_FLAG))
+			_left()
 		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
 			_mark_running(where_now())
+
+
+## A clean quit (back on the title, get_tree().quit()) sends none of the leave notifications, but
+## autoloads leave the tree: without this the next launch would count it as a crash.
+func _exit_tree() -> void:
+	_left()
+
+
+## Once per leave (focus-out and pause both fire): log where, and drop the crash flag.
+func _left() -> void:
+	if FileAccess.file_exists(RUN_FLAG):
+		event("left", {"at": where_now() if is_inside_tree() else _where})
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(RUN_FLAG))
 
 
 func event(name: String, props: Dictionary = {}) -> void:
