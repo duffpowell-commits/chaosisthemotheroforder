@@ -113,7 +113,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   is out of both exports (assets/art, full-size woodcut icons, posters/stamps, 2D cutout sprites except the `display/`
   ones the code loads, painted backdrops). Shipped assets ~40 MB (est. APK ~70 MB). Before/after: `docs/renders/perf/`
   (no visible change). Settings got FPS (counter top-left, green 55+, amber 30+, red under). **New art: run
-  `python3 tools/texture_policy.py` before committing**; new folders need a POLICY row.
+  `python3 tools/texture_policy.py` before committing**; new folders need a POLICY row. The export excludes `civilian_*`, `operative_*`, `kesh/*`, `teodor/*` whole, `display/` copies too (nothing loads them yet): a new cutout for one of them must narrow that pattern or it won't ship.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates

@@ -21,6 +21,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 # (glob under ROOT, lossy quality, size limit in px or 0 = none). First match wins.
 POLICY = [
     ("assets/characters/meshy/duff_texture_0.png", 0.85, 2048),
+    ("assets/characters/*_normal*", 0.9, 1024),          # normal maps band less at higher quality
+    ("assets/polyhaven/**/*nor_gl*", 0.9, 0),
     ("assets/characters/meshy/*", 0.8, 1024),
     ("assets/characters/rigged/*", 0.8, 1024),
     ("assets/polyhaven/models/**/*", 0.8, 0),
@@ -54,6 +56,8 @@ def textures():
 def want(txt, q, lim):
     out = re.sub(r"^compress/mode=\d+$", "compress/mode=1", txt, flags=re.M)
     out = re.sub(r"^compress/lossy_quality=[\d.]+$", "compress/lossy_quality=%s" % q, out, flags=re.M)
+    # The editor (Duff's Android editor too) would flip a 3D-used texture to VRAM-compressed and undo this.
+    out = re.sub(r"^detect_3d/compress_to=\d+$", "detect_3d/compress_to=0", out, flags=re.M)
     if lim:
         if re.search(r"^process/size_limit=", out, flags=re.M):
             out = re.sub(r"^process/size_limit=\d+$", "process/size_limit=%d" % lim, out, flags=re.M)
