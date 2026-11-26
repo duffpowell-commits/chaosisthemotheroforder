@@ -26,16 +26,19 @@ resolved." Chaos already wants both, and the Ledger is the right place for the c
 | Interrogate | Intel: patrols, the next op's guard count | His side hardens (their nerve starts higher) | Your security service runs "enhanced questioning" |
 | Recruit | A new operative (unmasks: helmet rule) | He might be a plant (intel certainty decides the odds) | Ex-police in your ranks: order or infiltration |
 | Let him go | Reputation spreads; future guards surrender sooner | He can come back armed | Amnesty becomes policy |
-| Execute | Fast, no upkeep, no risk | **Every guard after this fights to the last man** (no surrenders for N weeks) | Purges; their families are the next resistance (ties to "Killing guards") |
+| Execute | Fast, no upkeep, no risk | **Every guard after this fights to the last man** (no surrenders for 3 weeks) | Purges; their families are the next resistance (ties to "Killing guards") |
 
 - Tune it so the dirty options win missions ~10-20% more often (the Ledger rule).
 - A recruit who defects takes his helmet off on screen: the one camera beat (Helmets).
 
-## Open questions for Duff
-- Do prisoners live in the weekly plan (a "holding" slot that eats cash), or only in the report?
-- Should surrender count as "got out" for the 60-70% survival target, or be its own stat?
-- Does the "no surrenders after an execution" penalty last a few weeks or the whole run?
-- First build target: just break → run/surrender in the Signal Box, with prisoners as a report row?
+## Duff's answers (Nov 26, 2026, tapped on cards)
+- **Where prisoners live: a holding slot in the weekly plan** that eats cash, so holding them
+  competes with ops. (Not in the first build step; that one shows prisoners as a report row.)
+- **Surrender is its own stat.** The 60-70% survival target stays "someone in the squad got out";
+  surrenders are counted separately so old sim numbers stay comparable.
+- **Execution penalty lasts 3 weeks**: no surrenders for 3 weeks after an execution, then nerve works again.
+- **First build step: break in the Signal Box + a report row.** Guards there get nerve and can run or
+  surrender; prisoners show as one row on the weekly report. Checked with `mission_sim`.
 
 ## Where it would touch the code (when it's built)
 - `scripts/tactics/battle.gd`: nerve per guard, break check after each event, AI for running/surrendered.
