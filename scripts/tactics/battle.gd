@@ -53,6 +53,9 @@ const PERSUADE_RANGE := 3
 const NOISE_SHOUT := 2      # a guard who spots you yells for the others
 const BROADCAST_STUN := 1   # regime turns the guards lose watching the footage air
 
+## Loud-play fix (Nov 26): your opening shot catches patrolling guards off guard. Each one it wakes spends
+## his next turn diving for cover instead of shooting back (XCOM-style). Subdues, shouts and other noise don't.
+const CAUGHT_OFF_GUARD := true
 const EXTRA_GUARDS := 1    # J1.5 rebalance: the depot posts one more guard than the run's count
 const JUNCTION := 5         # the floodlight junction box: blocks movement, not sight
 const JUNCTION_POS := Vector2i(0, 8)
@@ -96,6 +99,8 @@ class Unit:
 	var bleed := 0           # your turns left before a downed squadmate dies
 	var stabilized := false
 	var dead := false
+	var calm := false        # was on patrol when your turn began (CAUGHT_OFF_GUARD)
+	var startled := false    # woken by your gunfire this turn: dives for cover next regime turn
 	# Diversion tools (J1.5)
 	var busy := 0            # regime turns chasing a fake radio call
 	var stun := 0            # regime turns lost to a flashbang
@@ -227,6 +232,7 @@ static func create_mission(params: Dictionary) -> RefCounted:
 		var g = b.add_unit("Guard %d" % (i + 1), REGIME, GUARD_ROUTES[i][0])
 		g.route = GUARD_ROUTES[i]
 		g.wavering = i == waver
+	b._mark_calm()
 	return b
 
 
@@ -536,6 +542,9 @@ func shoot(u: Unit, target: Unit) -> bool:
 
 func _fire(u: Unit, target: Unit, c: int) -> bool:
 	u.hidden = false
+	if u.side == US and side == US:
+		for g in alive_units(REGIME):
+			g.startled = g.startled or g.state == PATROL   # caught off guard by your opening shot
 	alert_all("%s fires" % u.name)
 	if u.side == US:
 		add_noise(NOISE_SHOT, u.pos)
@@ -951,6 +960,8 @@ func end_turn() -> void:
 	side = REGIME
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
+	# Caught off guard: whoever your turn startled out of a patrol spends this turn diving for cover.
+	var startled := alive_units(REGIME).filter(func(g): return mission and CAUGHT_OFF_GUARD and g.calm and g.state == ALERT and g.startled)
 	if stunned > 0:
 		stunned -= 1
 		log.append("Every guard stares at the screens")
@@ -959,6 +970,9 @@ func end_turn() -> void:
 			if g.stun > 0:
 				g.stun -= 1
 				log.append("%s is still reeling" % g.name)
+				continue
+			if g in startled:
+				_dive_for_cover(g)
 				continue
 			act_unit(g)
 	for sm in smokes:
@@ -976,7 +990,34 @@ func end_turn() -> void:
 	for u in alive_units(US):
 		u.ap = AP_PER_TURN
 		u.overwatch = false
+	_mark_calm()
 	turn += 1
+
+
+## Would a shot now go loud on guards still on patrol? (The shoot button warns when you're outnumbered.)
+func goes_loud() -> bool:
+	return mission and alive_units(REGIME).any(func(g): return g.state == PATROL)
+
+
+func _mark_calm() -> void:
+	for g in alive_units(REGIME):
+		g.calm = g.state == PATROL
+		g.startled = false
+
+
+## A startled guard's turn: the most sheltered tile within one move, no shots.
+func _dive_for_cover(g: Unit) -> void:
+	var best := g.pos
+	var best_e := _exposure(g, g.pos)
+	var r := reachable(g, 1)
+	for p in r:
+		var e := _exposure(g, p)
+		if e < best_e:
+			best = p
+			best_e = e
+	if best != g.pos:
+		move(g, best)
+	log.append("%s is caught off guard and dives for cover" % g.name)
 
 
 # ---------- AI (both sides use it; the player normally drives US) ----------
