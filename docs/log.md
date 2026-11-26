@@ -3,6 +3,18 @@
 Design decisions and idea intake, newest first. Build progress lives in `tasks/todo.md`
 and the CLAUDE.md handoff; this is the why behind them.
 
+## 2026-11-26: the 8.5 pass (first-timer review 5.5, veteran 6.0)
+- **Duff's rule:** before more rounds get built, plan to an 8.5 first-time-player review, OK it once, build it in one
+  pass. He tapped "Build all 7", then said to skip the mock reviews and just build the fixes.
+- **Built:** mission brief + Goal button + UPLOAD HERE / EXIT markers; fair stealth (`FIRST_CONTACT`: a guard on
+  patrol when the regime turn began holds fire that turn, and the log says who he saw, how far and why;
+  `_can_target`: no shots at a sneaking unit a guard can't see, alerted guards within `SEARCH_SIGHT` 4); the enemy turn
+  plays one guard at a time with a "Regime turn" card; ♥♡ hearts; cover bars on the move range; one-time tips;
+  Persuade shown out of range; Support meter on zone cards; Listen shows regime eyes the week after; dossier-style
+  zone picker; Leave asks before abandoning the downed; bug sweep.
+- **Balance:** first contact for every fresh guard pushed quiet 3 v 4 nobody-out 34% -> 17% (too easy). Guards that
+  come running to a shout don't get the grace (only the spotter does): back to 34% (survival 66%, in target).
+
 ## 2026-11-26: White Flag step 1 built
 - **Proposal** (prototype, 300 sims a case): nerve 3, drains from hits, partners down, flashbangs, the broadcast.
   With lights out draining too, quiet 3 v 4 survival went 66% -> 87% (lights out darkens the half of the yard nearly

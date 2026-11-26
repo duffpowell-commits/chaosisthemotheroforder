@@ -157,6 +157,12 @@ Commands, standing rules and guards (push guard, fresh-eyes, rule lock): AGENTS.
   `tools/compose_sprites.py` makes review sheets (`docs/renders/sprites/`).
   Decision gate Dec 10.
 
+- **Nov 26: 8.5 pass** (Duff: plan to an 8.5 first-timer review, build in one pass; reviews skipped): mission brief +
+  Goal button + map markers, fair stealth (`Battle.FIRST_CONTACT`, `_can_target`, `SEARCH_SIGHT`), one-guard-at-a-time
+  regime turn + "Regime turn" card, ♥♡ hearts, cover bars, one-time tips (`TIPS` in tactical.gd), Support meter,
+  Listen shows eyes, Leave check. Quiet 3 v 4 survival 66%. Renders `docs/renders/8_5/` (`-- --capture-8-5`).
+  Handoff for any AI: `docs/HANDOFF_8_5.md`.
+
 ## First thing next session
 - **Web test link (Nov 26): https://duffpowell-commits.github.io/chaosisthemotheroforder/** (GitHub Pages, published by
   CI's `web` job on every push to main, like Lethemoor). Plays in iPhone Safari and in-app browsers (Messenger): when the

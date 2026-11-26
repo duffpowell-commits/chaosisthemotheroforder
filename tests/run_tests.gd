@@ -1159,3 +1159,35 @@ func test_web_build_turns_sideways_in_portrait() -> void:
 	check(js.length() > 500, "the rotate script exists")
 	check(head.contains(js), "the Web preset's head include is web/portrait_rotate.js, unchanged")
 	check(cfg.get_value("preset.0.options", "html/canvas_resize_policy", -1) == 2, "canvas follows the window (the script swaps its size)")
+
+
+func test_first_contact_and_hidden_targets() -> void:
+	# 8.5 pass (Nov 26): a guard who spots you on his patrol says who he saw and why, and holds
+	# fire that turn; guards can't aim at a sneaking unit they can't see.
+	var sq := [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}]
+	var b = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 3, "squad": sq})
+	var g = b.alive_units(Battle.REGIME)[0]
+	var mara = b.alive_units(Battle.US)[1]
+	# Find an open tile 3-5 tiles from the guard, in his sight, nobody on it.
+	var spot := Vector2i(-1, -1)
+	for y in range(Battle.H):
+		for x in range(Battle.W):
+			var p := Vector2i(x, y)
+			if b.standable(p) and b.unit_at(p) == null and Battle._cheb(p, g.pos) in [3, 4, 5] and b.line_of_sight(g.pos, p):
+				spot = p
+	check(spot.x >= 0, "found an open tile in the guard's sight")
+	mara.pos = spot
+	mara.hidden = false
+	check(g.state == Battle.PATROL, "the guard starts on patrol")
+	var n: int = b.log.size()
+	b.end_turn()
+	var after: Array = b.log.slice(n)
+	check(after.any(func(l): return l.contains("spots Mara (") and l.contains("tiles")), "the log says who was spotted and how far: %s" % [after])
+	check(not after.any(func(l): return l.begins_with(g.name + " hits") or l.begins_with(g.name + " misses")), "the spotter holds fire on first contact")
+	# Hidden: an alerted guard only aims at a sneaker within SEARCH_SIGHT; a patrol only within HIDDEN_SIGHT.
+	mara.hidden = true
+	g.state = Battle.ALERT
+	var far := Battle._cheb(g.pos, mara.pos) > Battle.SEARCH_SIGHT
+	check(b._can_target(g, mara) == (not far and b.line_of_sight(g.pos, mara.pos)), "alerted guard: sneaker targetable only within %d" % Battle.SEARCH_SIGHT)
+	mara.hidden = false
+	check(b._can_target(g, mara), "a unit in the open can always be aimed at")

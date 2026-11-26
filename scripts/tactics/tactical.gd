@@ -94,6 +94,11 @@ var end_btn: Button
 var result_panel: PanelContainer
 var result_label: Label
 var result_buttons: VBoxContainer
+var goal_btn: Button
+var hud_layer: CanvasLayer
+var brief_panel: PanelContainer   # 8.5 pass: what the mission wants, before turn 1 and on "Goal"
+var regime_panel: PanelContainer  # 8.5 pass: what the regime just did, one line per event
+var tip_label: Label              # 8.5 pass: one-time tips (?, Wavering, ALARM, nerve)
 
 
 func _ready() -> void:
@@ -131,7 +136,7 @@ func _ready() -> void:
 			if k == "low_graphics":
 				apply_graphics())
 	var args := OS.get_cmdline_user_args()
-	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args or "--capture-white-flag" in args) and not Engine.has_meta("mission"):
+	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args or "--capture-white-flag" in args or "--capture-8-5" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
 			{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false},
 			{"name": "Kesh", "op": 2, "is_you": false}, {"name": "Teodor", "op": 3, "is_you": false}]}})
@@ -142,6 +147,18 @@ func _ready() -> void:
 	Sfx.music("music_fight")
 	Sfx.bed("rain_loop")
 	_save_fight()  # first checkpoint: leaving now resumes here, not a replayed week
+	var plain := true
+	for a in args:
+		if a.begins_with("--capture") or a == "--autoplay" or a == "--shots":
+			plain = false
+	if plain and battle.mission and battle.turn == 1 and battle.upload == 0:
+		_show_brief.call_deferred()
+	# The web canvas can settle its size after the first frame: frame the squad again once it has
+	# (first-timer: units started under the bottom bar).
+	get_tree().create_timer(0.4).timeout.connect(func():
+		if is_instance_valid(self) and battle != null:
+			cam_goal = Vector3.INF
+			_frame_camera())
 	if "--capture-tactical" in args:
 		_capture_tactical()
 	elif "--capture-mission" in args:
@@ -150,6 +167,8 @@ func _ready() -> void:
 		_capture_tools()
 	elif "--capture-white-flag" in args:
 		_capture_white_flag()
+	elif "--capture-8-5" in args:
+		_capture_8_5()
 	elif "--capture-rig" in args:
 		_capture_rig(_arg_after(args, "--out", "/tmp/rig"))
 	elif "--capture-sprite-sizes" in args:
@@ -362,6 +381,7 @@ func _build_hud() -> void:
 	var ui := CanvasLayer.new()
 	ui.layer = 3
 	add_child(ui)
+	hud_layer = ui
 
 	var top := PanelContainer.new()
 	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -378,6 +398,10 @@ func _build_hud() -> void:
 	meter_label = _hud_label("", 22, C_FG)
 	meter_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	tb.add_child(meter_label)
+	goal_btn = _hud_button("Goal", _show_brief)
+	goal_btn.custom_minimum_size = Vector2(96, 40)
+	goal_btn.add_theme_font_size_override("font_size", _fs(20))
+	tb.add_child(goal_btn)
 
 	var bottom := PanelContainer.new()
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -485,6 +509,8 @@ func _refresh() -> void:
 		top_label.text = "Turn %d  ·  %s  ·  Guards left: %d" % [battle.turn, who, battle.alive_units(Battle.REGIME).size()]
 		meter_label.text = ""
 	log_label.text = "\n".join(battle.log.slice(maxi(0, battle.log.size() - 2)))
+	goal_btn.visible = battle.mission
+	_tips()
 	if selected != null and not selected.alive():
 		selected = null
 	if aimed != null and (not aimed.alive() or aimed.side == Battle.US):
@@ -507,7 +533,7 @@ func _refresh_squad() -> void:
 	var ours: Array = battle.units.filter(func(u): return u.side == Battle.US)
 	var w := 188 if ours.size() <= 4 else 150
 	for u in ours:
-		var state := "%s  %s" % [_pips(u.hp, "♥"), _pips(u.ap, "●")]
+		var state := "%s  %s" % [_hearts(u.hp), _pips(u.ap, "●")]
 		if u.escaped:
 			state = "out"
 		elif u.dead:
@@ -545,7 +571,7 @@ func _refresh_units() -> void:
 		var text := ""
 		var col := C_FG
 		if u.side == Battle.US:
-			text = "%s %s" % [u.name, _pips(u.hp, "♥")]
+			text = "%s %s" % [u.name, _hearts(u.hp)]
 			col = C_ACCENT if u == selected else C_FG
 			if u.hidden:
 				text += " (hidden)"
@@ -554,7 +580,7 @@ func _refresh_units() -> void:
 			if u.flash > 0:
 				text += " ✦"
 		else:
-			text = _pips(u.hp, "♥")
+			text = _hearts(u.hp)
 			if u.wavering:
 				text = "Wavering " + text
 			if battle.white_flag and battle.mission:
@@ -641,6 +667,11 @@ func _refresh_column() -> void:
 			column.add_child(_hud_button("Leave", _on_leave))
 		if battle.can_persuade(u, aimed):
 			column.add_child(_hud_button("Persuade %d%%" % battle.persuade_chance(), _on_persuade))
+		elif aimed != null and aimed.wavering and aimed.alive():
+			# Talk-down is the point of a wavering guard: show it, and what it needs (8.5 pass).
+			var pb := _hud_button("Persuade: %s within %d" % ["You" if not u.is_you else "get", Battle.PERSUADE_RANGE], _on_persuade)
+			pb.disabled = true
+			column.add_child(pb)
 		if battle.can_subdue(u, aimed):
 			column.add_child(_hud_button("Subdue", _on_subdue))
 		if u.ap >= 1:
@@ -656,7 +687,7 @@ func _refresh_column() -> void:
 			var breaks: int = battle.breaks_on_hit(aimed)
 			if breaks > 0:
 				label += " · he breaks" if pv.result != "down" else " · %d break%s" % [breaks, "" if breaks == 1 else "s"]
-			if pv.noise > 0:
+			if pv.noise > 0 and not battle.alarm:
 				label += " · ALARM" if battle.trips_alarm(pv.noise) else " · +%d noise" % pv.noise
 			var ours: int = battle.alive_units(Battle.US).size()
 			var theirs: int = battle.alive_units(Battle.REGIME).size()
@@ -692,7 +723,7 @@ func _tool_tiles() -> void:
 					var p := Vector2i(x, y)
 					var ok: bool = battle.can_smoke(selected, p) if tool_mode == "smoke" else battle.can_flash(selected, p)
 					if ok:
-						tile_fill[p] = Color(C_TOOL, 0.10)
+						tile_fill[p] = Color(C_TOOL, 0.22)
 			if tool_at.x >= 0:
 				for p in Battle.area3(tool_at):
 					tile_fill[p] = Color(C_TOOL, 0.42)
@@ -842,6 +873,7 @@ func _noise_note(n: int) -> String:
 
 
 func _start_tool(mode: String) -> void:
+	_coach_done()
 	tool_mode = mode
 	tool_at = Vector2i(-1, -1)
 	aimed = null
@@ -925,6 +957,7 @@ func _draw_overlay() -> void:
 			var line := poly.duplicate()
 			line.append(poly[0])
 			overlay.draw_polyline(line, Color(0.9, 0.9, 0.85, 0.13), 1.0, true)
+	_draw_cover_marks()
 	_draw_smoke()
 	_draw_map_labels()
 	_draw_checker_path()
@@ -1007,7 +1040,10 @@ func _draw_checker_path() -> void:
 ## Points of interest the player should know exist (no hidden map features):
 ## the floodlight junction box until it's been used.
 func _draw_map_labels() -> void:
-	if not battle.mission or battle.lights_used or battle.tile(Battle.JUNCTION_POS) != Battle.JUNCTION:
+	if not battle.mission:
+		return
+	_draw_goal_markers()
+	if battle.lights_used or battle.tile(Battle.JUNCTION_POS) != Battle.JUNCTION:
 		return
 	var font := ThemeDB.fallback_font
 	var at := cam.unproject_position(to_world(Battle.JUNCTION_POS) + Vector3(0, 1.7, 0))
@@ -1015,6 +1051,58 @@ func _draw_map_labels() -> void:
 	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
 	overlay.draw_rect(Rect2(at.x - 4, at.y - 17, w + 8, 21), Color(0.05, 0.06, 0.07, 0.6))
 	overlay.draw_string(font, at + Vector2(0, -1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, C_MUTED)
+
+
+## The mission's goal on the map (8.5 pass): where to upload, where to get out.
+func _draw_goal_markers() -> void:
+	var font := ThemeDB.fallback_font
+	var aired: bool = battle.upload >= Battle.UPLOAD_TURNS
+	if not aired and battle.box.x >= 0:
+		var at := cam.unproject_position(to_world(battle.box) + Vector3(0, 2.4, 0))
+		_marker(font, at, "▣ UPLOAD HERE %d/%d" % [battle.upload, Battle.UPLOAD_TURNS], Color(1.0, 0.7, 0.35))
+	var mid := cam.unproject_position(to_world(Vector2i(Battle.W / 2, Battle.H - 1)) + Vector3(0, 0.05, 0.6))
+	_marker(font, mid, "▼ EXIT" + ("" if aired else " (after the upload)"), C_GOOD if aired else C_MUTED)
+	if not aired:
+		for x in range(Battle.W):
+			var poly := _tile_poly(Vector2i(x, Battle.H - 1), 0.04)
+			var line := poly.duplicate()
+			line.append(poly[0])
+			overlay.draw_polyline(line, Color(C_GOOD, 0.35), 1.5, true)
+
+
+func _marker(font: Font, at: Vector2, t: String, col: Color) -> void:
+	# Off the play area (the camera follows the squad): pin it to the nearest edge with an arrow.
+	var vp := get_viewport().get_visible_rect().size
+	if at.y < TOP_H + 26:
+		t = "▲ " + t.trim_prefix("▣ ")
+	elif at.y > vp.y - BOTTOM_H - 8:
+		t = t if t.begins_with("▼") else "▼ " + t
+	at.y = clampf(at.y, TOP_H + 26, vp.y - BOTTOM_H - 8)
+	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+	at.x = clampf(at.x, w / 2 + 8, vp.x - COLUMN_W - w / 2 - 12)
+	var x := at.x - w / 2
+	overlay.draw_rect(Rect2(x - 5, at.y - 18, w + 10, 23), Color(0.05, 0.06, 0.07, 0.72))
+	overlay.draw_string(font, Vector2(x, at.y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, col)
+
+
+## Cover on the move range (8.5 pass, veteran: "no cover markers"): a bar on each tile edge that
+## faces cover. Thin = half cover (barrels, barriers), thick = full (containers, the box).
+func _draw_cover_marks() -> void:
+	if selected == null or busy or battle.side != Battle.US or tool_mode != "":
+		return
+	for p in tile_fill:
+		if tile_fill[p] != C_MOVE and tile_fill[p] != C_SNEAK and p != selected.pos:
+			continue
+		for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]:
+			var t: int = battle.tile(p + d) if Battle.in_bounds(p + d) else Battle.FLOOR
+			if t != Battle.HALF and t != Battle.FULL and t != Battle.BOX:
+				continue
+			var c := to_world(p) + Vector3(0, _ground(p) + 0.03, 0)
+			var e := Vector3(d.x, 0, d.y) * 0.42
+			var side := Vector3(d.y, 0, -d.x) * 0.3
+			var a := cam.unproject_position(c + e - side)
+			var b := cam.unproject_position(c + e + side)
+			overlay.draw_line(a, b, Color(0.95, 0.95, 0.9, 0.9), 5.0 if t != Battle.HALF else 2.5, true)
 
 
 ## Smoke: soft grey puffs over each cloud's 3x3, drawn above the grid.
@@ -1109,6 +1197,9 @@ func _draw_tags() -> void:
 				r = _place_tag(r, placed, -1)
 				if r.position.y < TOP_H + 2.0:
 					r = _place_tag(Rect2(anchor.x - w / 2, maxf(anchor.y - h, TOP_H + 2.0), w, h), placed, 1)
+		var vw := get_viewport().get_visible_rect().size.x
+		r.position.x = clampf(r.position.x, 4.0, vw - COLUMN_W - r.size.x - 6.0)  # never clipped by the edge or the column
+		r.position.y = minf(r.position.y, get_viewport().get_visible_rect().size.y - BOTTOM_H - r.size.y - 4.0)  # nor hidden under the bottom bar
 		placed.append(r)
 		var ring: Color = C_RING_US if u.side == Battle.US else (C_RING_WAVER if u.wavering else C_RING_REGIME)
 		if r.end.y < anchor.y - 4.0 or r.position.y > anchor.y:
@@ -1132,14 +1223,19 @@ static func _hits(r: Rect2, placed: Array[Rect2]) -> bool:
 ## Collapsed tag for bunched units: initial + hearts ("K ♥"), guards just hearts.
 func _short_tag(u) -> String:
 	if u.side != Battle.US:
-		return ("W " if u.wavering else "") + _pips(u.hp, "♥")
-	var t: String = ("You" if u.is_you or u.name == "You" else u.name.left(1)) + " " + _pips(u.hp, "♥")
+		return ("W " if u.wavering else "") + _hearts(u.hp)
+	var t: String = ("You" if u.is_you or u.name == "You" else u.name.left(1)) + " " + _hearts(u.hp)
 	return t + (" ◎" if u.overwatch else "")
 
 
 ## White Flag nerve: filled diamonds left of NERVE ("◆◆◇" = one drained). Breaks at none.
 static func _nerve_pips(u) -> String:
 	return "◆".repeat(maxi(u.nerve, 0)) + "◇".repeat(maxi(Battle.NERVE - maxi(u.nerve, 0), 0))
+
+
+## Hearts left and lost ("♥♡" = one hit from going down), so a wounded unit reads as wounded.
+static func _hearts(hp: int) -> String:
+	return "♥".repeat(maxi(hp, 0)) + "♡".repeat(maxi(Battle.MAX_HP - maxi(hp, 0), 0))
 
 
 static func _pips(n: int, ch: String) -> String:
@@ -1201,7 +1297,7 @@ func _show_result() -> void:
 	if not counts.is_empty():
 		lines.append(", ".join(counts) + ".")
 	result_label.text = "\n".join(lines)
-	result_buttons.add_child(_hud_button("Back to the week", func(): _return_to_run(r)))
+	result_buttons.add_child(_hud_button("Back to the week" if mission_meta.has("state") else "Back to the title", func(): _return_to_run(r)))
 	result_panel.visible = true
 
 
@@ -1336,6 +1432,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		at = event.position
 	if not pressed or busy or battle.is_over() or battle.side != Battle.US:
 		return
+	if (brief_panel != null and brief_panel.visible) or (regime_panel != null and regime_panel.visible):
+		_close_card()   # a tap on the map closes the card; it doesn't also move someone
+		return
+	_coach_done_soft()
 	var o := cam.project_ray_origin(at)
 	var d := cam.project_ray_normal(at)
 	if absf(d.y) < 0.001:
@@ -1406,11 +1506,13 @@ func _move_selected(p: Vector2i, sneak: bool) -> void:
 
 
 func _on_sneak_toggle() -> void:
+	_coach_done()
 	sneaking = not sneaking
 	_refresh()
 
 
 func _on_shoot() -> void:
+	_coach_done()
 	if selected == null or aimed == null:
 		return
 	var target = aimed
@@ -1449,6 +1551,22 @@ func _on_stabilize() -> void:
 
 
 func _on_leave() -> void:
+	var left_behind: Array = battle.units.filter(func(o): return o.side == Battle.US and o.downed())
+	var others: Array = battle.alive_units(Battle.US).filter(func(o): return o != selected)
+	if not left_behind.is_empty() and others.is_empty() and not "--autoplay" in OS.get_cmdline_user_args():
+		_confirm_leave(left_behind)
+		return
+	_do_leave()
+
+
+## 8.5 pass: the last one standing leaving ends the fight and abandons whoever is down. Ask first.
+func _confirm_leave(downed: Array) -> void:
+	_show_card("LEAVE THEM?", "%s %s down and will be left behind. Leaving now ends the fight." % [
+		", ".join(downed.map(func(o): return o.name)), "is" if downed.size() == 1 else "are"],
+		[["Stay", func(): _close_card()], ["Leave anyway", func(): _close_card(); _do_leave()]])
+
+
+func _do_leave() -> void:
 	battle.leave(selected)
 	selected = null
 	var left: Array = battle.alive_units(Battle.US)
@@ -1513,19 +1631,28 @@ func _on_end_turn() -> void:
 	for u in battle.units:
 		before[u] = u.pos
 	var log_start: int = battle.log.size()
+	_coach_done()
 	battle.end_turn()
 	_refresh()
-	var tw := create_tween().set_parallel(true)
+	# 8.5 pass (first-timer: "the enemy turn takes your squad apart and you can't see how"): one
+	# guard at a time, then each shot on its own beat, then a card listing what happened.
+	var tw := create_tween()
+	var moved := 0
 	for u in battle.units:
-		if u.side == Battle.REGIME and before.has(u) and before[u] != u.pos:
+		if u.side == Battle.REGIME and before.has(u) and before[u] != u.pos and unit_nodes.has(u):
 			tw.tween_callback(Sfx.fx.bind("step", -6.0))  # their boots on the gravel, as they set off
-			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
-	tw.tween_interval(0.5)
+			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), ENEMY_STEP)
+			moved += 1
+	tw.tween_interval(0.25)
 	await tw.finished
 	var shots: Array = battle.log.slice(log_start).filter(func(l): return _shot_line(l))
 	for i in shots.size():
 		_flash_from_line(shots[i], shots.slice(i + 1))
+		await get_tree().create_timer(ENEMY_SHOT_GAP, false, false, true).timeout
 	busy = false
+	var lines: Array = battle.log.slice(log_start)
+	if not lines.is_empty() and not battle.is_over() and not "--autoplay" in OS.get_cmdline_user_args():
+		_show_regime_turn(lines)
 	if selected == null or not selected.alive():
 		var left: Array = battle.alive_units(Battle.US)
 		selected = left[0] if not left.is_empty() else null
@@ -2213,6 +2340,8 @@ func _body_shoot(from, to) -> void:
 
 # ---------- first-minute coach (standards/08: teach by doing, 4 words, once) ----------
 
+const ENEMY_STEP := 0.32      # seconds per guard's move on the regime turn (one at a time)
+const ENEMY_SHOT_GAP := 0.4    # seconds between their shots
 const COACH_FILE := "user://coach.cfg"
 var coach: Label
 var sneak_walk := false   # the move now playing was a sneak (sneaking resets as it starts)
@@ -2246,3 +2375,155 @@ func _coach_done() -> void:
 	cfg.load(COACH_FILE)
 	cfg.set_value("seen", "move", true)
 	cfg.save(COACH_FILE)
+
+
+## Any tap on the map after the first turn retires the hint too (first-timer: it never went away).
+func _coach_done_soft() -> void:
+	if coach != null and battle != null and battle.turn > 1:
+		_coach_done()
+
+
+# ---------- cards: mission brief, regime turn, leave check (8.5 pass, Nov 26) ----------
+
+func _show_card(title: String, body: String, buttons: Array, wide := 640) -> PanelContainer:
+	_close_card()
+	var p := PanelContainer.new()
+	p.set_anchors_preset(Control.PRESET_CENTER)
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	p.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var sb := _panel_style()
+	sb.bg_color = Color(C_PANEL, 0.95)
+	sb.border_color = C_ACCENT
+	sb.set_border_width_all(2)
+	p.add_theme_stylebox_override("panel", sb)
+	hud_layer.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	p.add_child(v)
+	var t := _hud_label(title, 28, C_ACCENT)
+	v.add_child(t)
+	var b := _hud_label(body, 21, C_FG)
+	b.custom_minimum_size = Vector2(wide, 0)
+	v.add_child(b)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	v.add_child(row)
+	for bt in buttons:
+		var btn := _hud_button(bt[0], bt[1])
+		btn.custom_minimum_size = Vector2(200, 64)
+		row.add_child(btn)
+	brief_panel = p
+	return p
+
+
+func _close_card() -> void:
+	for p in [brief_panel, regime_panel]:
+		if p != null and is_instance_valid(p):
+			p.queue_free()
+	brief_panel = null
+	regime_panel = null
+
+
+## What the Signal Box wants, in plain words (first-timer: the goal was never stated in the fight).
+func _show_brief() -> void:
+	if battle == null or not battle.mission:
+		return
+	var body := "1. Get one of yours next to the signal box (UPLOAD HERE) and Upload. Two uploads, one per turn, air the footage.\n" \
+		+ "2. Then get out: anyone on the south edge (EXIT) can Leave.\n\n" \
+		+ "Guards marked ? are on patrol and haven't seen you. Sneak and they only spot you from %d tiles. " % Battle.HIDDEN_SIGHT \
+		+ "A guard who spots you shouts, and shoots next turn. Shots make noise; at %d the alarm brings %d more." % [Battle.NOISE_MAX, Battle.REINFORCEMENTS]
+	_show_card("THE SIGNAL BOX", body, [["Go", func(): _close_card(); cam_goal = Vector3.INF; _frame_camera()]], 700)
+
+
+## The regime's turn, written down: who moved, who saw whom, who shot whom.
+func _show_regime_turn(lines: Array) -> void:
+	var keep: Array = lines.slice(maxi(0, lines.size() - 8))
+	var p := _show_card("REGIME TURN", "\n".join(keep), [["Your move", func(): _close_card()]], 640)
+	brief_panel = null
+	regime_panel = p
+
+
+# ---------- one-time tips (8.5 pass): ?, Wavering, ALARM, nerve ----------
+
+const TIPS := {
+	"patrol": "? = on patrol: he hasn't seen you. Sneaking, he only spots you from 2 tiles.",
+	"waver": "Wavering: he's close to switching sides. Get You within 3 and Persuade.",
+	"alarm": "ALARM: more guards are coming. Finish the upload or get out.",
+	"nerve": "◆ = nerve. Hits and fallen partners drain it; at none he runs or gives up.",
+}
+var tip_seen := {}
+var tip_until := 0
+
+
+func _tips() -> void:
+	if battle == null or not battle.mission or "--autoplay" in OS.get_cmdline_user_args():
+		return
+	var key := ""
+	if battle.alarm:
+		key = "alarm"
+	if key == "" or _tip_seen(key):
+		key = ""
+		if aimed != null and aimed.wavering:
+			key = "waver"
+		elif aimed != null and aimed.state == Battle.PATROL:
+			key = "patrol"
+		elif aimed != null and battle.white_flag:
+			key = "nerve"
+	if key != "" and not _tip_seen(key):
+		_show_tip(key)
+
+
+func _tip_seen(key: String) -> bool:
+	if tip_seen.is_empty():
+		var cfg := ConfigFile.new()
+		cfg.load(COACH_FILE)
+		for k in TIPS:
+			tip_seen[k] = cfg.get_value("tips", k, false)
+	return tip_seen.get(key, false)
+
+
+func _show_tip(key: String) -> void:
+	tip_seen[key] = true
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	cfg.set_value("tips", key, true)
+	cfg.save(COACH_FILE)
+	if tip_label == null or not is_instance_valid(tip_label):
+		tip_label = _hud_label("", 21, C_FG)
+		tip_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		tip_label.offset_top = TOP_H + 8
+		tip_label.offset_left = 24
+		tip_label.offset_right = -COLUMN_W - 20
+		tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tip_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		tip_label.add_theme_constant_override("outline_size", 10)
+		tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hud_layer.add_child(tip_label)
+	tip_label.text = TIPS[key]
+	tip_label.visible = true
+	tip_label.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(7.0)
+	tw.tween_property(tip_label, "modulate:a", 0.0, 0.6)
+
+
+## 8.5 pass renders: docs/renders/8_5/ (brief, cover marks + goal markers, regime turn card, a tip).
+func _capture_8_5() -> void:
+	DirAccess.make_dir_recursive_absolute("res://docs/renders/8_5")
+	await _wait(20)
+	_show_brief()
+	await _shot("8_5/1_brief")
+	_close_card()
+	await _wait(5)
+	await _shot("8_5/2_cover_and_goal")
+	aimed = battle.alive_units(Battle.REGIME)[0]
+	tip_seen = {"patrol": false, "waver": true, "alarm": true, "nerve": true}
+	_show_tip("patrol")
+	_refresh()
+	await _shot("8_5/3_tip_patrol")
+	aimed = null
+	_show_regime_turn(["Guard 2 spots Mara (4 tiles, in the open) and shouts", "Guard 3 hears something",
+		"Guard 2 takes aim but holds fire", "Guard 3 is alerted: the shout"])
+	await _shot("8_5/4_regime_turn")
+	get_tree().quit()

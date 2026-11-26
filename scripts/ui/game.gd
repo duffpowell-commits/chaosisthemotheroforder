@@ -1159,7 +1159,7 @@ func _after_action(op: int, a: String) -> void:
 			var r := Rules.reading(s, zone)
 			box.add_child(_card_button(Text.ZONE_NAMES[zone], "%s (%s)" % [r.label, r.certainty],
 				func(): _after_zone(entry, zone)))
-		box.add_child(_button("Cancel", _close_overlay, 0))
+		box.add_child(_overlay_cancel())
 		return
 	_after_zone(entry, "")
 
@@ -1172,7 +1172,7 @@ func _after_zone(entry: Dictionary, zone: String) -> void:
 		var box := _overlay_box("How?")
 		for c in Text.CHOICES[entry.action]:
 			box.add_child(_card_button(c.title, c.desc, func(): _commit(entry, c.id)))
-		box.add_child(_button("Cancel", _close_overlay, 0))
+		box.add_child(_overlay_cancel())
 		return
 	_commit(entry, "")
 
@@ -1233,6 +1233,14 @@ func _zone_card(zone: String) -> Control:
 	top.add_child(name_l)
 	top.add_child(_stamp(r.certainty.to_upper(), C_STAMP if r.certainty == "Rumor" else C_INK, 20, 4.0))
 	col.add_child(_label("Mood: %s" % r.label, 22, C_INK))
+	# Support (8.5 pass): the number the jobs move ("+10 Support"). Known once you've listened.
+	var z: Dictionary = s.zones[zone]
+	if r.certainty == "Rumor":
+		col.add_child(_label("Support: ?/100 (Listen to see it)", 20, C_INK_SOFT))
+	else:
+		var v := int(z.sentiment) if r.certainty == "Confirmed" else roundi(int(z.sentiment) / 5.0) * 5
+		var bars := clampi(roundi(v / 10.0), 0, 10)
+		col.add_child(_label("Support: %s %s%d/100 · Ready at %d" % ["▮".repeat(bars) + "▯".repeat(10 - bars), "" if r.certainty == "Confirmed" else "~", v, Rules.READY_AT], 20, C_INK))
 	var eyes := "unknown (Listen to find out)" if int(r.attention) < 0 else ("●".repeat(int(r.attention)) if int(r.attention) > 0 else "none")
 	col.add_child(_label("Regime eyes: %s" % eyes, 20, C_INK_SOFT))
 	return card
@@ -1333,7 +1341,8 @@ func _overlay_box(title: String) -> VBoxContainer:
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
-	var p := _panel(C_PANEL, C_LINE, 2)
+	# Dossier look (8.5 pass, Nov 26): the zone/choice question is a sheet on the desk, not a grey box.
+	var p := _paper_panel("sheet")
 	p.custom_minimum_size = Vector2(min(get_viewport_rect().size.x - 40, 980), 0)
 	center.add_child(p)
 	var scroll := ScrollContainer.new()
@@ -1343,8 +1352,15 @@ func _overlay_box(title: String) -> VBoxContainer:
 	var box := _vbox(10)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(box)
-	box.add_child(_label(title, 24, C_FG, true))
+	box.add_child(_typed(title.to_upper(), 26, C_INK, true))
 	return box
+
+
+func _overlay_cancel() -> Button:
+	var b := _button("Cancel", _close_overlay, 0)
+	b.add_theme_font_override("font", TYPE_FONT)
+	_paper_button(b, "manila")
+	return b
 
 
 func _close_overlay() -> void:
@@ -1360,6 +1376,9 @@ func _card_button(title: String, desc: String, cb: Callable) -> Button:
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size = Vector2(440, 96)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_override("font", TYPE_FONT)
+	b.add_theme_font_size_override("font_size", _fs(22))
+	_paper_button(b, "card")
 	b.pressed.connect(cb)
 	return b
 
