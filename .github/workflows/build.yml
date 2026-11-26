@@ -77,9 +77,18 @@ jobs:
       - name: Export Web
         run: |
           mkdir -p build/web
-          godot --headless --path . --export-release "Web" build/web/index.html 2>&1 | tee web.log
-          test -f build/web/index.pck && test -f build/web/index.wasm
-          grep -q "__chaosFixed" build/web/index.html
+          # Files named by commit (like Lethemoor), so a phone never pairs a fresh page with an old
+          # cached pack or engine; index.html is a copy of that build's page.
+          NAME=chaos-${GITHUB_SHA::7}
+          godot --headless --path . --export-release "Web" build/web/$NAME.html 2>&1 | tee web.log
+          test -f build/web/$NAME.pck && test -f build/web/$NAME.wasm
+          grep -q "__chaosFixed" build/web/$NAME.html
+          cp build/web/$NAME.html build/web/index.html
+          # iPhone Safari runs out of memory on a big pack (Nov 26: Brittany's iPhone wouldn't load a
+          # 65 MB one). Fail the build instead of shipping one that won't open there.
+          PCK=$(stat -c %s build/web/$NAME.pck)
+          echo "pack: $PCK bytes"
+          test "$PCK" -lt 50000000
           ls -la build/web
       - name: Publish web build to GitHub Pages (main only)
         if: github.ref == 'refs/heads/main'
