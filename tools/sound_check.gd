@@ -72,10 +72,11 @@ func _run() -> void:
 		b.smoke_left = 2
 		you.ap = 2
 		you.flash = 1
-		if mode == "lights":
-			for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1)]:
-				if b.standable(b.JUNCTION_POS + d) and b.unit_at(b.JUNCTION_POS + d) == null:
-					you.pos = b.JUNCTION_POS + d
+		if mode == "lights" or mode == "radio":  # beside the junction box / the signal box
+			var at: Vector2i = b.JUNCTION_POS if mode == "lights" else b.box
+			for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
+				if b.standable(at + d) and b.unit_at(at + d) == null:
+					you.pos = at + d
 					break
 		t._confirm_tool()
 		var want: String = {"smoke": "smoke", "flash": "flash", "lights": "lights", "radio": "static"}[mode]

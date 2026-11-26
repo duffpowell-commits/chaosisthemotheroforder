@@ -838,8 +838,10 @@ func _confirm_tool() -> void:
 				Sfx.fx("lights")
 				_pop(u, "LIGHTS OUT", C_FG)
 		"radio":
+			var tried: bool = battle.can_radio(u)
 			var ok: bool = battle.radio(u)
-			Sfx.fx("static", -4.0)
+			if tried:
+				Sfx.fx("static", -4.0)
 			_pop(u, "THEY BUY IT" if ok else "BLOWN", C_GOOD if ok else C_RED)
 	_refresh()
 
@@ -1379,8 +1381,8 @@ func _on_overwatch() -> void:
 
 
 func _on_upload() -> void:
-	battle.do_upload(selected)
-	Sfx.fx("static")
+	if battle.do_upload(selected):
+		Sfx.fx("static")
 	_refresh()
 
 
@@ -1402,7 +1404,7 @@ func _flash(from, to, hit: bool) -> void:
 	_rig_play(from, "shoot", to)
 	Sfx.fx("guard_shot" if from.side == Battle.REGIME else "shot")
 	if hit:
-		get_tree().create_timer(0.18).timeout.connect(Sfx.fx.bind("hurt"))
+		get_tree().create_timer(0.18, false).timeout.connect(Sfx.fx.bind("hurt"))
 	_body_shoot(from, to)
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
 	var light := OmniLight3D.new()
@@ -1449,8 +1451,8 @@ func _on_end_turn() -> void:
 	var tw := create_tween().set_parallel(true)
 	for u in battle.units:
 		if u.side == Battle.REGIME and before.has(u) and before[u] != u.pos:
+			tw.tween_callback(Sfx.fx.bind("step", -6.0))  # their boots on the gravel, as they set off
 			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
-			tw.tween_callback(Sfx.fx.bind("step", -6.0))  # their boots on the gravel
 	tw.tween_interval(0.5)
 	await tw.finished
 	for line in battle.log.slice(log_start):

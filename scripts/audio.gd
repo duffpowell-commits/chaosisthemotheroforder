@@ -49,13 +49,18 @@ func takes(clip: String) -> Array:
 	if _takes.has(clip):
 		return _takes[clip]
 	var out: Array = []
+	var paths: Array[String] = []
 	if ResourceLoader.exists(DIR + clip + ".ogg"):
-		out.append(load(DIR + clip + ".ogg"))
+		paths.append(DIR + clip + ".ogg")
 	else:
 		var i := 0
 		while ResourceLoader.exists(DIR + "%s_%d.ogg" % [clip, i]):
-			out.append(load(DIR + "%s_%d.ogg" % [clip, i]))
+			paths.append(DIR + "%s_%d.ogg" % [clip, i])
 			i += 1
+	for path in paths:
+		var st = load(path)
+		if st is AudioStream:  # a clip that failed to import plays nothing and isn't "heard"
+			out.append(st)
 	if clip in BEDS:
 		for s in out:
 			if s is AudioStreamOggVorbis:
@@ -76,9 +81,6 @@ func play(clip: String, db := 0.0, pitch_jitter := 0.05) -> void:
 	if all.size() > 1 and i == int(_last_take.get(clip, -1)):
 		i = (i + 1) % all.size()
 	_last_take[clip] = i
-	heard.append(clip)
-	if heard.size() > 64:
-		heard.pop_front()
 	var p: AudioStreamPlayer = null
 	for q in _pool:
 		if not q.playing:
@@ -91,6 +93,9 @@ func play(clip: String, db := 0.0, pitch_jitter := 0.05) -> void:
 	p.volume_db = db
 	p.pitch_scale = randf_range(1.0 - pitch_jitter, 1.0 + pitch_jitter)
 	p.play()
+	heard.append(clip)
+	if heard.size() > 64:
+		heard.pop_front()
 
 
 ## Cross to another bed on a player ("" fades it out). Same clip already playing: nothing.
