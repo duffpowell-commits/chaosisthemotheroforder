@@ -1,64 +1,65 @@
-# Handoff: Chaos 8.5 pass (paused Nov 26, 2026)
+# Handoff: Chaos 8.5 pass (Nov 26, 2026)
 
-For any coding AI picking this up. Duff paused Chaos on Nov 26 (~7:12 AM CT) to save usage.
-**Don't resume until Duff says so.** Read AGENTS.md and CLAUDE.md first (rules, guards, commands).
+For any coding AI picking this up. Read AGENTS.md and CLAUDE.md first (rules, guards, commands).
+Duff paused Chaos briefly, then said to build all the fixes with no mock reviews.
 
 ## Where things stand
-- On main and live: everything through PR #31 (White Flag step 1, iPhone web link).
-  Web: https://duffpowell-commits.github.io/chaosisthemotheroforder/ (v0.1.55, Pages from `gh-pages`,
-  published by CI's `web` job on every push to main). APK: Releases -> `dev`.
-- This branch: `claude/chaos-8-5` (WIP, no PR yet, NOT merged). Started from main 2c5f551.
-- Latest reviews (Nov 26): first-timer 5.5/10, veteran IGN-style 6.0/10. Full first-timer review is in
-  Duff's project files (chaos-reviews/first_timer_2026-11-26.md); its top 5 are below.
-- Duff's standing bar: a first-time-player review of **8.5** before more rounds get built. He OK'd the
-  7-item "8.5 plan" below ("Build all 7"), to be built in ONE pass, then a fresh first-timer replay.
+- Live: web https://duffpowell-commits.github.io/chaosisthemotheroforder/ (Pages from `gh-pages`, published by CI's
+  `web` job on every push to main). APK: Releases -> `dev`.
+- Branch `claude/chaos-8-5` holds the 8.5 pass. It merges once CI is green and the fresh-eyes check passes. If this
+  file is on main, it has merged.
+- Latest reviews (Nov 26, before this pass): first-timer 5.5/10, veteran 6.0/10. Duff cancelled the replay review.
+- Duff's standing bar: plan to an 8.5 first-time-player review, OK it once, build it in one pass.
 
-## The 8.5 plan (Duff OK'd all 7) and status on this branch
-1. Mission brief + goal markers: a card before every Signal Box fight (incl. Fight now): "Hold the box
-   2 turns to air the footage, then get out at the south edge". Markers on the upload tile and exit row
-   before it's aired too; tapping the Upload counter reopens the brief. **Not started.**
-2. Fair stealth. **Built, balance NOT done** (scripts/tactics/battle.gd):
-   - `FIRST_CONTACT`: guards on patrol when the regime turn began (`fresh`) hold fire that turn
-     (log "X takes aim but holds fire").
-   - `_can_target`: a guard can't aim at a hidden (sneaking) unit unless a patrol could spot it or an
-     alerted guard is within `SEARCH_SIGHT` with line of sight.
-   - `_spotted_by` logs who saw whom and why ("Guard 2 spots Mara (5 tiles, in the open) and shouts")
-     and un-hides everyone that guard sees.
-   - **Problem:** mission_sim 300 focus, quiet 3 v 4 "nobody out" went 34% -> 17% (target 30-40%, i.e.
-     survival 60-70%). SEARCH_SIGHT 4 or 6 doesn't move it; EXTRA_GUARDS 2 overshoots (93%). Next try:
-     faster reinforcements (REINFORCE_DELAY), guards' MISSION_SIGHT, or FIRST_CONTACT only for the
-     spotter (not guards alerted by his shout). Keep the fairness rules; tune with visible levers.
-3. Readable enemy turn: today `_on_end_turn` (tactical.gd) tweens every guard at once in 0.5 s and
-   flashes all shots back to back. Make it one guard at a time (~0.45 s each), shots spaced out, then a
-   "Regime turn" summary panel of this turn's log lines (skip under --autoplay). Log: 6+ lines or a LOG
-   button. Hearts as "♥♡" (`_pips` -> filled + empty up to Battle.MAX_HP). **Not started.**
-4. Cover markers: on reachable tiles, a short bar on each edge facing a HALF (thin) / FULL or BOX
-   (thick) neighbour (draw in `_draw_overlay`). **Not started.**
-5. First-time tips (once each, saved in user://coach.cfg like `_build_coach`): "?" = on patrol, hasn't
-   seen you; "Wavering" = close to switching sides, get within 3 and Persuade; ALARM = N riot police in
-   N turns; nerve pips ◆. Show Persuade on a tapped wavering guard even out of range, disabled with
-   "get within 3". **Not started.**
-6. Campaign polish. **Done on this branch** (scripts/ui/game.gd, scripts/sim/rules.gd, scripts/ui/text.gd):
-   zone card shows Support ▮▮▯ N/100 (exact when Confirmed, ~ when Likely, ? when Rumor) and Ready at 61;
-   "Sentiment" renamed "Support" in job text; a Likely zone (the week after Listen) now shows Regime eyes;
-   the zone/choice popup uses the dossier sheet + card buttons. Still to do: Leave asks before abandoning
-   downed allies (tactical.gd `_on_leave`), and Fight now's result button says "Back to title"
-   (`_show_result`: `mission_meta.has("state")` = a run).
-7. Bug sweep. Done: log said "You fires" (`_verb`). To do: coach "Tap a blue tile" also goes away on any
-   action/End turn; no "+3 noise" in the Shoot label once the alarm is on; reframe the camera ~0.3 s after
-   start (units started under the bottom bar on web); clamp tags inside the screen (a "Wavering" tag was
-   clipped at the right edge); smoke/flash valid tiles at alpha ~0.22 (`_tool_tiles`, now 0.10).
+## What the 8.5 pass built (all 7 items Duff OK'd)
+1. **Mission brief:** a card before turn 1 of every Signal Box fight (`_show_brief`, tactical.gd), a Goal button in the
+   top bar that reopens it, and map markers `_draw_goal_markers` (UPLOAD HERE n/2 over the box, EXIT on the south row,
+   pinned to the screen edge with an arrow when off camera).
+2. **Fair stealth** (battle.gd):
+   - `FIRST_CONTACT`: a guard on patrol when the regime turn began holds fire that turn ("takes aim but holds
+     fire"). Guards who come running to his shout (`add_noise`) lose that grace.
+   - `_can_target`: no shots at a hidden unit unless a patrol could spot it or an alerted guard is within
+     `SEARCH_SIGHT` (4) in line of sight.
+   - `_spotted_by` logs who, how far and why, and un-hides the units seen.
+   - Test: `test_first_contact_and_hidden_targets`.
+   - Balance: quiet 3 v 4 nobody out 34% (survival 66%, target 60-70%); loud 5 v 4 airs 62%.
+3. **Readable enemy turn:** guards move one at a time (`ENEMY_STEP`), shots are spaced out (`ENEMY_SHOT_GAP`), then a
+   "REGIME TURN" card lists the last 8 log lines (skipped under --autoplay). Hearts show lost ones: `_hearts` -> "♥♡".
+4. **Cover bars:** `_draw_cover_marks` draws a bar on each edge of the move range that faces cover (thin = half, thick
+   = full or the box).
+5. **One-time tips:** `TIPS` / `_tips` cover ?, Wavering, ALARM and nerve ◆. Each shows once, saved in
+   user://coach.cfg [tips]. Persuade shows on a tapped wavering guard even out of range, disabled with what it needs.
+6. **Campaign polish** (game.gd, rules.gd, text.gd):
+   - Zone cards show Support ▮▯ N/100: exact when Confirmed, ~ when Likely, ? when Rumor.
+   - "Sentiment" is now "Support".
+   - A Likely zone (the week after Listen) shows Regime eyes.
+   - The zone/choice picker uses the dossier sheet with card buttons.
+   - Leave asks before the last one out abandons the downed (`_confirm_leave`).
+   - Fight now's result button says "Back to the title".
+7. **Bug sweep:**
+   - Log said "You fires".
+   - The coach hint now also goes on any action, End turn, or a tap after turn 1.
+   - No "+N noise" once the alarm is on.
+   - The camera reframes 0.4 s after start (web canvas settles late).
+   - Tags are clamped on screen (left, right, above the bottom bar).
+   - Smoke/flash valid tiles are brighter.
+- Renders: `docs/renders/8_5/` (`res://scenes/tactical.tscn -- --capture-8-5`).
 
-Then: tools/test.sh (TESTS PASS), autoplay after tactical changes, renders to docs/renders/, a draft PR,
-the fresh-eyes review (docs/FRESH_EYES.md), merge when green, then a fresh first-timer review on the web
-build (play blind, like a new player) and report the score against 8.5.
+## Known leftovers (small)
+- Threat-odds % labels can sit under the bottom bar.
+- A tip line can overlap guard tags at the top.
+- The UPLOAD HERE marker can overlap guard tags when the box is off camera.
+- Not done: a full scrollable log (the Regime turn card covers most of it).
 
-## After the 8.5 pass (design to plan with Duff, nothing built)
-Second mission/map (the veteran's biggest ask), White Flag's holding slot + five prisoner choices
-(docs/white-flag-notes.md), Ledger stamps, endings.
+## Next (needs Duff; design first, nothing built)
+- A second mission/map (the veteran's biggest ask; likely needed to reach 8.5+).
+- White Flag's holding slot and five prisoner choices (docs/white-flag-notes.md).
+- Ledger stamps.
+- Endings.
 
-## Gotchas
-- Commit and push in separate calls; the push guard wants `tools/test.sh` to pass on the exact tree.
-- mission_sim: `godot --headless --path . --script tools/mission_sim.gd -- 300 focus` (~4 min).
-- `--script` runs don't register autoloads; preload instead.
-- A first-timer review in headless Chromium runs ~1 FPS; judge readability, not speed.
+## How to build and test
+- `tools/test.sh` must print `TESTS PASS` before any push (the push guard checks the tree).
+- QoL: `xvfb-run -a godot --path . --rendering-driver opengl3 --script tools/qol_check.gd` -> `QOL PASS` (it rewrites
+  docs/renders/ui/*.png; revert those unless they're meant to change). Sound: same with `tools/sound_check.gd`.
+- Balance: `godot --headless --path . --script tools/mission_sim.gd -- 300 focus` (~4 min).
+- Commit and push in separate calls. PRs need CI green plus a `FRESH-EYES REVIEW: PASS` review on the head commit.

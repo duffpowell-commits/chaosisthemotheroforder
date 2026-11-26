@@ -905,6 +905,7 @@ func add_noise(n: int, at: Vector2i) -> void:
 	for g in alive_units(REGIME):
 		if g.state == PATROL and _cheb(g.pos, at) <= n * NOISE_RADIUS:
 			g.state = ALERT
+			fresh.erase(g)   # first contact is the spotter's grace; guards running to a shout come ready
 			log.append("%s hears something" % g.name)
 	if noise >= NOISE_MAX and not alarm:
 		alarm = true
