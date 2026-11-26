@@ -928,3 +928,105 @@ func test_log_grammar_for_you() -> void:
 	b.overwatch(mara)
 	check(b.log.has("You start the upload"), "You start: %s" % [b.log])
 	check(b.log.has("Mara is on overwatch"), "Mara is")
+
+
+func test_mission_save_round_trip() -> void:
+	# QoL step 4: a fight saved mid-way plays on exactly as the original would (same RNG).
+	var b = Battle.create_mission({"guards": 5, "legitimacy": 1, "seed": 9,
+		"squad": [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}]})
+	b.add_noise(3, b.units[0].pos)
+	b.end_turn()
+	b.units[1].hp = 1
+	var d: Dictionary = b.to_dict()
+	var bytes := var_to_bytes(d)  # what store_var writes
+	var c = Battle.from_dict(bytes_to_var(bytes))
+	check(var_to_str(c.to_dict()) == var_to_str(d), "a saved fight loads back identical")
+	check(c.log is Array and c.log.size() == b.log.size() and c.units[1].hp == 1 and c.turn == b.turn, "log, hp and turn survive")
+	for i in 3:
+		b.end_turn()
+		c.end_turn()
+	check(var_to_str(c.to_dict()) == var_to_str(b.to_dict()), "the regime plays on the same after a load")
+
+
+func test_audio_clips_listed_and_present() -> void:
+	# Sound item 6: every clip the game asks for exists, and every .ogg has a SOURCES.md row (CC0 log).
+	var Sfx = load("res://scripts/audio.gd")
+	var src := FileAccess.get_file_as_string("res://assets/audio/SOURCES.md")
+	for f in DirAccess.get_files_at("res://assets/audio"):
+		if f.ends_with(".ogg"):
+			check(src.contains(f), "SOURCES.md lists " + f)
+	for clip in Sfx.NAMES:
+		var found := FileAccess.file_exists("res://assets/audio/%s.ogg" % clip) or FileAccess.file_exists("res://assets/audio/%s_0.ogg" % clip)
+		check(found, "clip on disk: " + clip)
+
+
+func test_textures_ship_lossy() -> void:
+	# Item 7 (Nov 26): lossless textures made the APK 242 MB. tools/texture_policy.py sets these lossy;
+	# a new texture dropped in without running it fails here.
+	for dir in ["res://assets/characters/meshy", "res://assets/characters/rigged", "res://assets/portraits",
+			"res://assets/ui/dossier", "res://assets/polyhaven/textures/road"]:
+		for f in DirAccess.get_files_at(dir):
+			if f.ends_with(".png.import") or f.ends_with(".jpg.import"):
+				var txt := FileAccess.get_file_as_string(dir + "/" + f)
+				if txt.contains('importer="texture"'):
+					check(txt.contains("compress/mode=1"), "lossy import: %s/%s (run tools/texture_policy.py)" % [dir, f])
+
+
+func test_play_stats_summary() -> void:
+	# Item 7 step 2 (Nov 26): play stats stay on the phone and ride along on REPORT A BUG.
+	var st = load("res://scripts/stats.gd").new()
+	var path: String = ProjectSettings.globalize_path(st.EVENTS)
+	var keep := FileAccess.get_file_as_string(st.EVENTS) if FileAccess.file_exists(st.EVENTS) else ""
+	if FileAccess.file_exists(st.EVENTS):
+		DirAccess.remove_absolute(path)
+	st.event("session_start")
+	st.event("run_start", {"seed": 1})
+	st.event("week_done", {"week": 2})
+	st.event("fight_end", {"aired": true, "out": 2})
+	st.event("left", {"at": "fight turn 3"})
+	st.event("left", {"at": "fight turn 5"})
+	st.event("left", {"at": "district"})
+	var s: String = st.summary()
+	check(s.contains("runs 1") and s.contains("best week 2") and s.contains("aired 1") and s.contains("got out 1"), "stats summary counts: " + s)
+	check(s.contains("left at: fight x2, district x1"), "stats summary says where players leave: " + s)
+	for i in range(st.MAX_LINES + 5):
+		st.event("x")
+	check(st.events().size() == st.MAX_LINES, "event log is capped at %d" % st.MAX_LINES)
+	DirAccess.remove_absolute(path)
+	if keep != "":
+		FileAccess.open(st.EVENTS, FileAccess.WRITE).store_string(keep)
+	st.free()
+
+
+func test_opening_shot_catches_guards_off_guard() -> void:
+	# Loud-play fix (Nov 26): the guards your opening shot wakes dive for cover on their next turn
+	# instead of shooting back. Noise that isn't gunfire (a subdue, a shout) doesn't startle them.
+	var sq := [{"name": "You", "op": 0, "is_you": true}, {"name": "Mara", "op": 1, "is_you": false}, {"name": "Kesh", "op": 2, "is_you": false}]
+	var b = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 3, "squad": sq})
+	check(b.goes_loud(), "guards on patrol: a shot now goes loud")
+	var you = b.alive_units(Battle.US)[0]
+	var g = b.alive_units(Battle.REGIME)[0]
+	you.pos = g.pos + Vector2i(0, 3)
+	while b.tile(you.pos) != Battle.FLOOR or b.unit_at(you.pos) != you and b.unit_at(you.pos) != null:
+		you.pos += Vector2i(1, 0)
+	var could_fire: bool = b.alive_units(Battle.REGIME).any(func(x): return x.alive() and b.alive_units(Battle.US).any(func(o): return b.chance(x, o) >= Battle.AI_MIN_SHOT))
+	check(could_fire, "control: some guard has a shot at us, so holding fire is the rule's doing")
+	b.shoot(you, g)
+	check(not b.goes_loud(), "after the shot every guard is alert")
+	var hp_before: int = b.alive_units(Battle.US).reduce(func(a, u): return a + u.hp, 0)
+	var n: int = b.log.size()
+	b.end_turn()
+	var after: Array = b.log.slice(n)
+	check(after.any(func(l): return l.contains("caught off guard")), "startled guards dive for cover")
+	check(not after.any(func(l): return l.contains(" fires")), "and none of them shoots back that turn")
+	check(b.alive_units(Battle.US).reduce(func(a, u): return a + u.hp, 0) == hp_before, "no one of ours is hit on that turn")
+	# The next regime turn they fight normally.
+	var k: int = b.log.size()
+	b.end_turn()
+	check(not b.log.slice(k).any(func(l): return l.contains("caught off guard")), "caught off guard only once")
+	# Noise alone (no shot) wakes guards without startling them.
+	var c = Battle.create_mission({"guards": 4, "legitimacy": 1, "seed": 3, "squad": sq})
+	c.add_noise(3, c.alive_units(Battle.REGIME)[0].pos)
+	var m: int = c.log.size()
+	c.end_turn()
+	check(not c.log.slice(m).any(func(l): return l.contains("caught off guard")), "noise without gunfire doesn't catch anyone off guard")

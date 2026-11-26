@@ -266,6 +266,70 @@ func _figure(pos: Vector3, coat: Color, parent: Node3D, height := 1.75, visor :=
 		_box(Vector3(0.55, 0.9, 0.04), pos + Vector3(0, 1.0 * k, 0.28), _flat(Color(0.45, 0.5, 0.55, 1.0), 0.2), parent)
 
 
+## The tactical cast (Nov 25 standards pass): Meshy models on one shared 24-bone skeleton, all
+## driven by the same clips (assets/characters/meshy/clips/, made by tools/extract_meshy_clips.gd).
+## Returned node behaves like a _person() one (faces -Z, rotation.y turns it); the model sits in
+## a child "Body" turned 180 degrees because Meshy exports face +Z. Its AnimationPlayer is the
+## node's "anim" meta, clips under "c/<name>".
+const MESHY_CLIPS := ["idle", "walk", "run", "shoot", "hit", "death", "crouch_walk", "injured_walk", "sneak"]
+var _meshy_lib: AnimationLibrary
+const MESHY_GLOW := 0.03
+const UNIT_LAYER := 1 << 19   # render layer 20: the cast, so a key light can pick them out
+const UNIT_KEY_YAW := 55.0  # side angle of that key light vs the camera (tactical.gd)
+const UNIT_KEY := 1.3        # that key light's energy (tactical.gd)
+
+func _meshy_person(kind: String, pos: Vector3, rot_y: float, parent: Node3D) -> Node3D:
+	if _meshy_lib == null:
+		_meshy_lib = AnimationLibrary.new()
+		for c in MESHY_CLIPS:
+			_meshy_lib.add_animation(c, load("res://assets/characters/meshy/clips/%s.res" % c))
+	var outer := Node3D.new()
+	outer.position = pos
+	outer.rotation.y = deg_to_rad(rot_y + 180.0)
+	parent.add_child(outer)
+	var body: Node3D = (load("res://assets/characters/meshy/%s.glb" % kind) as PackedScene).instantiate()
+	body.name = "Body"
+	body.rotation.y = PI
+	outer.add_child(body)
+	# Meshy's PBR maps import fully metallic, which mirrors the night sky and washes bodies out
+	# under the street grade. Cloth isn't metal: matte it, and let the texture glow a little so a
+	# body reads in the dark yard (hero always readable, standards/07).
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		for i in mi.mesh.get_surface_count():
+			var m := mi.get_active_material(i) as StandardMaterial3D
+			if m == null:
+				continue
+			m = m.duplicate()
+			m.metallic = 0.0
+			m.metallic_texture = null
+			m.roughness = 0.85
+			m.emission_enabled = true
+			m.emission_texture = m.albedo_texture
+			m.emission = Color.WHITE
+			m.emission_energy_multiplier = MESHY_GLOW
+			mi.set_surface_override_material(i, m)
+		mi.layers |= UNIT_LAYER
+	var ap: AnimationPlayer = body.find_children("*", "AnimationPlayer", true, false)[0]
+	ap.add_animation_library("c", _meshy_lib)
+	ap.play("c/idle")
+	ap.seek(rng.randf() * ap.current_animation_length, true)
+	outer.set_meta("anim", ap)
+	# A plain pistol in the right hand (code-drawn, like the cutout's: no gun art needed).
+	var skel: Skeleton3D = body.find_children("*", "Skeleton3D", true, false)[0]
+	var hand := BoneAttachment3D.new()
+	hand.bone_name = "RightHand"
+	skel.add_child(hand)
+	var gun := MeshInstance3D.new()
+	var gm := BoxMesh.new()
+	gm.size = Vector3(0.035, 0.11, 0.2)
+	gun.mesh = gm
+	gun.material_override = _flat(Color(0.06, 0.06, 0.07), 0.4)
+	hand.add_child(gun)
+	gun.scale = Vector3.ONE / maxf(skel.global_transform.basis.get_scale().x, 0.0001)
+	gun.position = Vector3(0, 8.0, 4.0)
+	return outer
+
+
 func _person(kind: String, pos: Vector3, rot_y: float, parent: Node3D, shield := false, tints := {}, anim := "idle", walk_speed := 0.0) -> Node3D:
 	var ps: PackedScene = load("res://assets/characters/rigged/%s_rig.glb" % kind)
 	var n: Node3D = ps.instantiate()
@@ -556,6 +620,32 @@ func _build_camera() -> void:
 	cam.current = true
 
 
+## LOW GRAPHICS (Settings, QoL step 2): no shadows, glow or live reflections, a tenth of
+## the rain, 3D drawn at 75% and scaled up. Off = everything back as built.
+func apply_graphics() -> void:
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	var low: bool = st != null and st.get_value("low_graphics")
+	if moon:
+		moon.shadow_enabled = not low
+	if searchlight:
+		searchlight.shadow_enabled = not low
+	for i in lamps.size():
+		lamps[i].shadow_enabled = (not low) and i < 3
+	if env:
+		env.glow_enabled = not low
+	for p in find_children("*", "ReflectionProbe", true, false):
+		p.visible = not low
+	if rain:
+		rain.amount = 500 if low else 5000
+	get_viewport().scaling_3d_scale = 0.75 if low else 1.0
+
+
+## A font size scaled by the TEXT SIZE setting (plain size when Settings isn't loaded, e.g. tests).
+func _fs(size: int) -> int:
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	return st.fs(size) if st else size
+
+
 func _build_grade_and_ui() -> void:
 	var post := CanvasLayer.new()
 	post.layer = 1
@@ -710,6 +800,7 @@ func _capture_portraits() -> void:
 		img = img.get_region(Rect2i((img.get_width() - side) / 2, (img.get_height() - side) / 2, side, side))
 		img.resize(512, 512, Image.INTERPOLATE_LANCZOS)
 		img.save_png("res://docs/renders/portrait_%s.png" % c[0])
+		img.save_png("res://assets/portraits/%s_dialogue.png" % c[0])   # the copy that ships
 		print("saved portrait ", c[0])
 		who.queue_free()
 	get_tree().quit()

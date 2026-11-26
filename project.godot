@@ -7,10 +7,15 @@ config/name="Chaos Is the Mother of Order"
 config/description="Render test: Rail Yards street, Frontline grade."
 run/main_scene="res://scenes/game.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
+config/quit_on_go_back=false
 
 [autoload]
 
 Fonts="*res://scripts/fonts.gd"
+Settings="*res://scripts/settings.gd"
+Audio="*res://scripts/audio.gd"
+Updater="*res://scripts/updater.gd"
+Stats="*res://scripts/stats.gd"
 
 [display]
 

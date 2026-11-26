@@ -11,6 +11,11 @@ extends "res://scripts/render_test.gd"
 ## `-- --capture-mission` saves mission renders, both to docs/renders/.
 
 const Battle = preload("res://scripts/tactics/battle.gd")
+const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
+const FightSave = preload("res://scripts/fight_save.gd")
+const Sfx = preload("res://scripts/audio.gd")
+const Feel = preload("res://scripts/tactics/feel.gd")
+const PlayStats = preload("res://scripts/stats.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -32,8 +37,11 @@ const C_SMOKE := Color(0.82, 0.83, 0.85)
 const C_DARK := Color(0.0, 0.0, 0.0, 0.45)  # near-black: blue is taken by move range and the regime
 const C_TOOL := Color(0.92, 0.92, 0.88)  # tool targeting: neutral, not team or danger
 const TAG_SIZE := 19
-const GRADE_GRAIN := 0.35  # the tactical map keeps the Frontline grade, lighter
+const GRADE_GRAIN := 0.2  # the tactical map keeps the Frontline grade, lighter
 const GRADE_CRUSH := 0.45
+const GRADE_SAT := 0.6       # colour kept on the tactical map (street grade is 0.07)
+const FRAME_GUARD_RANGE := 4  # guards this close to the selected unit stay in frame
+const FRAME_ALLY_RANGE := 3   # squad mates this close to it too (was: whole squad + guards within 6)
 
 const TOP_H := 56
 const BOTTOM_H := 148
@@ -66,6 +74,8 @@ var selected = null
 var aimed = null
 var sneaking := false
 var busy := false
+var feel: Feel   # shake, hit-stop, buzz, flashes (scripts/tactics/feel.gd)
+var alarm_heard := true   # the alarm sounds once, when it trips (a resumed alarmed fight stays quiet)
 var world_root: Node3D
 ## Camera follow (J1 review): the fight drifts north and ended up tiny at the
 ## top of the screen. The camera keeps its angle but slides to the squad and
@@ -96,10 +106,30 @@ func _ready() -> void:
 	_build_tactical_camera()
 	_build_grade_only()
 	_build_hud()
+	feel = Feel.new()
+	add_child(feel)
+	feel.setup(cam, self)
 	_apply(0.0)
 	env.fog_density = 0.012  # keep the far end of the grid readable
 	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
 	grade_mat.set_shader_parameter("crush_mul", GRADE_CRUSH)
+	grade_mat.set_shader_parameter("regime_sat", GRADE_SAT)
+	# Key light on the cast only (light layer UNIT_LAYER): dark clothes vanished into the night
+	# yard once the pale mannequins became real models. Lights bodies, never the street.
+	var key := DirectionalLight3D.new()
+	key.light_cull_mask = UNIT_LAYER
+	key.light_energy = UNIT_KEY
+	# Warm and from the side (Nov 25): a cold light from the camera flattened the cast into pale
+	# grey shapes; side light gives form, warmth keeps skin and the movement red alive.
+	key.light_color = Color(1.0, 0.88, 0.74)
+	key.rotation = cam.rotation + Vector3(0, deg_to_rad(UNIT_KEY_YAW), 0)
+	add_child(key)
+	apply_graphics()
+	var st := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Settings")
+	if st:
+		st.changed.connect(func(k: String):
+			if k == "low_graphics":
+				apply_graphics())
 	var args := OS.get_cmdline_user_args()
 	if ("--capture-mission" in args or "--autoplay" in args or "--capture-tools" in args or "--capture-rig" in args) and not Engine.has_meta("mission"):
 		Engine.set_meta("mission", {"params": {"guards": 5, "legitimacy": 1, "seed": 4, "squad": [
@@ -108,6 +138,10 @@ func _ready() -> void:
 	if Engine.has_meta("mission"):
 		mission_meta = Engine.get_meta("mission")
 	_new_battle(seed_value)
+	alarm_heard = battle.alarm
+	Sfx.music("music_fight")
+	Sfx.bed("rain_loop")
+	_save_fight()  # first checkpoint: leaving now resumes here, not a replayed week
 	if "--capture-tactical" in args:
 		_capture_tactical()
 	elif "--capture-mission" in args:
@@ -171,8 +205,16 @@ func _new_battle(s: int) -> void:
 	add_child(world_root)
 	if mission_meta.is_empty():
 		battle = Battle.create_skirmish(s)
+		PlayStats.log_event("fight_start", {"kind": "skirmish"})
+	elif mission_meta.has("resume"):
+		# Continue from the title: the fight as it stood at the last save (QoL step 4).
+		battle = Battle.from_dict(mission_meta.resume)
+		mission_meta.erase("resume")
+		resumed_over = battle.is_over()  # its fight_end is logged already; no fight_start for a resume either
 	else:
 		battle = Battle.create_mission(mission_meta.params)
+		PlayStats.log_event("fight_start", {"kind": "run" if mission_meta.has("state") else "fight now",
+			"guards": int(mission_meta.params.get("guards", 0)), "squad": mission_meta.params.get("squad", []).size()})
 	unit_nodes.clear()
 	unit_tags.clear()
 	for c in rig_clips.values():
@@ -185,7 +227,10 @@ func _new_battle(s: int) -> void:
 	rig_clips.clear()
 	rig_seen.clear()
 	cam_goal = Vector3.INF
-	selected = battle.alive_units(Battle.US)[0]
+	# A resumed fight can already be over (saved on the result screen): nobody to select,
+	# and _refresh then puts the result panel up so "Back to the week" still works.
+	var ours: Array = battle.alive_units(Battle.US)
+	selected = ours[0] if not ours.is_empty() else null
 	aimed = null
 	sneaking = false
 	tool_mode = ""
@@ -257,25 +302,26 @@ func _build_junction(w: Vector3) -> void:
 
 func _spawn_unit(u) -> void:
 	var p: Vector3 = to_world(u.pos) + Vector3(0, _ground(u.pos), 0)
-	var n: Node3D
+	unit_nodes[u] = _meshy_person(_cast_model(u), p, 180 if u.side == Battle.US else 0, world_root)
+	# No fresnel rim on the Meshy cast: on bodies this small it washed them out to pale ghosts;
+	# the unit-only key light (UNIT_KEY) does the separating now.
+
+
+## Which Meshy model plays a unit (Nov 25: real 3D cast replaces mannequins + cutouts).
+## Recruits without their own model borrow a squad body until they get one.
+func _cast_model(u) -> String:
+	if u.side == Battle.REGIME:
+		return "guard"
 	match u.name:
 		"You":
-			n = _person("duff", p, 180, world_root, false, {
-				"shirt": Color(0.09, 0.09, 0.1), "pants": Color(0.16, 0.19, 0.27),
-				"boot": Color(0.22, 0.18, 0.15), "hair": Color(0.74, 0.52, 0.33)})
+			return "duff"
 		"Mara":
-			n = _person("civilian_woman", p, 180, world_root, false, {"shirt": Color(0.32, 0.12, 0.1), "pants": Color(0.1, 0.1, 0.12), "hair": Color(0.1, 0.08, 0.07)})
+			return "mara"
 		"Kesh":
-			n = _person("riot_police", p, 180, world_root, false, {"shirt": Color(0.12, 0.2, 0.16), "pants": Color(0.2, 0.17, 0.13), "hair": Color(0.05, 0.05, 0.05)})
-		_:
-			if u.side == Battle.US:
-				# Teodor and new recruits: work clothes until they get their own models.
-				n = _person("civilian_woman" if u.name.length() % 2 == 0 else "riot_police", p, 180, world_root, false,
-					{"shirt": Color(0.24, 0.2, 0.12), "pants": Color(0.12, 0.13, 0.16), "hair": Color(0.2, 0.18, 0.16)})
-			else:
-				n = _person("riot_police", p, 0, world_root, true, {}, "weight_shift")
-	unit_nodes[u] = n
-	_add_rim(n)
+			return "kesh"
+		"Teodor":
+			return "teodor"
+	return "kesh" if u.name.length() % 2 == 0 else "teodor"
 
 
 ## A cool fresnel rim on every surface of a unit (units only, not the street),
@@ -371,6 +417,7 @@ func _build_hud() -> void:
 	result_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	result_panel.add_theme_stylebox_override("panel", _panel_style())
 	ui.add_child(result_panel)
+	_build_coach(ui)
 	var rc := VBoxContainer.new()
 	rc.add_theme_constant_override("separation", 14)
 	result_panel.add_child(rc)
@@ -397,7 +444,7 @@ func _panel_style() -> StyleBoxFlat:
 func _hud_label(t: String, size: int, c: Color) -> Label:
 	var l := Label.new()
 	l.text = t
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", _fs(size))
 	l.add_theme_color_override("font_color", c)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
@@ -406,8 +453,9 @@ func _hud_label(t: String, size: int, c: Color) -> Label:
 func _hud_button(t: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = t
-	b.custom_minimum_size = Vector2(150, 56)
-	b.add_theme_font_size_override("font_size", 22)
+	b.custom_minimum_size = Vector2(150, 64)
+	b.add_theme_font_size_override("font_size", _fs(24))
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # phone text size: long labels wrap, never clip
 	b.pressed.connect(cb)
 	return b
 
@@ -415,6 +463,12 @@ func _hud_button(t: String, cb: Callable) -> Button:
 # ---------- state -> screen ----------
 
 func _refresh() -> void:
+	if battle and battle.alarm and not alarm_heard:
+		alarm_heard = true
+		Sfx.fx("alarm")
+		feel.alarm_pulse()
+		feel.shake(0.45)
+		feel.buzz(180)
 	var over: bool = battle.is_over()
 	var who := "Your move" if battle.side == Battle.US else "Regime move"
 	if battle.mission:
@@ -441,6 +495,8 @@ func _refresh() -> void:
 	end_btn.disabled = busy or over
 	if over and not result_panel.visible:
 		_show_result()
+	if over and coach != null and is_instance_valid(coach):
+		coach.visible = false  # no "Tap a blue tile" over a result (e.g. a resumed, finished fight)
 
 
 func _refresh_squad() -> void:
@@ -477,7 +533,8 @@ func _refresh_units() -> void:
 			n.visible = false
 			continue
 		if not u.alive():
-			n.rotation.x = deg_to_rad(-88)  # downed
+			if not n.has_meta("anim"):
+				n.rotation.x = deg_to_rad(-88)  # downed (the Meshy cast plays its death clip instead)
 			if u.side == Battle.US and u.downed():
 				unit_tags[u] = ["%s %s" % [u.name, "stable" if u.stabilized else "bleeding"], C_FG if u.stabilized else C_RED, "%s +" % u.name.left(1)]
 			continue
@@ -582,6 +639,7 @@ func _refresh_column() -> void:
 			column.add_child(_hud_button("Overwatch", _on_overwatch))
 	var c := 0
 	var label := "Shoot"
+	var loud_warn := false
 	if aimed != null:
 		var pv: Dictionary = battle.shot_preview(u, aimed)
 		c = pv.chance
@@ -589,20 +647,28 @@ func _refresh_column() -> void:
 			label = "Shoot %d%%\n%s" % [c, "downs him" if pv.result == "down" else "wounds him"]
 			if pv.noise > 0:
 				label += " · ALARM" if battle.trips_alarm(pv.noise) else " · +%d noise" % pv.noise
+			var ours: int = battle.alive_units(Battle.US).size()
+			var theirs: int = battle.alive_units(Battle.REGIME).size()
+			if battle.goes_loud() and ours < theirs:
+				label += "\nGOES LOUD · %d vs %d" % [ours, theirs]
+				loud_warn = true
 		else:
 			label = "No line of sight"
 	if u.ap < 1:
 		label = "Shoot (no AP left)"
+		loud_warn = false
 	elif aimed == null:
 		label = "Shoot: tap a guard"
 	var shoot := _hud_button(label, _on_shoot)
 	shoot.disabled = c <= 0 or u.ap < 1
 	column.add_child(shoot)
 	for b in column.get_children():
-		b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+		b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 	if c > 0:
 		shoot.add_theme_font_size_override("font_size", 18)
-		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 70)
+		shoot.custom_minimum_size = Vector2(COLUMN_W - 10, 96 if loud_warn else 70)
+		if loud_warn:
+			shoot.add_theme_color_override("font_color", C_RED)
 
 
 ## Tool targeting overlay: valid targets faint, the chosen 3x3 strong; lights
@@ -660,14 +726,16 @@ func _frame_camera() -> void:
 	var ours: Array = battle.alive_units(Battle.US)
 	if ours.is_empty() or cam_offset == Vector3.ZERO:
 		return
-	var pts: Array[Vector2i] = []
+	# Phone readability (Nov 25): frame the unit you're moving plus who's near it, not the
+	# whole squad, so the camera can get close enough that bodies read on a phone.
+	var focus = selected if selected != null and selected.alive() else ours[0]
+	var pts: Array[Vector2i] = [focus.pos]
 	for u in ours:
-		pts.append(u.pos)
+		if u != focus and Battle._cheb(u.pos, focus.pos) <= FRAME_ALLY_RANGE:
+			pts.append(u.pos)
 	for g in battle.alive_units(Battle.REGIME):
-		for u in ours:
-			if Battle._cheb(g.pos, u.pos) <= 6:
-				pts.append(g.pos)
-				break
+		if Battle._cheb(g.pos, focus.pos) <= FRAME_GUARD_RANGE:
+			pts.append(g.pos)
 	var lo := Vector2(pts[0])
 	var hi := Vector2(pts[0])
 	for p in pts:
@@ -683,7 +751,7 @@ func _frame_camera() -> void:
 	# HUD bars, left of the action column). If none fits, the home framing.
 	var goal := CAM_HOME + cam_offset
 	var keep := cam.global_transform
-	for zoom in [0.66, 0.74, 0.82, 0.9, 1.0]:
+	for zoom in [0.5, 0.58, 0.66, 0.74, 0.82, 0.9, 1.0]:
 		var g: Vector3 = target + cam_offset * zoom
 		if _fits(g, target, pts):
 			goal = g
@@ -752,7 +820,7 @@ func _tool_column(u) -> void:
 	column.add_child(_hud_button("Cancel", func(): _start_tool("")))
 	for b in column.get_children():
 		if b is Button:
-			b.custom_minimum_size = Vector2(COLUMN_W - 10, 54)
+			b.custom_minimum_size = Vector2(COLUMN_W - 10, 64)
 
 
 ## "+4 noise", or "+4 noise: ALARM, 3 riot police in 2" when it would trip it.
@@ -778,18 +846,29 @@ func _confirm_tool() -> void:
 	match mode:
 		"smoke":
 			if battle.smoke(u, at):
+				Sfx.fx("smoke")
+				feel.shake(0.2)
 				_pop_at(at, "SMOKE", C_SMOKE)
 		"flash":
 			var hit: Array = battle.flash_targets(at)
 			if battle.flashbang(u, at):
+				Sfx.fx("flash")
+				feel.screen_flash(Color(1, 1, 0.95, 0.7), 0.5)
+				feel.shake(0.6)
+				feel.buzz(90)
 				_pop_at(at, "FLASH", Color(1, 1, 0.85))
 				for g in hit:
 					_pop(g, "STUNNED", C_FG)
 		"lights":
 			if battle.lights_out(u):
+				Sfx.fx("lights")
+				feel.screen_flash(Color(0, 0, 0, 0.55), 0.7)
 				_pop(u, "LIGHTS OUT", C_FG)
 		"radio":
+			var tried: bool = battle.can_radio(u)
 			var ok: bool = battle.radio(u)
+			if tried:
+				Sfx.fx("static", -4.0)
 			_pop(u, "THEY BUY IT" if ok else "BLOWN", C_GOOD if ok else C_RED)
 	_refresh()
 
@@ -812,6 +891,7 @@ func _tile_poly(p: Vector2i, inset: float) -> PackedVector2Array:
 func _draw_overlay() -> void:
 	if battle == null:
 		return
+	var bodies := _body_rects()
 	for y in range(Battle.H):
 		for x in range(Battle.W):
 			var p := Vector2i(x, y)
@@ -820,7 +900,17 @@ func _draw_overlay() -> void:
 				continue
 			var poly := _tile_poly(p, 0.04)
 			if tile_fill.has(p):
-				overlay.draw_colored_polygon(poly, tile_fill[p])
+				var fill: Color = tile_fill[p]
+				# The grid is 2D, drawn over the 3D cast: thin the fill where a body stands so the
+				# tiles don't paint over people (Nov 25, real 3D cast).
+				var r := Rect2(poly[0], Vector2.ZERO)
+				for q in poly:
+					r = r.expand(q)
+				for b: Rect2 in bodies:
+					if b.intersects(r):
+						fill.a *= TILE_UNDER_BODY
+						break
+				overlay.draw_colored_polygon(poly, fill)
 			var line := poly.duplicate()
 			line.append(poly[0])
 			overlay.draw_polyline(line, Color(0.9, 0.9, 0.85, 0.13), 1.0, true)
@@ -828,6 +918,23 @@ func _draw_overlay() -> void:
 	_draw_map_labels()
 	_draw_checker_path()
 	_draw_rings()
+
+
+const TILE_UNDER_BODY := 0.2
+
+## Screen boxes of the standing cast (feet to head), for _draw_overlay.
+func _body_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var up := Vector3(0, 1.8, 0)
+	for u in battle.units:
+		if not unit_nodes.has(u) or not unit_nodes[u].visible or not u.alive():
+			continue
+		var feet: Vector3 = unit_nodes[u].global_position
+		var a := cam.unproject_position(feet)
+		var b := cam.unproject_position(feet + up)
+		var h := a.distance_to(b)
+		out.append(Rect2(Vector2(minf(a.x, b.x) - h * 0.22, b.y), Vector2(absf(a.x - b.x) + h * 0.44, h * 0.92)))
+	return out
 
 
 func _draw_top() -> void:
@@ -857,6 +964,7 @@ func _process(delta: float) -> void:
 		overlay.queue_redraw()  # rings and tags follow units while they tween
 		top_overlay.queue_redraw()
 	_update_rigs()
+	_update_bodies()
 
 
 func _feet(u) -> Vector3:
@@ -1036,17 +1144,25 @@ func _face(u) -> void:
 
 # ---------- the end ----------
 
+var resumed_over := false
+
+
 func _show_result() -> void:
 	for c in result_buttons.get_children():
 		c.queue_free()
 	if not battle.mission:
 		var w: String = battle.winner()
+		PlayStats.log_event("fight_end", {"kind": "skirmish", "won": w == Battle.US, "turns": battle.turn})
 		result_label.text = "The yard is ours." if w == Battle.US else "The squad is down."
 		result_buttons.add_child(_hud_button("Fight again", func(): _new_battle(seed_value + 1)))
 		result_buttons.add_child(_hud_button("Back to the run", func(): get_tree().change_scene_to_file("res://scenes/game.tscn")))
 		result_panel.visible = true
 		return
 	var r: Dictionary = battle.mission_result()
+	if not resumed_over:
+		PlayStats.log_event("fight_end", {"kind": "run" if mission_meta.has("state") else "fight now", "aired": r.aired,
+			"out": r.out.size(), "hurt": r.hurt.size(), "dead": r.dead.size(), "kills": r.kills, "turns": battle.turn,
+			"noise": battle.noise, "alarm": battle.alarm})
 	var lines: Array[String] = []
 	lines.append("The footage aired." if r.aired else "The screens stayed on the regime's channel.")
 	if not r.out.is_empty():
@@ -1071,10 +1187,119 @@ func _show_result() -> void:
 
 func _return_to_run(r: Dictionary) -> void:
 	if mission_meta.has("state"):
+		FightSave.clear()  # the week finishes now; the run save takes over (never on Fight now)
 		mission_meta["result"] = r
 		Engine.set_meta("mission", mission_meta)
 	else:
 		Engine.remove_meta("mission")  # a test launch with no run behind it
+	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+
+# ---------- pause (QoL step 1, Nov 25) ----------
+# Leaving the app or pressing back pauses the fight behind a menu. "Save and quit" drops back
+# to the title; CONTINUE FIGHT resumes at the saved turn (QoL step 4, scripts/fight_save.gd).
+
+var pause_layer: CanvasLayer
+
+
+## For REPORT A BUG: the fight's state in one line.
+func bug_state() -> String:
+	if battle == null:
+		return "fight not built"
+	var out := "fight turn %d, side %s, mission %s, noise %d, alarm %s, upload %d" % [
+		battle.turn, battle.side, str(battle.mission), battle.noise, str(battle.alarm), battle.upload]
+	var us := []
+	for u in battle.units:
+		us.append("%s %s hp%d @%s%s" % [u.side, u.name, u.hp, str(u.pos), " dead" if u.dead else ""])
+	return out + " | " + "; ".join(us)
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:
+			_save_fight()  # now, not deferred: Android may kill the app right after
+			_set_paused.call_deferred(true)
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			_back.call_deferred()
+
+
+## Back: closes the settings sheet first (the fight stays paused), else toggles pause.
+func _back() -> void:
+	if SettingsSheet.close_open(self):
+		return
+	_set_paused(pause_layer == null)
+
+
+## Mid-fight save (scripts/fight_save.gd). Only fights a run launched; never under autoplay.
+func _save_fight() -> void:
+	if "--autoplay" in OS.get_cmdline_user_args() or battle == null:
+		return
+	FightSave.save(mission_meta, battle)
+
+
+func _set_paused(on: bool) -> void:
+	if "--autoplay" in OS.get_cmdline_user_args() or not is_inside_tree():
+		return
+	if on and (pause_layer != null or (result_panel and result_panel.visible)):
+		return
+	if not on:
+		if pause_layer:
+			pause_layer.queue_free()
+			pause_layer = null
+		get_tree().paused = false
+		return
+	get_tree().paused = true
+	if feel:
+		feel.settle()
+	_save_fight()
+	pause_layer = CanvasLayer.new()
+	pause_layer.layer = 20
+	pause_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(pause_layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.72)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_layer.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_layer.add_child(center)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 18)
+	center.add_child(box)
+	var t := _hud_label("PAUSED", 40, C_FG)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(t)
+	var resume := _hud_button("Resume", func(): _set_paused(false))
+	resume.custom_minimum_size = Vector2(360, 72)
+	box.add_child(resume)
+	var settings := _hud_button("Settings", func(): SettingsSheet.open(self))
+	settings.custom_minimum_size = Vector2(360, 72)
+	box.add_child(settings)
+	var run := mission_meta.has("state")
+	var quit := _hud_button("Save and quit to title" if run else "Quit to title", _quit_fight)
+	quit.custom_minimum_size = Vector2(360, 72)
+	box.add_child(quit)
+	if run:
+		# Duff's pick (Nov 26): keep the old way out too. Drops the saved fight; Continue then
+		# replays the week from its plan (the run save is from before the week resolved).
+		var replan := _hud_button("Quit and replan the week", _replan_week)
+		replan.name = "replan"
+		replan.custom_minimum_size = Vector2(360, 72)
+		box.add_child(replan)
+	resume.grab_focus.call_deferred()
+
+
+func _quit_fight() -> void:
+	_save_fight()  # Continue on the title picks the fight up at this turn
+	get_tree().paused = false
+	Engine.remove_meta("mission")
+	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+
+func _replan_week() -> void:
+	FightSave.clear()
+	get_tree().paused = false
+	Engine.remove_meta("mission")
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 
@@ -1145,12 +1370,15 @@ func _move_selected(p: Vector2i, sneak: bool) -> void:
 	var ok: bool = battle.sneak(selected, p) if sneak else battle.move(selected, p)
 	if not ok:
 		return
+	_coach_done()
+	sneak_walk = sneak
 	sneaking = false
 	busy = true
 	_refresh()
 	var n: Node3D = unit_nodes[selected]
 	var tw := create_tween()
 	for step in path:
+		tw.tween_callback(Sfx.fx.bind("step", -9.0 if sneak else 0.0))  # sneaking is quieter
 		tw.tween_property(n, "position", to_world(step) + Vector3(0, _ground(step), 0), 0.2 if sneak else 0.12)
 	await tw.finished
 	busy = false
@@ -1190,7 +1418,8 @@ func _on_overwatch() -> void:
 
 
 func _on_upload() -> void:
-	battle.do_upload(selected)
+	if battle.do_upload(selected):
+		Sfx.fx("static")
 	_refresh()
 
 
@@ -1208,8 +1437,22 @@ func _on_leave() -> void:
 	_refresh()
 
 
-func _flash(from, to, hit: bool) -> void:
+func _flash(from, to, hit: bool, last_on_target := true) -> void:
 	_rig_play(from, "shoot", to)
+	Sfx.fx("guard_shot" if from.side == Battle.REGIME else "shot")
+	if hit:
+		get_tree().create_timer(0.18, false).timeout.connect(Sfx.fx.bind("hurt"))
+	# Feel: a hit lands (hit-stop, shake, buzz); losing one of ours lands hardest.
+	feel.muzzle_smoke(world_root, to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0))
+	if hit:
+		var down: bool = not to.alive() and last_on_target   # replayed turns: only the shot that downed them
+		var ours: bool = to.side == Battle.US
+		feel.hit_stop(Feel.STOP_DOWN if down else Feel.STOP_HIT)
+		feel.shake((0.75 if down else 0.45) if ours else (0.5 if down else 0.3))
+		feel.buzz((160 if down else 70) if ours else 30)
+	else:
+		feel.shake(0.12)
+	_body_shoot(from, to)
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
 	var light := OmniLight3D.new()
 	light.position = a
@@ -1241,6 +1484,7 @@ func _pop(at, text: String, col: Color) -> void:
 
 
 func _on_end_turn() -> void:
+	Sfx.fx("type")
 	busy = true
 	aimed = null
 	sneaking = false
@@ -1254,20 +1498,22 @@ func _on_end_turn() -> void:
 	var tw := create_tween().set_parallel(true)
 	for u in battle.units:
 		if u.side == Battle.REGIME and before.has(u) and before[u] != u.pos:
+			tw.tween_callback(Sfx.fx.bind("step", -6.0))  # their boots on the gravel, as they set off
 			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
 	tw.tween_interval(0.5)
 	await tw.finished
-	for line in battle.log.slice(log_start):
-		if _shot_line(line):
-			_flash_from_line(line)
+	var shots: Array = battle.log.slice(log_start).filter(func(l): return _shot_line(l))
+	for i in shots.size():
+		_flash_from_line(shots[i], shots.slice(i + 1))
 	busy = false
 	if selected == null or not selected.alive():
 		var left: Array = battle.alive_units(Battle.US)
 		selected = left[0] if not left.is_empty() else null
 	_refresh()
+	_save_fight()  # checkpoint at the start of each of your turns
 
 
-func _flash_from_line(line: String) -> void:
+func _flash_from_line(line: String, later: Array = []) -> void:
 	var shooter = null
 	var target = null
 	for u in battle.units:
@@ -1276,7 +1522,8 @@ func _flash_from_line(line: String) -> void:
 		elif (" " + u.name + " ") in line or line.contains(" " + u.name + " ("):
 			target = u
 	if shooter != null and target != null:
-		_flash(shooter, target, " hits " in line or " hit " in line)
+		var again := later.any(func(l): return (" " + target.name + " ") in l or l.contains(" " + target.name + " ("))
+		_flash(shooter, target, " hits " in line or " hit " in line, not again)
 
 
 static func _shot_line(line: String) -> bool:
@@ -1418,7 +1665,9 @@ func _place(u, p: Vector2i) -> void:
 # "watch" a run: frames -> GIF with tools/make_gif.py, log -> log.txt.
 # Fails loudly (exit 1) if the mission stalls past MAX_AUTO_TURNS.
 
-const MissionSim = preload("res://tools/mission_sim.gd")
+## Loaded only when autoplay runs: tools/ is excluded from the Android export, and a const
+## preload of it broke this whole scene on the phone (Nov 25 fresh-eyes review).
+const MISSION_SIM_PATH := "res://tools/mission_sim.gd"
 const MAX_AUTO_TURNS := 30
 
 
@@ -1437,7 +1686,7 @@ func _autoplay(loud: bool, out: String) -> void:
 			if battle.is_over():
 				break
 			selected = u
-			MissionSim.act(battle, u, loud)
+			load(MISSION_SIM_PATH).act(battle, u, loud)
 			await _sync_nodes()
 			n = await _auto_frame(out, n)
 		if battle.is_over():
@@ -1548,8 +1797,14 @@ func _capture_sprite_sizes() -> void:
 
 # ---------- HD-2D cutout characters ----------
 
+## Off since Nov 25: the standards want real 3D on a humanoid skeleton, and the Meshy cast does that
+## (_update_bodies). The cutout code stays for now in case Duff wants the HD-2D look back.
+const USE_CUTOUTS := false
+
 ## Units without calibrated sprite joints still use their 3D models.
 func _rig_spec(u) -> Dictionary:
+	if not USE_CUTOUTS:
+		return {}
 	if u.defected:
 		return CutoutRig.DEFECTOR
 	if u.side == Battle.REGIME:
@@ -1840,3 +2095,100 @@ func _capture_rig(out_dir: String) -> void:
 		await _shot(kind[1])
 	print("rig poses saved")
 	get_tree().quit()
+
+
+# ---------- 3D cast animation (Meshy clips) ----------
+
+var body_seen := {}      # unit -> [feet position, hp] last frame
+var body_shot_until := {} # unit -> msec when the shoot pose ends
+
+## Pick each body's clip from what the unit is doing: walking (sneaking crouches, 1 hp limps),
+## shooting, hit when it loses hp, the death clip when it goes down, idle otherwise.
+func _update_bodies() -> void:
+	if battle == null:
+		return
+	var now := Time.get_ticks_msec()
+	for u in battle.units:
+		if not unit_nodes.has(u) or not unit_nodes[u].has_meta("anim"):
+			continue
+		var n: Node3D = unit_nodes[u]
+		var ap: AnimationPlayer = n.get_meta("anim")
+		var feet := n.global_position
+		var seen: Array = body_seen.get(u, [feet, u.hp])
+		var moving: bool = (feet - seen[0]).length_squared() > 0.0005 * 0.0005
+		var body: Node3D = n.get_node("Body")
+		var want := "c/idle"
+		if not u.alive():
+			want = "c/death"
+		elif u.hp < seen[1]:
+			want = "c/hit"
+		elif body_shot_until.get(u, 0) > now:
+			want = "c/shoot"
+		elif moving:
+			want = "c/sneak" if sneak_walk and u == selected else ("c/injured_walk" if u.hp <= 1 else "c/walk")
+			var d: Vector3 = feet - seen[0]
+			n.rotation.y = atan2(d.x, d.z) + PI
+		elif ap.current_animation in ["c/hit"] and ap.is_playing():
+			want = "c/hit"
+		if want != "c/shoot":
+			body.rotation.y = PI
+		# One-shot clips (death, shoot) end with current_animation == "": compare the assigned
+		# clip too, or a dead body gets up and falls again every clip length (fresh-eyes, Nov 25).
+		var once := want == "c/death" or want == "c/shoot"
+		if ap.current_animation != want and not (once and ap.assigned_animation == want):
+			ap.play(want, 0.15)
+			if want == "c/shoot":
+				ap.seek(SHOOT_FROM, true)
+		body_seen[u] = [feet, u.hp]
+
+
+## The shoot clip draws, turns side-on and fires with the right arm out. Show its firing
+## stretch, turned so that arm points at the target.
+const SHOOT_FROM := 1.8
+const SHOOT_FOR_MS := 1100
+
+func _body_shoot(from, to) -> void:
+	if not unit_nodes.has(from) or not unit_nodes[from].has_meta("anim"):
+		return
+	var n: Node3D = unit_nodes[from]
+	var d: Vector3 = to_world(to.pos) - to_world(from.pos)
+	n.rotation.y = atan2(d.x, d.z) + PI
+	(n.get_node("Body") as Node3D).rotation.y = PI + PI / 2.0
+	body_shot_until[from] = Time.get_ticks_msec() + SHOOT_FOR_MS
+
+
+# ---------- first-minute coach (standards/08: teach by doing, 4 words, once) ----------
+
+const COACH_FILE := "user://coach.cfg"
+var coach: Label
+var sneak_walk := false   # the move now playing was a sneak (sneaking resets as it starts)
+
+func _build_coach(ui: CanvasLayer) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	if cfg.get_value("seen", "move", false) or "--autoplay" in OS.get_cmdline_user_args():
+		return
+	coach = _hud_label("Tap a blue tile", 30, C_FG)
+	coach.autowrap_mode = TextServer.AUTOWRAP_OFF
+	coach.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coach.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	coach.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	coach.position.y -= BOTTOM_H + 64
+	coach.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	coach.add_theme_constant_override("outline_size", 10)
+	ui.add_child(coach)
+	var tw := create_tween().set_loops()
+	tw.tween_property(coach, "modulate:a", 0.45, 0.7)
+	tw.tween_property(coach, "modulate:a", 1.0, 0.7)
+
+
+## The first move teaches it: the hint goes, for good.
+func _coach_done() -> void:
+	if coach == null:
+		return
+	coach.queue_free()
+	coach = null
+	var cfg := ConfigFile.new()
+	cfg.load(COACH_FILE)
+	cfg.set_value("seen", "move", true)
+	cfg.save(COACH_FILE)
