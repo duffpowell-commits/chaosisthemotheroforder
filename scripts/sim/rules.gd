@@ -64,7 +64,9 @@ static func reading(s: RunState, zone: String) -> Dictionary:
 			var idx := true_idx
 			if h < 20:
 				idx = clampi(true_idx + (1 if h % 2 == 0 else -1), 0, 3)
-			return {"certainty": "Likely", "label": states[idx], "attention": -1}
+			# Your listeners still have ears there: the regime's eyes this week show (8.5 pass, Nov 26:
+			# a first-timer listened and still read "Regime eyes: unknown").
+			return {"certainty": "Likely", "label": states[idx], "attention": z.attention}
 		_:
 			var lo := clampi(true_idx - 1 if hash("%d:%s" % [s.run_seed, zone]) % 2 == 0 else true_idx, 0, 2)
 			return {"certainty": "Rumor", "label": "%s or %s" % [states[lo], states[lo + 1]], "attention": -1}

@@ -2,8 +2,8 @@ extends RefCounted
 ## Player-facing text for the slice UI: action cards, choices, bulletins, endings.
 
 const ACTIONS := {
-	"aid": {"title": "Aid run", "desc": "Food and medicine. Sentiment +10. Quiet unless it fails.", "zone": "Deliver where?"},
-	"expose": {"title": "Expose", "desc": "Posters and leaflets. Sentiment +8, Legitimacy +1. Heat +1.", "zone": "Paper which walls?"},
+	"aid": {"title": "Aid run", "desc": "Food and medicine. Support +10. Quiet unless it fails.", "zone": "Deliver where?"},
+	"expose": {"title": "Expose", "desc": "Posters and leaflets. Support +8, Legitimacy +1. Heat +1.", "zone": "Paper which walls?"},
 	"recruit": {"title": "Recruit", "desc": "Find new hands. +1 operative, +2 if the zone is Sympathetic. Heat +1.", "zone": "Recruit where?"},
 	"scavenge": {"title": "Scavenge", "desc": "Scrapyards: cash, supplies or parts. Small risk of being stopped."},
 	"listen": {"title": "Listen", "desc": "Sit in the bars and stairwells. Confirms what a zone really thinks.", "zone": "Listen where?"},
@@ -22,8 +22,8 @@ const ACTIONS := {
 ## good (green, +), heat (red, flame icon), bad (red outline), info (ink outline).
 ## Costs come from Rules.ACTIONS, not from here. Keep in sync with ACTIONS above.
 const ACTION_CARDS := {
-	"aid": {"line": "Food and medicine. Quiet unless it fails.", "fx": [["+10 Sentiment", "good"]]},
-	"expose": {"line": "Posters and leaflets.", "fx": [["+8 Sentiment", "good"], ["+1 Legitimacy", "good"], ["+1 Heat", "heat"]]},
+	"aid": {"line": "Food and medicine. Quiet unless it fails.", "fx": [["+10 Support", "good"]]},
+	"expose": {"line": "Posters and leaflets.", "fx": [["+8 Support", "good"], ["+1 Legitimacy", "good"], ["+1 Heat", "heat"]]},
 	"recruit": {"line": "Find new hands.", "fx": [["+1 operative", "good"], ["+2 if Sympathetic", "good"], ["+1 Heat", "heat"]]},
 	"scavenge": {"line": "Scrapyards. You might get stopped.", "fx": [["+cash, supplies or parts", "good"]]},
 	"listen": {"line": "Bars and stairwells.", "fx": [["Confirms a zone's mood", "info"]]},

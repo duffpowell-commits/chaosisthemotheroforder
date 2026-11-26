@@ -56,6 +56,11 @@ const BROADCAST_STUN := 1   # regime turns the guards lose watching the footage 
 ## Loud-play fix (Nov 26): your opening shot catches patrolling guards off guard. Each one it wakes spends
 ## his next turn diving for cover instead of shooting back (XCOM-style). Subdues, shouts and other noise don't.
 const CAUGHT_OFF_GUARD := true
+## 8.5 pass (Nov 26, first-timer review: "the quiet route looks like the trap"): a guard who was
+## on patrol when the regime turn began spots and shouts, takes cover or closes in, but holds
+## fire until next turn. Guards only shoot a hidden (sneaking) unit they can actually spot.
+const FIRST_CONTACT := true
+const SEARCH_SIGHT := 4     # an alerted guard can aim at a sneaking unit this close (patrols: HIDDEN_SIGHT)
 # White Flag step 1 (Nov 26, Duff: "Build it (lights don't drain)"): guards have nerve. A hit, a
 # partner within PARTNER_RANGE going down / subdued / coming over, a flashbang and the broadcast
 # each drain 1. At 0 he breaks: surrenders if one of yours is within SURRENDER_RANGE and in sight,
@@ -152,6 +157,7 @@ var radio_used := false
 var white_flag := WHITE_FLAG  # missions only; fight saves from before it resume with it on (mission_sim "nowf" turns it off)
 var prisoners := 0          # guards who surrendered
 var fled := 0               # guards who broke and ran
+var fresh: Array = []       # 8.5 pass: guards on patrol when this regime turn began; they don't shoot it
 
 
 # ---------- setup ----------
@@ -560,7 +566,7 @@ func _fire(u: Unit, target: Unit, c: int) -> bool:
 	if u.side == US and side == US:
 		for g in alive_units(REGIME):
 			g.startled = g.startled or g.state == PATROL   # caught off guard by your opening shot
-	alert_all("%s fires" % u.name)
+	alert_all("%s %s" % [u.name, _verb(u, "fires")])
 	if u.side == US:
 		add_noise(NOISE_SHOT, u.pos)
 	var hit := rng.randi_range(1, 100) <= c
@@ -985,6 +991,7 @@ func end_turn() -> void:
 					u.dead = true
 					log.append("%s %s out" % [u.name, _verb(u, "bleeds")])
 	side = REGIME
+	fresh = alive_units(REGIME).filter(func(g): return mission and FIRST_CONTACT and g.state == PATROL)
 	for g in alive_units(REGIME):
 		g.ap = AP_PER_TURN
 	# Caught off guard: whoever your turn startled out of a patrol spends this turn diving for cover.
@@ -1013,6 +1020,7 @@ func end_turn() -> void:
 		reinforce_in -= 1
 		if reinforce_in == 0:
 			_reinforce()
+	fresh = []
 	side = US
 	for u in alive_units(US):
 		u.ap = AP_PER_TURN
@@ -1149,7 +1157,23 @@ func _spotted_by(u: Unit) -> void:
 		alert_all("%s spots you" % u.name)
 		return
 	u.state = ALERT
-	log.append("%s spots you and shouts" % u.name)
+	var seen: Array = enemies_of(u).filter(func(e): return can_spot(u.pos, e))
+	var why := ""
+	if not seen.is_empty():
+		var e: Unit = seen[0]
+		for o in seen:
+			if _cheb(u.pos, o.pos) < _cheb(u.pos, e.pos):
+				e = o
+		var d := _cheb(u.pos, e.pos)
+		if e.hidden:
+			why = "%s (%d tiles: too close to stay hidden)" % [e.name, d]
+		elif dark > 0 and (u.pos.y <= DARK_ROWS or e.pos.y <= DARK_ROWS):
+			why = "%s (%d tiles, in the dark)" % [e.name, d]
+		else:
+			why = "%s (%d tiles, in the open)" % [e.name, d]
+		for o in seen:
+			o.hidden = false   # seen is seen: the others know where to aim now
+	log.append("%s spots %s and shouts" % [u.name, why if why != "" else "you"])
 	add_noise(NOISE_SHOUT, u.pos)
 
 
@@ -1225,7 +1249,11 @@ func _fight(u: Unit) -> void:
 		move(u, best)
 	if not u.alive():
 		return
-	# 2. Spend what's left on shots.
+	# 2. Spend what's left on shots (not on first contact: he only just saw you).
+	if u in fresh:
+		if _best_target(u) != null:
+			log.append("%s takes aim but holds fire" % u.name)
+		return
 	while u.ap > 0:
 		var t := _best_target(u)
 		if t == null or chance(u, t) < 15:
@@ -1238,11 +1266,24 @@ func _best_target(u: Unit) -> Unit:
 	var t: Unit = null
 	var tc := 0
 	for f in enemies_of(u):
+		if not _can_target(u, f):
+			continue
 		var c := chance(u, f)
 		if c > tc or (c == tc and t != null and f.hp < t.hp):
 			t = f
 			tc = c
 	return t
+
+
+## A guard can't aim at a sneaking unit he can't see (mission only).
+func _can_target(u: Unit, f: Unit, from := Vector2i(-99, -99)) -> bool:
+	if not mission or u.side != REGIME or not f.hidden:
+		return true
+	var at := u.pos if from.x == -99 else from
+	if u.state != PATROL and not in_smoke(at) and not in_smoke(f.pos):
+		# A guard who's looking for you finds a sneaker further out than a bored patrol does.
+		return _cheb(at, f.pos) <= SEARCH_SIGHT and line_of_sight(at, f.pos)
+	return can_spot(at, f)
 
 
 func _spot_score(u: Unit, p: Vector2i) -> float:
@@ -1252,6 +1293,8 @@ func _spot_score(u: Unit, p: Vector2i) -> float:
 func _best_attack(u: Unit, p: Vector2i) -> int:
 	var best := 0
 	for f in enemies_of(u):
+		if not _can_target(u, f, p):
+			continue
 		best = maxi(best, chance_from(p, f.pos))
 	return best
 
