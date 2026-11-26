@@ -970,3 +970,29 @@ func test_textures_ship_lossy() -> void:
 				var txt := FileAccess.get_file_as_string(dir + "/" + f)
 				if txt.contains('importer="texture"'):
 					check(txt.contains("compress/mode=1"), "lossy import: %s/%s (run tools/texture_policy.py)" % [dir, f])
+
+
+func test_play_stats_summary() -> void:
+	# Item 7 step 2 (Nov 26): play stats stay on the phone and ride along on REPORT A BUG.
+	var st = load("res://scripts/stats.gd").new()
+	var path: String = ProjectSettings.globalize_path(st.EVENTS)
+	var keep := FileAccess.get_file_as_string(st.EVENTS) if FileAccess.file_exists(st.EVENTS) else ""
+	if FileAccess.file_exists(st.EVENTS):
+		DirAccess.remove_absolute(path)
+	st.event("session_start")
+	st.event("run_start", {"seed": 1})
+	st.event("week_done", {"week": 2})
+	st.event("fight_end", {"aired": true, "out": 2})
+	st.event("left", {"at": "fight turn 3"})
+	st.event("left", {"at": "fight turn 5"})
+	st.event("left", {"at": "district"})
+	var s: String = st.summary()
+	check(s.contains("runs 1") and s.contains("best week 2") and s.contains("aired 1") and s.contains("got out 1"), "stats summary counts: " + s)
+	check(s.contains("left at: fight x2, district x1"), "stats summary says where players leave: " + s)
+	for i in range(st.MAX_LINES + 5):
+		st.event("x")
+	check(st.events().size() == st.MAX_LINES, "event log is capped at %d" % st.MAX_LINES)
+	DirAccess.remove_absolute(path)
+	if keep != "":
+		FileAccess.open(st.EVENTS, FileAccess.WRITE).store_string(keep)
+	st.free()

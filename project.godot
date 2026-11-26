@@ -15,6 +15,7 @@ Fonts="*res://scripts/fonts.gd"
 Settings="*res://scripts/settings.gd"
 Audio="*res://scripts/audio.gd"
 Updater="*res://scripts/updater.gd"
+Stats="*res://scripts/stats.gd"
 
 [display]
 

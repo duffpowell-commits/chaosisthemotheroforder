@@ -13,6 +13,7 @@ const Story = preload("res://scripts/dialogue/story.gd")
 const FightSave = preload("res://scripts/fight_save.gd")
 const Sfx = preload("res://scripts/audio.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
+const PlayStats = preload("res://scripts/stats.gd")
 
 const SAVE_PATH := "user://run.save"
 ## The week's half-made plan, saved when the app loses focus or the back button leaves
@@ -393,7 +394,8 @@ func show_ending() -> void:
 	again.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	again.custom_minimum_size.x = 280
 	box.add_child(again)
-	if FileAccess.file_exists(SAVE_PATH):
+	if FileAccess.file_exists(SAVE_PATH):   # first time this ending shows (the save goes now)
+		PlayStats.log_event("run_end", {"ending": s.ending, "week": s.week, "legitimacy": s.legitimacy, "kills": s.kills})
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 
 
@@ -405,6 +407,7 @@ func _new_run() -> void:
 	plan.clear()
 	FightSave.clear()
 	_save()
+	PlayStats.log_event("run_start", {"seed": s.run_seed})
 	show_district()
 
 
@@ -471,6 +474,8 @@ func _after_mission(m: Dictionary) -> void:
 func _after_resolve(entries: Array, before: Dictionary) -> void:
 	plan.clear()
 	_save()
+	PlayStats.log_event("week_done", {"week": s.week - 1, "heat": s.heat, "cash": s.cash,
+		"legitimacy": s.legitimacy, "ops": s.operatives.size(), "actions": entries.map(func(e): return e.action)})
 	var beats := Story.post_beats(before, s.teodor, entries).map(func(n): return {"node": n})
 	_play_scenes(beats, [], show_report)
 

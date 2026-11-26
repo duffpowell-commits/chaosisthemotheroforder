@@ -114,6 +114,15 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   ones the code loads, painted backdrops). Shipped assets ~40 MB (est. APK ~70 MB). Before/after: `docs/renders/perf/`
   (no visible change). Settings got FPS (counter top-left, green 55+, amber 30+, red under). **New art: run
   `python3 tools/texture_policy.py` before committing**; new folders need a POLICY row. The export excludes `civilian_*`, `operative_*`, `kesh/*`, `teodor/*` whole, `display/` copies too (nothing loads them yet): a new cutout for one of them must narrow that pattern or it won't ship.
+- **Nov 26: web size + play stats, step 2** (item 7, Duff: "Ship + do step 2"): the web build was 90 MB pck + 38 MB wasm;
+  now 43 MB pck + 39.5 MB wasm (~51 MB gzipped on the wire). The animation sources (`assets/characters/meshy/clips_src/`,
+  15 MB) are out of both exports; the game only loads the extracted `clips/*.res`. Renders of the web build in headless
+  Chromium: `docs/renders/perf/web_title.png`, `web_fight.png` (cast poses fine). **Play stats**: autoload `Stats`
+  (`scripts/stats.gd`, from the starter's Telemetry): `user://events.jsonl` (last 500) logs session_start, run_start,
+  week_done, fight_start/fight_end (aired, got out, dead, turns, noise), run_end (ending), crash_suspected, and `left`
+  with the screen the player was on (where people quit). Nothing leaves the phone (no collector yet); the summary rides
+  on REPORT A BUG (`stats:` line). Call `PlayStats.log_event` (preload; `--script` runs don't register autoload names).
+  Checked in `tools/qol_check.gd` and rule test `test_play_stats_summary`.
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI
   `.github/workflows/build.yml` (replaces tests.yml) builds a signed APK on every PR and push to main;
   on main `chaosisthemotheroforder.apk` + `version.json` go to Releases -> `dev`. In-app updates
