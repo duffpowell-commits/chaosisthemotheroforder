@@ -98,13 +98,18 @@ func _run() -> void:
 	f._flash.color.a = 0.0   # the tool loop's flashbang may still be fading
 	f.screen_flash(Color(1, 1, 1, 0.7), 0.5)
 	expect(f._flash.color.a == 0.0, "SHAKE off: no screen flash")
+	await create_timer(1.6, true, false, true).timeout   # the earlier alarm's pulse plays out
+	(f._edge.material as ShaderMaterial).set_shader_parameter("amount", 0.0)
+	f.alarm_pulse()
+	await create_timer(0.2, true, false, true).timeout
+	expect(float((f._edge.material as ShaderMaterial).get_shader_parameter("amount")) == 0.0, "SHAKE off: no alarm pulse")
 	st.set_value("shake", true)
 	f.screen_flash(Color(1, 1, 1, 0.7), 0.5)
 	expect(f._flash.color.a > 0.5, "flashbang whites the screen")
 	f.alarm_pulse()
-	await create_timer(0.12, true, false, true).timeout
+	await create_timer(0.15, true, false, true).timeout
 	expect(float((f._edge.material as ShaderMaterial).get_shader_parameter("amount")) > 0.1, "alarm pulses the screen edge red")
-	await create_timer(1.2, true, false, true).timeout
+	await create_timer(1.8, true, false, true).timeout
 	# Buttons click; End turn types.
 	await create_timer(0.1).timeout
 	n = a.heard.size()

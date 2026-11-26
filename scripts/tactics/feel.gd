@@ -13,9 +13,10 @@ const SHAKE_HZ := 22.0
 const STOP_SCALE := 0.05
 const STOP_HIT := 0.06
 const STOP_DOWN := 0.14
-## Alarm edge pulse: three red beats round the screen edge.
+## Alarm edge pulse: three red beats round the screen edge, ~2 a second (under the 3 Hz
+## photosensitivity line), and only with SHAKE on, like every other screen flash.
 const ALARM_BEATS := 3
-const ALARM_BEAT := 0.32
+const ALARM_BEAT := 0.5
 const ALARM_ALPHA := 0.55
 
 var cam: Camera3D
@@ -52,6 +53,14 @@ void fragment() {
 	mat.shader = sh
 	_edge.material = mat
 	layer.add_child(_edge)
+
+
+## Pause: the camera settles instead of freezing mid-shake.
+func settle() -> void:
+	trauma = 0.0
+	if cam:
+		cam.h_offset = 0.0
+		cam.v_offset = 0.0
 
 
 func _exit_tree() -> void:
@@ -104,7 +113,7 @@ func screen_flash(col: Color, dur: float) -> void:
 
 
 func alarm_pulse() -> void:
-	if _edge == null:
+	if _edge == null or not _setting("shake"):
 		return
 	var mat := _edge.material as ShaderMaterial
 	var tw := create_tween().set_ignore_time_scale()

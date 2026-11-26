@@ -104,7 +104,7 @@ police state. Owner: Duff. Read this first; it is the handoff between sessions.
   shake (trauma² on `cam.h_offset/v_offset`, so it never fights the framing tweens), hit-stop (`Engine.time_scale` 0.05
   for 60 ms, 140 ms when someone goes down; real-time timer, reset on exit), phone buzz (`Input.vibrate_handheld`),
   muzzle smoke (CPUParticles3D), flashbang white-out, lights-out dip to black, three red edge beats when the alarm trips
-  (canvas layer 2, under the HUD). Losing one of ours lands hardest. Settings: SHAKE (shake + screen flashes) and BUZZ,
+  (canvas layer 2, under the HUD, ~2 beats a second). Losing one of ours lands hardest. Settings: SHAKE (shake + screen flashes) and BUZZ,
   both on by default. Checked in `tools/sound_check.gd`. Renders `docs/renders/feel/` (effects shown at peak: the
   sandbox runs ~600 ms a frame, so a timed capture misses them). Item 6 done once merged; next is item 7 (perf/size/stats).
 - **Nov 25: phone APK** (standards audit item 1, Duff tapped "1 + 2 now"): Android preset, CI

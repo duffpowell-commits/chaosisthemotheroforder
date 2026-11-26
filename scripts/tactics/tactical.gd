@@ -1227,6 +1227,8 @@ func _set_paused(on: bool) -> void:
 		get_tree().paused = false
 		return
 	get_tree().paused = true
+	if feel:
+		feel.settle()
 	_save_fight()
 	pause_layer = CanvasLayer.new()
 	pause_layer.layer = 20
@@ -1413,7 +1415,7 @@ func _on_leave() -> void:
 	_refresh()
 
 
-func _flash(from, to, hit: bool) -> void:
+func _flash(from, to, hit: bool, last_on_target := true) -> void:
 	_rig_play(from, "shoot", to)
 	Sfx.fx("guard_shot" if from.side == Battle.REGIME else "shot")
 	if hit:
@@ -1421,7 +1423,7 @@ func _flash(from, to, hit: bool) -> void:
 	# Feel: a hit lands (hit-stop, shake, buzz); losing one of ours lands hardest.
 	feel.muzzle_smoke(world_root, to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0))
 	if hit:
-		var down: bool = not to.alive()
+		var down: bool = not to.alive() and last_on_target   # replayed turns: only the shot that downed them
 		var ours: bool = to.side == Battle.US
 		feel.hit_stop(Feel.STOP_DOWN if down else Feel.STOP_HIT)
 		feel.shake((0.75 if down else 0.45) if ours else (0.5 if down else 0.3))
@@ -1478,9 +1480,9 @@ func _on_end_turn() -> void:
 			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
 	tw.tween_interval(0.5)
 	await tw.finished
-	for line in battle.log.slice(log_start):
-		if _shot_line(line):
-			_flash_from_line(line)
+	var shots: Array = battle.log.slice(log_start).filter(func(l): return _shot_line(l))
+	for i in shots.size():
+		_flash_from_line(shots[i], shots.slice(i + 1))
 	busy = false
 	if selected == null or not selected.alive():
 		var left: Array = battle.alive_units(Battle.US)
@@ -1489,7 +1491,7 @@ func _on_end_turn() -> void:
 	_save_fight()  # checkpoint at the start of each of your turns
 
 
-func _flash_from_line(line: String) -> void:
+func _flash_from_line(line: String, later: Array = []) -> void:
 	var shooter = null
 	var target = null
 	for u in battle.units:
@@ -1498,7 +1500,8 @@ func _flash_from_line(line: String) -> void:
 		elif (" " + u.name + " ") in line or line.contains(" " + u.name + " ("):
 			target = u
 	if shooter != null and target != null:
-		_flash(shooter, target, " hits " in line or " hit " in line)
+		var again := later.any(func(l): return (" " + target.name + " ") in l or l.contains(" " + target.name + " ("))
+		_flash(shooter, target, " hits " in line or " hit " in line, not again)
 
 
 static func _shot_line(line: String) -> bool:
