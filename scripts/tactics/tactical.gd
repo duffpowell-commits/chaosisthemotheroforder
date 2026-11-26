@@ -15,6 +15,7 @@ const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 const FightSave = preload("res://scripts/fight_save.gd")
 const Sfx = preload("res://scripts/audio.gd")
 const Feel = preload("res://scripts/tactics/feel.gd")
+const PlayStats = preload("res://scripts/stats.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -204,12 +205,16 @@ func _new_battle(s: int) -> void:
 	add_child(world_root)
 	if mission_meta.is_empty():
 		battle = Battle.create_skirmish(s)
+		PlayStats.log_event("fight_start", {"kind": "skirmish"})
 	elif mission_meta.has("resume"):
 		# Continue from the title: the fight as it stood at the last save (QoL step 4).
 		battle = Battle.from_dict(mission_meta.resume)
 		mission_meta.erase("resume")
+		resumed_over = battle.is_over()  # its fight_end is logged already; no fight_start for a resume either
 	else:
 		battle = Battle.create_mission(mission_meta.params)
+		PlayStats.log_event("fight_start", {"kind": "run" if mission_meta.has("state") else "fight now",
+			"guards": int(mission_meta.params.get("guards", 0)), "squad": mission_meta.params.get("squad", []).size()})
 	unit_nodes.clear()
 	unit_tags.clear()
 	for c in rig_clips.values():
@@ -1130,17 +1135,25 @@ func _face(u) -> void:
 
 # ---------- the end ----------
 
+var resumed_over := false
+
+
 func _show_result() -> void:
 	for c in result_buttons.get_children():
 		c.queue_free()
 	if not battle.mission:
 		var w: String = battle.winner()
+		PlayStats.log_event("fight_end", {"kind": "skirmish", "won": w == Battle.US, "turns": battle.turn})
 		result_label.text = "The yard is ours." if w == Battle.US else "The squad is down."
 		result_buttons.add_child(_hud_button("Fight again", func(): _new_battle(seed_value + 1)))
 		result_buttons.add_child(_hud_button("Back to the run", func(): get_tree().change_scene_to_file("res://scenes/game.tscn")))
 		result_panel.visible = true
 		return
 	var r: Dictionary = battle.mission_result()
+	if not resumed_over:
+		PlayStats.log_event("fight_end", {"kind": "run" if mission_meta.has("state") else "fight now", "aired": r.aired,
+			"out": r.out.size(), "hurt": r.hurt.size(), "dead": r.dead.size(), "kills": r.kills, "turns": battle.turn,
+			"noise": battle.noise, "alarm": battle.alarm})
 	var lines: Array[String] = []
 	lines.append("The footage aired." if r.aired else "The screens stayed on the regime's channel.")
 	if not r.out.is_empty():

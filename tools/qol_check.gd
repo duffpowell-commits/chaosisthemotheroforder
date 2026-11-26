@@ -213,6 +213,20 @@ func _bug_checks() -> void:
 	await _frames(20)
 	var ftxt: String = BugReport.report_text("", self)
 	expect(ftxt.contains("fight turn 1") and ftxt.contains("hp"), "fight reports carry turn and units")
+	# Play stats (item 7 step 2): runs and fights are logged, leaving logs where, reports carry the summary.
+	var stn: Node = root.get_node_or_null("Stats")
+	expect(stn != null, "Stats autoload is there")
+	if stn != null:
+		stn._mark_running(stn.where_now())
+		stn._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+		var evs: Array = stn.events()
+		var names := evs.slice(-6).map(func(e): return e.e)   # this check's own events: run_start ... fight_start, left
+		expect(names.has("run_start") and names.has("fight_start") and evs[-2].e == "fight_start" and evs[-2].p.get("kind") == "fight now", "stats log runs and fights (%s)" % str(names))
+		expect(evs[-1].e == "left" and str(evs[-1].p.at).begins_with("fight turn"), "leaving logs the screen (%s)" % str(evs[-1]))
+		stn._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+		expect(stn.events()[-1].e == "left" and stn.events().size() == evs.size(), "pause right after focus-out doesn't log twice")
+		stn._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+		expect(BugReport.report_text("", self).contains("stats: sessions"), "bug reports carry the stats summary")
 	current_scene._quit_fight()
 	await _frames(6)
 	bug_done = true

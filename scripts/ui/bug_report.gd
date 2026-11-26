@@ -31,6 +31,9 @@ static func report_text(note: String, tree: SceneTree) -> String:
 			"LOW" if st.get_value("low_graphics") else "HIGH"])
 	if state != "":
 		lines.append("state: " + state)
+	var stats: Node = tree.root.get_node_or_null("Stats")
+	if stats != null:
+		lines.append("stats: " + stats.summary())
 	return "\n".join(lines)
 
 
