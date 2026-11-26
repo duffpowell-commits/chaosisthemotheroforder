@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>Chaos Is the Mother of Order</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: #242424;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="chaos-3073806.icon.png" />
+<link rel="apple-touch-icon" href="chaos-3073806.apple-touch-icon.png"/>
+<script>
+// Chaos is landscape (1280x720). iPhone in-app browsers (Messenger, Instagram) and a phone with
+// rotation lock never turn the page, so a portrait phone would get a tiny letterboxed strip.
+// This turns the game sideways in portrait: the canvas is drawn rotated 90 degrees to fill the
+// screen, Godot is told the window is landscape, and every touch/click is mapped back.
+// Source of the copy inlined in export_presets.cfg (Web -> html/head_include); keep them equal
+// (tests/run_tests.gd checks). Why (Nov 26, 2026): DuffQuest's "turn sideways" note didn't help
+// testers stuck in Messenger's browser.
+(function () {
+  // Some browsers keep innerWidth on window itself, others on Window.prototype: take whichever exists.
+  function desc(n) { return Object.getOwnPropertyDescriptor(window, n) || Object.getOwnPropertyDescriptor(Window.prototype, n) || null; }
+  var realW = desc("innerWidth"), realH = desc("innerHeight");
+  if (realW && !realW.get) realW = null;
+  if (realH && !realH.get) realH = null;
+  function rw() { return realW ? realW.get.call(window) : document.documentElement.clientWidth; }
+  function rh() { return realH ? realH.get.call(window) : document.documentElement.clientHeight; }
+  var swapped = false;
+  function sideways() { return swapped && rh() > rw(); }
+  // Godot sizes its canvas from innerWidth/innerHeight (canvas_resize_policy 2): swap them.
+  var gw = function () { return sideways() ? rh() : rw(); };
+  var gh = function () { return sideways() ? rw() : rh(); };
+  try {
+    Object.defineProperty(window, "innerWidth", { configurable: true, get: gw });
+    Object.defineProperty(window, "innerHeight", { configurable: true, get: gh });
+    // If the browser ignored the swap, don't rotate: a letterboxed game beats one with misplaced taps.
+    var dw = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    var dh = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    swapped = !!(dw && dw.get === gw && dh && dh.get === gh);
+  } catch (e) { swapped = false; }
+  function canvas() { return document.getElementById("canvas"); }
+  function place() {
+    var c = canvas();
+    if (!c) return;
+    if (sideways()) {
+      c.style.position = "fixed";
+      c.style.left = "0px";
+      c.style.top = "0px";
+      c.style.transformOrigin = "0 0";
+      c.style.transform = "translateX(" + rw() + "px) rotate(90deg)";
+    } else {
+      c.style.transform = "";
+    }
+  }
+  // Godot maps a touch with canvas.getBoundingClientRect() and clientX/Y; hand it the unrotated box.
+  function patchRect() {
+    var c = canvas();
+    if (!c || c.__chaosRect) return;
+    var orig = c.getBoundingClientRect.bind(c);
+    c.getBoundingClientRect = function () {
+      if (!sideways()) return orig();
+      var w = rh(), h = rw();
+      return { x: 0, y: 0, left: 0, top: 0, right: w, bottom: h, width: w, height: h };
+    };
+    c.__chaosRect = true;
+  }
+  // Screen point (sx, sy) -> unrotated canvas point: u = sy, v = screenWidth - sx.
+  function fix(o) {
+    var sx = o.clientX, sy = o.clientY;
+    try {
+      Object.defineProperty(o, "clientX", { configurable: true, value: sy });
+      Object.defineProperty(o, "clientY", { configurable: true, value: rw() - sx });
+    } catch (e) {}
+  }
+  function onPointer(ev) {
+    if (!sideways() || ev.__chaosFixed) return;
+    ev.__chaosFixed = true;
+    if (ev.changedTouches) {
+      var seen = [];
+      [ev.touches, ev.changedTouches, ev.targetTouches].forEach(function (list) {
+        if (!list) return;
+        for (var i = 0; i < list.length; i++) {
+          var t = list[i];
+          if (seen.indexOf(t) < 0 && !t.__chaosFixed) { seen.push(t); fix(t); t.__chaosFixed = true; }
+        }
+      });
+    } else if (typeof ev.clientX === "number") {
+      fix(ev);
+    }
+  }
+  ["touchstart", "touchmove", "touchend", "touchcancel", "mousedown", "mousemove", "mouseup"].forEach(function (n) {
+    window.addEventListener(n, onPointer, { capture: true, passive: true });
+  });
+  function tick() { patchRect(); place(); }
+  window.addEventListener("resize", tick, true);
+  window.addEventListener("orientationchange", tick, true);
+  document.addEventListener("DOMContentLoaded", tick);
+  setInterval(tick, 500);
+})();
+</script>
+<style>html, body { background: #000; overflow: hidden; touch-action: none; }</style>
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="chaos-3073806.png" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<script src="chaos-3073806.js"></script>
+		<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"chaos-3073806","experimentalVK":false,"fileSizes":{"chaos-3073806.pck":43378680,"chaos-3073806.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_THREADS_ENABLED = false;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			let serviceWorkerRegistrationPromise;
+			try {
+				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+			} catch (err) {
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+			}
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				serviceWorkerRegistrationPromise.then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).then(() => {
+				// Reload if there was no error.
+				window.location.reload();
+			}).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>
+
