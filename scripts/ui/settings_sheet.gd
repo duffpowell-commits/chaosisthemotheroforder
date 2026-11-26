@@ -83,6 +83,20 @@ static func open(parent: Node, on_close := Callable()) -> CanvasLayer:
 		st.set_value("low_graphics", not st.get_value("low_graphics"))
 		gfx_text.call())
 	row.add_child(gfx_b)
+	# Feel (sound item 6, step 2): shake + flashes, and the phone buzz, each on/off.
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 14)
+	col.add_child(row2)
+	for pair in [["shake", "SHAKE"], ["haptics", "BUZZ"]]:
+		var key: String = pair[0]
+		var b := _button("", Callable())
+		b.name = key
+		var label := func(): b.text = "%s: %s" % [pair[1], "ON" if st.get_value(key) else "OFF"]
+		label.call()
+		b.pressed.connect(func():
+			st.set_value(key, not st.get_value(key))
+			label.call())
+		row2.add_child(b)
 	var bug := _button("REPORT A BUG", func(): load("res://scripts/ui/bug_report.gd").open(parent))
 	bug.name = "report_bug"
 	col.add_child(bug)

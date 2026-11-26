@@ -1,6 +1,7 @@
 extends SceneTree
 ## Sound check (standards item 6, step 1, Nov 26): each event in the fight and on the run screens
 ## plays its clip, the beds swap between desk and yard, and buttons click.
+## Feel (step 2): shake, hit-stop, flashes, alarm pulse and the SHAKE setting.
 ## godot --headless --path . --script tools/sound_check.gd  -> last line SOUND PASS
 
 var ok := true
@@ -82,6 +83,33 @@ func _run() -> void:
 		var want: String = {"smoke": "smoke", "flash": "flash", "lights": "lights", "radio": "static"}[mode]
 		print("     %s -> %s" % [mode, str(a.heard.slice(n))])
 		expect(_heard(a, want, n), "%s plays %s" % [mode, want])
+	# Feel (step 2): a hit shakes and stops time for a beat, then time comes back.
+	var f = t.feel
+	f.trauma = 0.0
+	t._flash(g, you, true)
+	expect(f.trauma > 0.0 and Engine.time_scale < 0.5, "a hit shakes the camera and stops time (trauma %.2f, scale %.2f)" % [f.trauma, Engine.time_scale])
+	await create_timer(0.5, true, false, true).timeout
+	expect(Engine.time_scale == 1.0, "time comes back after the hit-stop")
+	var st: Node = root.get_node("Settings")
+	st.set_value("shake", false)
+	f.trauma = 0.0
+	t._flash(you, g, true)
+	expect(f.trauma == 0.0, "SHAKE off: no shake")
+	f._flash.color.a = 0.0   # the tool loop's flashbang may still be fading
+	f.screen_flash(Color(1, 1, 1, 0.7), 0.5)
+	expect(f._flash.color.a == 0.0, "SHAKE off: no screen flash")
+	await create_timer(1.6, true, false, true).timeout   # the earlier alarm's pulse plays out
+	(f._edge.material as ShaderMaterial).set_shader_parameter("amount", 0.0)
+	f.alarm_pulse()
+	await create_timer(0.2, true, false, true).timeout
+	expect(float((f._edge.material as ShaderMaterial).get_shader_parameter("amount")) == 0.0, "SHAKE off: no alarm pulse")
+	st.set_value("shake", true)
+	f.screen_flash(Color(1, 1, 1, 0.7), 0.5)
+	expect(f._flash.color.a > 0.5, "flashbang whites the screen")
+	f.alarm_pulse()
+	await create_timer(0.15, true, false, true).timeout
+	expect(float((f._edge.material as ShaderMaterial).get_shader_parameter("amount")) > 0.1, "alarm pulses the screen edge red")
+	await create_timer(1.8, true, false, true).timeout
 	# Buttons click; End turn types.
 	await create_timer(0.1).timeout
 	n = a.heard.size()

@@ -14,6 +14,7 @@ const Battle = preload("res://scripts/tactics/battle.gd")
 const SettingsSheet = preload("res://scripts/ui/settings_sheet.gd")
 const FightSave = preload("res://scripts/fight_save.gd")
 const Sfx = preload("res://scripts/audio.gd")
+const Feel = preload("res://scripts/tactics/feel.gd")
 
 const C_FG := Color("e7e3da")
 const C_MUTED := Color("9b988f")
@@ -72,6 +73,7 @@ var selected = null
 var aimed = null
 var sneaking := false
 var busy := false
+var feel: Feel   # shake, hit-stop, buzz, flashes (scripts/tactics/feel.gd)
 var alarm_heard := true   # the alarm sounds once, when it trips (a resumed alarmed fight stays quiet)
 var world_root: Node3D
 ## Camera follow (J1 review): the fight drifts north and ended up tiny at the
@@ -103,6 +105,9 @@ func _ready() -> void:
 	_build_tactical_camera()
 	_build_grade_only()
 	_build_hud()
+	feel = Feel.new()
+	add_child(feel)
+	feel.setup(cam, self)
 	_apply(0.0)
 	env.fog_density = 0.012  # keep the far end of the grid readable
 	grade_mat.set_shader_parameter("grain_mul", GRADE_GRAIN)
@@ -456,6 +461,9 @@ func _refresh() -> void:
 	if battle and battle.alarm and not alarm_heard:
 		alarm_heard = true
 		Sfx.fx("alarm")
+		feel.alarm_pulse()
+		feel.shake(0.45)
+		feel.buzz(180)
 	var over: bool = battle.is_over()
 	var who := "Your move" if battle.side == Battle.US else "Regime move"
 	if battle.mission:
@@ -825,17 +833,22 @@ func _confirm_tool() -> void:
 		"smoke":
 			if battle.smoke(u, at):
 				Sfx.fx("smoke")
+				feel.shake(0.2)
 				_pop_at(at, "SMOKE", C_SMOKE)
 		"flash":
 			var hit: Array = battle.flash_targets(at)
 			if battle.flashbang(u, at):
 				Sfx.fx("flash")
+				feel.screen_flash(Color(1, 1, 0.95, 0.7), 0.5)
+				feel.shake(0.6)
+				feel.buzz(90)
 				_pop_at(at, "FLASH", Color(1, 1, 0.85))
 				for g in hit:
 					_pop(g, "STUNNED", C_FG)
 		"lights":
 			if battle.lights_out(u):
 				Sfx.fx("lights")
+				feel.screen_flash(Color(0, 0, 0, 0.55), 0.7)
 				_pop(u, "LIGHTS OUT", C_FG)
 		"radio":
 			var tried: bool = battle.can_radio(u)
@@ -1214,6 +1227,8 @@ func _set_paused(on: bool) -> void:
 		get_tree().paused = false
 		return
 	get_tree().paused = true
+	if feel:
+		feel.settle()
 	_save_fight()
 	pause_layer = CanvasLayer.new()
 	pause_layer.layer = 20
@@ -1400,11 +1415,21 @@ func _on_leave() -> void:
 	_refresh()
 
 
-func _flash(from, to, hit: bool) -> void:
+func _flash(from, to, hit: bool, last_on_target := true) -> void:
 	_rig_play(from, "shoot", to)
 	Sfx.fx("guard_shot" if from.side == Battle.REGIME else "shot")
 	if hit:
 		get_tree().create_timer(0.18, false).timeout.connect(Sfx.fx.bind("hurt"))
+	# Feel: a hit lands (hit-stop, shake, buzz); losing one of ours lands hardest.
+	feel.muzzle_smoke(world_root, to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0))
+	if hit:
+		var down: bool = not to.alive() and last_on_target   # replayed turns: only the shot that downed them
+		var ours: bool = to.side == Battle.US
+		feel.hit_stop(Feel.STOP_DOWN if down else Feel.STOP_HIT)
+		feel.shake((0.75 if down else 0.45) if ours else (0.5 if down else 0.3))
+		feel.buzz((160 if down else 70) if ours else 30)
+	else:
+		feel.shake(0.12)
 	_body_shoot(from, to)
 	var a := to_world(from.pos) + Vector3(0, _ground(from.pos) + 1.35, 0)
 	var light := OmniLight3D.new()
@@ -1455,9 +1480,9 @@ func _on_end_turn() -> void:
 			tw.tween_property(unit_nodes[u], "position", to_world(u.pos) + Vector3(0, _ground(u.pos), 0), 0.5)
 	tw.tween_interval(0.5)
 	await tw.finished
-	for line in battle.log.slice(log_start):
-		if _shot_line(line):
-			_flash_from_line(line)
+	var shots: Array = battle.log.slice(log_start).filter(func(l): return _shot_line(l))
+	for i in shots.size():
+		_flash_from_line(shots[i], shots.slice(i + 1))
 	busy = false
 	if selected == null or not selected.alive():
 		var left: Array = battle.alive_units(Battle.US)
@@ -1466,7 +1491,7 @@ func _on_end_turn() -> void:
 	_save_fight()  # checkpoint at the start of each of your turns
 
 
-func _flash_from_line(line: String) -> void:
+func _flash_from_line(line: String, later: Array = []) -> void:
 	var shooter = null
 	var target = null
 	for u in battle.units:
@@ -1475,7 +1500,8 @@ func _flash_from_line(line: String) -> void:
 		elif (" " + u.name + " ") in line or line.contains(" " + u.name + " ("):
 			target = u
 	if shooter != null and target != null:
-		_flash(shooter, target, " hits " in line or " hit " in line)
+		var again := later.any(func(l): return (" " + target.name + " ") in l or l.contains(" " + target.name + " ("))
+		_flash(shooter, target, " hits " in line or " hit " in line, not again)
 
 
 static func _shot_line(line: String) -> bool:

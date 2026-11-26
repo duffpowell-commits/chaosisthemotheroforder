@@ -16,6 +16,8 @@ const DEFAULTS := {
 	"gamma": 1.0,          # 0.6 (darker) .. 1.6 (brighter); 1.0 = off, costs nothing
 	"text_size": 0,        # index into TEXT_SCALES
 	"low_graphics": false, # fight: no shadows, glow, reflections; less rain; 75% 3D resolution
+	"shake": true,         # fight: camera shake + screen flashes (off if it makes you sick)
+	"haptics": true,       # fight: phone buzz on hits and the alarm
 }
 
 var values := DEFAULTS.duplicate()
